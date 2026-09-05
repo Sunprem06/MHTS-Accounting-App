@@ -34,3 +34,18 @@ An offline-first, white-label Indian Business Accounting + GST + Inventory + Pay
 
 ## Current phase
 Check the Phase Status Board in `/docs/MHTS-ERP_Phase_Tracker.md` — it is the single source of truth for what's done and what's next.
+
+## Git workflow (every phase)
+- Never commit directly to `main`. Create a feature branch named
+  `phase{N}/{short-description}` for each unit of work.
+- Open a Pull Request when work is ready — do not merge it yourself; the
+  user reviews and merges.
+- For anything touching accounting, GST, payroll, tax, or other
+  business/financial logic: propose a plan and wait for explicit user
+  confirmation before writing code.
+- For infrastructure/scaffolding (project setup, schema, tooling,
+  non-financial UI shells): build and verify end-to-end, then summarize
+  for review — no plan-approval pause needed, same as Phase 0.
+- End every session by updating /docs/MHTS-ERP_Phase_Tracker.md (status
+  board, decisions log if applicable, new Session Handoff Log entry)
+  before the final summary.
