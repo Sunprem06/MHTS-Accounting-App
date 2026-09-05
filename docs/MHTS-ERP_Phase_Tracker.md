@@ -18,7 +18,7 @@ Then paste the latest entry from the **Session Handoff Log** (Section 4 of this 
 
 | # | Phase | Scope | Status | Owner | Notes |
 |---|---|---|---|---|---|
-| 0 | Foundation | Shell, DB, auth, RBAC, audit trail, backup framework, theme, license/white-label plumbing | 🟨 In progress | | Electron+React shell (real packaged app relaunch-verified, not just build-verified) with a real IPC boundary; multi-company creation + login + password recovery via a one-time recovery key + RBAC permission resolution, all verified end-to-end against real encrypted files. Backup framework, theme engine, and license/white-label plumbing still pending. |
+| 0 | Foundation | Shell, DB, auth, RBAC, audit trail, backup framework, theme, license/white-label plumbing | 🟨 In progress | | Electron+React shell (real packaged app relaunch-verified, not just build-verified) with a real IPC boundary; multi-company creation, per-company login credentials, offline account lockout, offline Super Admin password reset, and recovery-key-based recovery, all verified end-to-end against real encrypted files. Backup framework, theme engine, and license/white-label plumbing still pending. |
 | 1 | Accounting Core | Chart of accounts, ledgers, vouchers, double-entry, TB/P&L/BS | ⬜ Not started | | |
 | 2 | Sales + Purchase | Customers, suppliers, invoices, receivables/payables, vendor TDS, 43B(h) flag | ⬜ Not started | | |
 | 3 | Inventory | Items, units, warehouses, batches, valuation | ⬜ Not started | | |
@@ -54,6 +54,11 @@ Record every architectural or business decision here the moment it's made, so it
 | 2026-09-05 | Electron pinned to **44.x** (not the originally-scaffolded 33.x); `@mhts/*` workspace packages and `kysely` must be bundled (esbuild `exclude` in `externalizeDepsPlugin`) rather than left as externalized `require()` calls; `better-sqlite3-multiple-ciphers` must stay external and listed directly in `desktop-shell/package.json`. | Found via real end-to-end verification, not by inspection: (1) `better-sqlite3-multiple-ciphers@13.0.3` declares `engines.node >=22`; Electron 33 bundles Node ~20, and instantiating the native `Database` inside that Electron process hung/deadlocked (not a catchable JS error) — Electron 44 bundles Node ≥24 and it works cleanly. (2) `@mhts/*` packages ship raw TypeScript as `main` and `kysely` is ESM-only; externalizing them produced a `require()` a plain Electron process can't resolve (`ERR_REQUIRE_ESM`) or that points at unbuildable `.ts` source — bundling them with esbuild (electron-vite's default pipeline) resolves both. (3) `better-sqlite3-multiple-ciphers` is *not* a direct dependency of `desktop-shell` (only of `db-schema`), so `externalizeDepsPlugin` never saw it to auto-externalize once (1)/(2) were fixed — esbuild tried to bundle the native addon's JS wrapper, breaking its relative path to the compiled `.node` binary. Also: `better-sqlite3` cannot bind raw JS `boolean` values — insert/where values for `is_active`/`is_system_role` must be `1`/`0`, not `true`/`false`, even though the Kysely `ColumnType`'s declared Select type is `boolean` (SQLite has no boolean type and this driver/setup does no runtime coercion). | 0 |
 | 2026-09-05 (amended) | `electron.vite.config.ts`'s bundle-instead-of-externalize list for `@mhts/*` is now **computed automatically** by reading `packages/*/package.json` names at config-eval time, instead of a hand-maintained array. Only true ESM-only npm deps (currently just `kysely`) stay a short explicit list. | A hand-maintained array is exactly the kind of thing that silently goes stale — a new `core-*` package (there will be several: accounting, GST, payroll, inventory) would hit the identical `ERR_REQUIRE_ESM`-shaped crash (this time a `require()` of unbuildable `.ts` source) the moment something actually imports it into `desktop-shell`, and nothing would catch it except another manual relaunch test. Reading the workspace's own `packages/*` directory makes it structurally impossible to forget. There is no equally reliable generic way to auto-detect "ESM-only npm dependency," so that half is still a short explicit list — extend it if another dependency shows this same failure mode. Re-verified: rebuilt, `grep`-confirmed no bundled `require("@mhts/...")`/`require("kysely")` remained, then actually relaunched the packaged app (`electron .` against a real built `out/`, isolated `--user-data-dir`) — it created and correctly encrypted a real `system.db` and stayed running with no crash, not just a passing build. | 0 |
 | 2026-09-05 | Company-DEK recovery mechanism: a 256-bit **recovery key** is generated at company creation (alongside the DEK), AES-256-GCM-wraps the DEK directly (no password/KDF — the key is already full-entropy random bytes), is stored in a new `company_recovery_key` system-DB table, and is shown to the user **exactly once** on a dedicated screen they must acknowledge saving. `resetPassword` unwraps the DEK with it, re-hashes the password, and re-wraps the DEK under the new password — the recovery key itself is reusable (not single-use), since a solo-admin company has no other way back in if a single reset attempt fails partway. | Considered and rejected an "another admin re-grants access" mechanism as the *only* path: the Blueprint's own `EntityType` enum includes `PROPRIETORSHIP`/`OPC` — a huge share of MHTS's actual target market is a single admin user, so any recovery design that depends on a second already-logged-in user is not a real recovery path for most customers, only a convenience for multi-user companies (worth adding later, doesn't need its own migration). Zero-knowledge trade-off, stated explicitly to the user in the UI copy: if both the password AND the recovery key are lost, the data is unrecoverable by design — no vendor master key exists, because anything that could recover it would also be exploitable by anyone with filesystem access to the encrypted DB, defeating the point of encrypting it at all. Verified end-to-end against real encrypted files: wrong recovery key rejected (GCM auth-tag failure), correct key resets the password and logs in, the OLD password is rejected afterward, the NEW password works, and the same recovery key still works for a second reset. | 0 |
+| 2026-09-05 | Email/SMS OTP-based password reset is **deliberately deferred**, not abandoned — it is out of scope for v1 and will be revisited in a later phase (candidate: alongside Phase 10 Commercialization/setup-wizard work, or whenever the app first needs *any* internet-dependent notification path). | Reasoning: (1) it would be the app's first hard dependency on a third-party service (Resend for email and/or MSG91 for SMS were the candidates evaluated) and on internet connectivity at all, which cuts directly against the "offline-first" architecture principle; (2) it adds real ongoing cost and a vendor relationship to maintain; (3) SMS OTP in India specifically requires DLT (Distributed Ledger Technology) template registration with telecom operators, which has a multi-week lead time and its own compliance overhead — not something to block Phase 0 Foundation on; (4) the offline Super Admin reset (within-app, permission-gated) plus the existing recovery-key mechanism together cover the actual failure modes (forgot password with an admin present; forgot password with no admin present) without needing connectivity at all. If any Resend/Cloudflare/MSG91 accounts were already created during exploration, they are **on hold, not in use** — no code depends on them and no credentials should be wired in until this is revisited. | 0 |
+| 2026-09-05 | **Passwords moved off `AppUserTable` onto `CompanyAccessTable`** (migration 004) — each company a person has access to now has its own independent password, on the same row as the DEK wrap it unlocks. `AppUserTable` is now a bare identity anchor (name + globally-unique email), nothing else. | Directly requested during design review of the offline Super Admin reset feature: with the old single global password, an admin resetting a user's password for Company A would silently break that same user's login to Company B (their B-access was still wrapped under the old password). Confirmed with the user rather than assumed — the alternative (document as a known limitation) was explicitly offered and declined in favor of fixing it properly now, before anything ships. Verified end-to-end: the same email/identity was granted access to two companies, an admin reset their password in Company A, and Company B's login was proven completely unaffected. | 0 |
+| 2026-09-05 | **Offline Super Admin password reset**: any role holding the new `SYSTEM.RESET_USER_PASSWORD` permission can, while logged in, reset another user's password for *that* company — no internet, no recovery key needed. Mechanically: the acting session now also holds the raw unwrapped Company DEK in main-process memory (`SessionManager.dek`, never sent over IPC), which is used to re-wrap the DEK for the target user under a freshly server-generated temporary password (never admin-typed, to avoid weak/reused temp passwords). The target's `must_change_password` flag forces them through a real password change (`changePassword` IPC) before a session is established — `login` still verifies the temp password and unwraps the DEK either way, so it never leaks "this account needs a reset" for free to a wrong guess. | Holding the raw DEK in session memory doesn't weaken anything: SQLCipher already keeps the derived key resident for the life of the open `companyDb` connection, so this isn't exposing key material that wasn't already effectively live. A `RESET_USER_PASSWORD` holder is explicitly barred from targeting their own account (must use "Change password" or the recovery key instead) — resetting your own password via your own still-valid session would be a confusing, unnecessary code path. Verified end-to-end: temp password forces `mustChangePassword`, old temp password stops working the moment `changePassword` completes, new self-chosen password works, and the guard against self-targeting is enforced. | 0 |
+| 2026-09-05 | **Account lockout**: configurable via a new singleton `security_policy` row (system DB) — `max_failed_attempts` (default 5), `lockout_duration_seconds` (default 900), `backoff_base_seconds` (default 2, doubling per attempt: 2s/4s/8s/16s...). Lockout *state* (`failed_login_count`, `locked_until`, `last_failed_attempt_at`) lives per `company_access` row, not globally — consistent with passwords now being per-company. No CAPTCHA. | CAPTCHA is both inappropriate for an offline desktop app's UX and, per the user, typically requires internet to verify anyway — defeating the point. Thresholds are DB-configurable specifically so they never need a code change to retune (mirrors the "rules as data" instinct from Rule #2, applied here to a security policy rather than GST/payroll). Verified end-to-end (with the test tuning `max_failed_attempts`/`backoff_base_seconds` down via the *same* configurable row, not a separate code path): repeated wrong passwords lock the account (even the correct password is then refused), and a successful login after the lockout window clears all lockout state. | 0 |
+| 2026-09-05 | Solo-admin "forgot password" routing shows **both** recovery options unconditionally (ask an admin / use the recovery key), rather than trying to detect whether another admin exists before login. | Originally proposed a pre-auth `hasResetCapableAdmins` check; caught before implementing that it can't work — role/permission data lives inside the encrypted Company DB, which nothing can open pre-login. Rather than build a denormalized permission-mirror into the System DB (real sync-maintenance debt once role editing exists in a later phase, for a minor UX nicety), the "ask an admin" instruction panel itself carries an explicit "use your recovery key instead" escape hatch — simpler, no new schema, and still never dead-ends the user, which was the actual requirement. | 0 |
 
 ---
 
@@ -67,7 +72,9 @@ Track anything unresolved so it surfaces automatically in the next session inste
 - [ ] White-label/reseller legal agreement — pending
 - [ ] CA/compliance advisor retained on standing basis — pending
 - [ ] `safeStorage.isEncryptionAvailable()` was only exercised on this Windows dev machine (DPAPI). Linux without a keyring daemon (headless/CI, some minimal desktop environments) will make it return false, and the shell currently just refuses to start rather than offering a fallback — revisit before targeting Linux.
-- [x] Password-reset / recovery gap — **done 2026-09-05, resolved: company-wide recovery key generated at company creation, independently unwraps the DEK** (see Key Decisions Log). Follow-up, not blocking: an "another logged-in admin re-grants access" convenience path for multi-user companies (so a forgotten password doesn't always require digging up the recovery key) — not implemented, only the recovery-key path exists today.
+- [x] Password-reset / recovery gap — **done 2026-09-05, resolved in two parts: (1) company-wide recovery key at company creation, (2) offline Super Admin reset via a new `SYSTEM.RESET_USER_PASSWORD` permission** (see Key Decisions Log). Both paths now exist and are routed to from the login screen with no dead end either way.
+- [ ] Email/SMS OTP-based password reset — **deliberately deferred to a later phase, not abandoned** (see Key Decisions Log for the offline-first / cost / DLT-lead-time reasoning). Any Resend/Cloudflare/MSG91 accounts already created are on hold, unused.
+- [ ] There is no "invite a new user" flow yet — `listCompanyUsers`/`adminResetPassword` assume a `company_access` row already exists for the target (currently only created by `createCompany`'s admin bootstrap). Needed before Manage Users is actually usable for onboarding a second real person, not just resetting one.
 
 ---
 
@@ -87,6 +94,96 @@ Next concrete step:
 ```
 
 ### Entries:
+```
+Date: 2026-09-05 (session 4)
+Phase: 0 — Foundation
+What was completed:
+  - Replaced the "another admin re-grants access" idea (flagged but not built
+    in session 3) with a full offline Super Admin reset + account lockout
+    design, proposed to the user before writing code per the plan-first
+    rule, with one explicit open question (see below) resolved by the user
+    before implementing.
+  - Architectural pivot made ON REQUEST during that review: passwords moved
+    off AppUserTable (was a single global password across every company a
+    person has access to) onto CompanyAccessTable (migration 004) — each
+    company's password now lives on the same row as the DEK wrap it unlocks.
+    This was the user's explicit choice over documenting the cross-company
+    caveat as a known limitation. AppUserTable is now just an identity
+    anchor (name + globally-unique email).
+  - New SYSTEM.RESET_USER_PASSWORD permission (core-identity/rbac.ts). Any
+    role holding it can, while logged in, reset another user's password for
+    that company — no internet, no recovery key. The acting session now also
+    holds the raw unwrapped Company DEK in main-process memory
+    (SessionManager.dek, never sent over IPC) so it can re-wrap the DEK for
+    the target user under a freshly server-generated temporary password
+    (core-identity's new generateTemporaryPassword — never admin-typed).
+    Target gets must_change_password=1, forcing a real changePassword call
+    before a session is established; login() still verifies the temp
+    password and unwraps the DEK either way so it never leaks "needs reset"
+    for free. Guarded against targeting your own account.
+  - Account lockout: new singleton security_policy table (migration 005,
+    DB-configurable: max_failed_attempts default 5, lockout_duration_seconds
+    default 900, backoff_base_seconds default 2 with doubling). Lockout
+    state (failed_login_count/locked_until/last_failed_attempt_at) lives per
+    company_access row, consistent with per-company passwords. No CAPTCHA
+    (offline app, user's call, matches the whole architecture).
+  - Corrected my own proposal before implementing: the pre-auth
+    "does this company have another admin" check I originally proposed
+    can't actually work — role/permission data lives inside the encrypted
+    Company DB, unreachable pre-login. Simplified to always showing both
+    recovery options on a new PasswordHelpScreen, with the "ask an admin"
+    instructions carrying their own "use your recovery key instead" escape
+    hatch — no dead end, no new schema/sync-debt.
+  - New screens: PasswordHelpScreen (routes forgot-password to admin-ask vs
+    recovery-key), SetNewPasswordScreen (forced change after a temp-password
+    login), ManageUsersScreen (real user list + working Reset Password
+    action, gated on SYSTEM.MANAGE_USERS / SYSTEM.RESET_USER_PASSWORD — not
+    fake UI). login()'s IPC contract changed to LoginResult (mustChangePassword
+    discriminant) since a successful credential check no longer always yields
+    a session.
+  - Documented (not implemented — explicitly deferred) email/SMS OTP-based
+    reset in the Key Decisions Log: offline-first principle, ongoing
+    third-party cost, and India SMS DLT registration lead time. Any Resend/
+    Cloudflare/MSG91 accounts already created are on hold, unused.
+  - Verified end-to-end (throwaway script, esbuild-bundled, run in a real
+    Electron process, calling the actual handler functions — same precedent
+    as prior sessions): normal login; 3 wrong passwords (test-tuned
+    max_failed_attempts, same configurable security_policy row production
+    uses) lock the account even against the correct password; lockout clears
+    once its window passes; a second user is granted access, admin-reset
+    issues a temp password, login with it reports mustChangePassword without
+    establishing a session, changePassword completes it and the old temp
+    password stops working; self-reset is refused; and — the actual point of
+    the redesign — the SAME email/identity was given access to a SECOND
+    company, and resetting their password in Company A left Company B's
+    password completely untouched. Also cleared caches and relaunched the
+    real packaged app again (electron . against a fresh out/, isolated
+    --user-data-dir) — new system.db (with the new tables/columns) created
+    cleanly, no crash.
+What's still pending in this phase: backup framework, theme engine, license/
+  white-label plumbing. No "invite a new user" flow exists yet — Manage
+  Users can list and reset existing access grants but can't create a new one
+  (only createCompany's admin bootstrap does that today) — needed before
+  Manage Users is usable for onboarding, not just recovery. safeStorage's
+  Linux-without-keyring fallback is still unverified (unchanged from
+  earlier sessions).
+Any decisions made (also add to Section 2): per-company passwords (schema
+  pivot); offline Super Admin reset design; account lockout with configurable
+  thresholds, no CAPTCHA; solo-admin routing shows both options unconditionally
+  instead of a pre-auth permission check; OTP reset deferred, not abandoned.
+  All logged above with full reasoning.
+Any blockers (also add to Section 3): Team allocation, white-label/reseller
+  legal agreement, CA/compliance advisor retention — all still pending,
+  unchanged.
+Next concrete step: The "invite a new user" flow (Manage Users currently has
+  no way to create a NEW company_access grant, only reset an existing one) is
+  the most obviously-missing piece before this feels like a complete RBAC
+  story. After that, a real visual click-through of the whole shell on a
+  normal dev machine (still hasn't happened — everything so far is verified
+  via scripts, including this session's) is worth doing before moving on to
+  backup framework / theme engine / licensing or Phase 1.
+```
+
 ```
 Date: 2026-09-05 (session 3)
 Phase: 0 — Foundation

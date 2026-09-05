@@ -4,8 +4,11 @@ import { CompanyListScreen } from './screens/CompanyListScreen';
 import { CreateCompanyScreen } from './screens/CreateCompanyScreen';
 import { RecoveryKeyScreen } from './screens/RecoveryKeyScreen';
 import { LoginScreen } from './screens/LoginScreen';
+import { PasswordHelpScreen } from './screens/PasswordHelpScreen';
 import { ForgotPasswordScreen } from './screens/ForgotPasswordScreen';
+import { SetNewPasswordScreen } from './screens/SetNewPasswordScreen';
 import { DashboardScreen } from './screens/DashboardScreen';
+import { ManageUsersScreen } from './screens/ManageUsersScreen';
 
 type View =
   | { name: 'loading' }
@@ -13,8 +16,11 @@ type View =
   | { name: 'createCompany' }
   | { name: 'recoveryKey'; company: CompanySummary; recoveryKey: string }
   | { name: 'login'; company: CompanySummary }
+  | { name: 'passwordHelp'; company: CompanySummary }
   | { name: 'forgotPassword'; company: CompanySummary }
-  | { name: 'dashboard' };
+  | { name: 'setNewPassword'; company: CompanySummary }
+  | { name: 'dashboard' }
+  | { name: 'manageUsers' };
 
 export function App() {
   const [view, setView] = useState<View>({ name: 'loading' });
@@ -86,11 +92,25 @@ export function App() {
       <LoginScreen
         company={view.company}
         onBack={() => setView({ name: 'companyList' })}
-        onForgotPassword={() => setView({ name: 'forgotPassword', company: view.company })}
-        onLoggedIn={(info) => {
-          setSession(info);
-          setView({ name: 'dashboard' });
+        onForgotPassword={() => setView({ name: 'passwordHelp', company: view.company })}
+        onLoginResult={(result) => {
+          if (result.mustChangePassword) {
+            setView({ name: 'setNewPassword', company: view.company });
+          } else {
+            setSession(result.session);
+            setView({ name: 'dashboard' });
+          }
         }}
+      />
+    );
+  }
+
+  if (view.name === 'passwordHelp') {
+    return (
+      <PasswordHelpScreen
+        company={view.company}
+        onBack={() => setView({ name: 'login', company: view.company })}
+        onUseRecoveryKey={() => setView({ name: 'forgotPassword', company: view.company })}
       />
     );
   }
@@ -108,9 +128,27 @@ export function App() {
     );
   }
 
+  if (view.name === 'setNewPassword') {
+    return (
+      <SetNewPasswordScreen
+        company={view.company}
+        onBack={() => setView({ name: 'login', company: view.company })}
+        onDone={(info) => {
+          setSession(info);
+          setView({ name: 'dashboard' });
+        }}
+      />
+    );
+  }
+
+  if (view.name === 'manageUsers') {
+    return <ManageUsersScreen session={session!} onBack={() => setView({ name: 'dashboard' })} />;
+  }
+
   return (
     <DashboardScreen
       session={session!}
+      onManageUsers={() => setView({ name: 'manageUsers' })}
       onLogout={async () => {
         await window.mhts.logout();
         setSession(null);

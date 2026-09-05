@@ -31,8 +31,8 @@ export interface CompanyTable {
 export interface AppUserTable {
   id: string;
   name: string;
+  /** Globally unique identity anchor. The password itself is per-company (see CompanyAccessTable) — a person can have independent credentials for each company they access. */
   email: string;
-  password_hash: string;
   is_active: ColumnType<boolean, boolean | number, boolean | number>;
   created_at: ColumnType<string, string | undefined, never>;
 }
@@ -45,11 +45,34 @@ export interface CompanyAccessTable {
   role_id: string;
   granted_at: ColumnType<string, string | undefined, never>;
   revoked_at: string | null;
-  /** Company DB's SQLCipher data key (DEK), AES-256-GCM-wrapped under a KEK derived from this user's password. Null only transiently during the 002 migration. */
+  /**
+   * Per-company password (2026-09-05, amended: moved off AppUserTable — see
+   * Phase Tracker Key Decisions Log). Keeping the password on the same row as
+   * the DEK wrap it unlocks means a reset for one company can never affect
+   * any other company the same person has access to.
+   */
+  password_hash: string | null;
+  /** Set by an admin-initiated reset (see @mhts/core-identity's SYSTEM.RESET_USER_PASSWORD); the user must set a real password on next login before a session is established. */
+  must_change_password: ColumnType<boolean, boolean | number, boolean | number>;
+  failed_login_count: ColumnType<number, number | undefined, number>;
+  /** Null when not currently locked out. */
+  locked_until: string | null;
+  last_failed_attempt_at: string | null;
+  /** Company DB's SQLCipher data key (DEK), AES-256-GCM-wrapped under a KEK derived from this row's password. Null only transiently during the 002 migration. */
   wrapped_dek: string | null;
   wrap_iv: string | null;
   wrap_auth_tag: string | null;
   wrap_kek_salt: string | null;
+}
+
+export interface SecurityPolicyTable {
+  /** Singleton row, fixed id 'default'. Global (not per-company) — lockout thresholds are an installation-wide policy; the lockout *state* they govern is per company_access. */
+  id: string;
+  max_failed_attempts: number;
+  lockout_duration_seconds: number;
+  /** Delay before attempt N (after the first failure) is `backoff_base_seconds * 2^(N-1)` seconds, up to the lockout threshold. */
+  backoff_base_seconds: number;
+  updated_at: ColumnType<string, string | undefined, string>;
 }
 
 export interface CompanyRecoveryKeyTable {
@@ -88,5 +111,6 @@ export interface SystemDatabase {
   app_user: AppUserTable;
   company_access: CompanyAccessTable;
   company_recovery_key: CompanyRecoveryKeyTable;
+  security_policy: SecurityPolicyTable;
   rule_set: RuleSetTable;
 }

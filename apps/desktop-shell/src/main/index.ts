@@ -1,9 +1,25 @@
 import { join } from 'node:path';
 import { app, BrowserWindow, ipcMain } from 'electron';
 import { resolveAppPaths, openAndMigrateSystemDb } from './db';
-import { listCompanies, createCompany, login, resetPassword } from './handlers';
+import {
+  listCompanies,
+  createCompany,
+  login,
+  changePassword,
+  resetPassword,
+  adminResetPassword,
+  listCompanyUsers,
+} from './handlers';
 import { session } from './session';
-import { IPC, type IpcResult, type CreateCompanyInput, type LoginInput, type ResetPasswordInput } from '../shared/ipc';
+import {
+  IPC,
+  type IpcResult,
+  type AdminResetPasswordInput,
+  type ChangePasswordInput,
+  type CreateCompanyInput,
+  type LoginInput,
+  type ResetPasswordInput,
+} from '../shared/ipc';
 
 function handle<T>(channel: string, fn: () => Promise<T>): void {
   ipcMain.handle(channel, async (): Promise<IpcResult<T>> => {
@@ -34,7 +50,10 @@ async function bootstrap(): Promise<void> {
   handle(IPC.LIST_COMPANIES, () => listCompanies(systemDb));
   handleWithArg(IPC.CREATE_COMPANY, (input: CreateCompanyInput) => createCompany(systemDb, paths, input));
   handleWithArg(IPC.LOGIN, (input: LoginInput) => login(systemDb, input));
+  handleWithArg(IPC.CHANGE_PASSWORD, (input: ChangePasswordInput) => changePassword(systemDb, input));
   handleWithArg(IPC.RESET_PASSWORD, (input: ResetPasswordInput) => resetPassword(systemDb, input));
+  handleWithArg(IPC.ADMIN_RESET_PASSWORD, (input: AdminResetPasswordInput) => adminResetPassword(systemDb, input));
+  handle(IPC.LIST_COMPANY_USERS, () => listCompanyUsers(systemDb));
   handle(IPC.LOGOUT, async () => {
     await session.clear();
   });

@@ -36,11 +36,37 @@ export interface LoginInput {
   password: string;
 }
 
+/** A successful login either yields a session, or — if this credential was set by an admin reset — requires the user to set a real password first. */
+export type LoginResult = { mustChangePassword: true } | { mustChangePassword: false; session: SessionInfo };
+
+export interface ChangePasswordInput {
+  companyId: string;
+  email: string;
+  /** The password the user just logged in with (temporary or otherwise) — re-verified server-side, never trusted from a prior call. */
+  currentPassword: string;
+  newPassword: string;
+}
+
 export interface ResetPasswordInput {
   companyId: string;
   email: string;
   recoveryKey: string;
   newPassword: string;
+}
+
+/** Requires the caller's session to already carry SYSTEM.RESET_USER_PASSWORD for the company it's scoped to — see main/handlers.ts. The temporary password is generated server-side, never supplied by the caller. */
+export interface AdminResetPasswordInput {
+  targetEmail: string;
+}
+
+export interface AdminResetPasswordResult {
+  temporaryPassword: string;
+}
+
+export interface CompanyUserSummary {
+  email: string;
+  name: string;
+  roleName: string;
 }
 
 export interface SessionInfo {
@@ -63,8 +89,11 @@ export interface IpcResult<T> {
 export const IPC = {
   LIST_COMPANIES: 'system:listCompanies',
   CREATE_COMPANY: 'system:createCompany',
+  LIST_COMPANY_USERS: 'system:listCompanyUsers',
   LOGIN: 'auth:login',
   LOGOUT: 'auth:logout',
   GET_SESSION: 'auth:getSession',
+  CHANGE_PASSWORD: 'auth:changePassword',
   RESET_PASSWORD: 'auth:resetPassword',
+  ADMIN_RESET_PASSWORD: 'auth:adminResetPassword',
 } as const;

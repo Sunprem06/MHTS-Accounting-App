@@ -1,14 +1,14 @@
 import { useState } from 'react';
-import type { CompanySummary, SessionInfo } from '../../../shared/ipc';
+import type { CompanySummary, LoginResult } from '../../../shared/ipc';
 
 interface Props {
   company: CompanySummary;
-  onLoggedIn: (session: SessionInfo) => void;
+  onLoginResult: (result: LoginResult) => void;
   onForgotPassword: () => void;
   onBack: () => void;
 }
 
-export function LoginScreen({ company, onLoggedIn, onForgotPassword, onBack }: Props) {
+export function LoginScreen({ company, onLoginResult, onForgotPassword, onBack }: Props) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -21,7 +21,7 @@ export function LoginScreen({ company, onLoggedIn, onForgotPassword, onBack }: P
     const result = await window.mhts.login({ companyId: company.id, email, password });
     setSubmitting(false);
     if (result.ok && result.data) {
-      onLoggedIn(result.data);
+      onLoginResult(result.data);
     } else {
       setError(result.error ?? 'Login failed');
     }

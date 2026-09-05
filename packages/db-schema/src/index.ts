@@ -4,6 +4,7 @@ export type {
   AppUserTable,
   CompanyAccessTable,
   CompanyRecoveryKeyTable,
+  SecurityPolicyTable,
   RuleSetTable,
 } from './system/types';
 export type { CompanyDatabase, RoleTable, PermissionTable, RolePermissionTable, AuditLogTable } from './company/types';

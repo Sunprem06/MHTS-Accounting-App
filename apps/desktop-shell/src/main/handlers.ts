@@ -6,6 +6,7 @@ import {
   verifyPassword,
   generateDataKey,
   generateRecoveryKey,
+  generateTemporaryPassword,
   wrapDataKey,
   unwrapDataKey,
   wrapWithRawKey,
@@ -18,16 +19,25 @@ import {
 import type { AppPaths } from './db';
 import { companyDbFilePath, createAndMigrateCompanyDb, openExistingCompanyDb } from './db';
 import { session } from './session';
+import { loadSecurityPolicy, assertNotLocked, recordFailedAttempt, clearedLockoutColumns } from './lockout';
 import type {
+  AdminResetPasswordInput,
+  AdminResetPasswordResult,
+  ChangePasswordInput,
   CompanySummary,
+  CompanyUserSummary,
   CreateCompanyInput,
   CreateCompanyResult,
   LoginInput,
+  LoginResult,
   ResetPasswordInput,
   SessionInfo,
 } from '../shared/ipc';
 
-/** Both a normal login and a post-recovery login end up here: open the (already-unwrapped) Company DB, resolve the role/permissions, and start the session. */
+const INVALID_CREDENTIALS = 'Invalid email or password';
+const IS_ACTIVE = 1 as unknown as boolean; // better-sqlite3 only binds numbers/strings/bigints/buffers/null, not JS booleans.
+
+/** Both a normal login and a post-reset login end up here: open the (already-unwrapped) Company DB, resolve the role/permissions, and start the session. */
 async function establishSession(
   company: Selectable<CompanyTable>,
   userId: string,
@@ -54,7 +64,7 @@ async function establishSession(
     roleName: role.name,
     permissions,
   };
-  session.set(info, companyDb);
+  session.set(info, companyDb, dek);
   return info;
 }
 
@@ -111,16 +121,13 @@ export async function createCompany(
   if (!existingUser) {
     await systemDb
       .insertInto('app_user')
-      .values({
-        id: adminUserId,
-        name: input.adminName,
-        email: input.adminEmail,
-        password_hash: hashPassword(input.adminPassword),
-        is_active: 1,
-      })
+      .values({ id: adminUserId, name: input.adminName, email: input.adminEmail, is_active: 1 })
       .execute();
   }
 
+  // Per-company password (2026-09-05, amended): lives on company_access, on
+  // the same row as the DEK wrap it unlocks — see Phase Tracker Key
+  // Decisions Log for why this replaced a single global app_user password.
   const wrapped = wrapDataKey(dek, input.adminPassword);
   await systemDb
     .insertInto('company_access')
@@ -129,6 +136,8 @@ export async function createCompany(
       app_user_id: adminUserId,
       company_id: companyId,
       role_id: adminRoleId,
+      password_hash: hashPassword(input.adminPassword),
+      must_change_password: 0,
       wrapped_dek: wrapped.wrappedKeyHex,
       wrap_iv: wrapped.ivHex,
       wrap_auth_tag: wrapped.authTagHex,
@@ -136,8 +145,8 @@ export async function createCompany(
     })
     .execute();
 
-  // Company-wide recovery wrap: an independent way to unwrap the DEK if the
-  // admin's password is ever forgotten. Shown to the caller exactly once —
+  // Company-wide recovery wrap: an independent way to unwrap the DEK if every
+  // user's password is ever forgotten. Shown to the caller exactly once —
   // nothing that could reconstruct it is stored anywhere (see keyWrap.ts).
   const recoveryKey = generateRecoveryKey();
   const recoveryWrapped = wrapWithRawKey(dek, recoveryKey);
@@ -163,13 +172,12 @@ export async function createCompany(
   };
 }
 
-export async function login(systemDb: Kysely<SystemDatabase>, input: LoginInput): Promise<SessionInfo> {
+export async function login(systemDb: Kysely<SystemDatabase>, input: LoginInput): Promise<LoginResult> {
   const company = await systemDb
     .selectFrom('company')
     .selectAll()
     .where('id', '=', input.companyId)
-    // better-sqlite3 only binds numbers/strings/bigints/buffers/null, not JS booleans.
-    .where('is_active', '=', 1 as unknown as boolean)
+    .where('is_active', '=', IS_ACTIVE)
     .executeTakeFirst();
   if (!company) {
     throw new Error('Company not found');
@@ -179,37 +187,117 @@ export async function login(systemDb: Kysely<SystemDatabase>, input: LoginInput)
     .selectFrom('app_user')
     .selectAll()
     .where('email', '=', input.email)
-    .where('is_active', '=', 1 as unknown as boolean)
+    .where('is_active', '=', IS_ACTIVE)
     .executeTakeFirst();
-  if (!user || !verifyPassword(input.password, user.password_hash)) {
-    throw new Error('Invalid email or password');
+
+  const access = user
+    ? await systemDb
+        .selectFrom('company_access')
+        .selectAll()
+        .where('app_user_id', '=', user.id)
+        .where('company_id', '=', company.id)
+        .where('revoked_at', 'is', null)
+        .executeTakeFirst()
+    : undefined;
+
+  if (!user || !access || !access.password_hash || !access.wrapped_dek || !access.wrap_iv || !access.wrap_auth_tag || !access.wrap_kek_salt) {
+    throw new Error(INVALID_CREDENTIALS);
   }
 
-  const access = await systemDb
-    .selectFrom('company_access')
-    .selectAll()
-    .where('app_user_id', '=', user.id)
-    .where('company_id', '=', company.id)
-    .where('revoked_at', 'is', null)
-    .executeTakeFirst();
-  if (!access || !access.wrapped_dek || !access.wrap_iv || !access.wrap_auth_tag || !access.wrap_kek_salt) {
-    throw new Error('This user has no access to this company');
-  }
+  const policy = await loadSecurityPolicy(systemDb);
+  assertNotLocked(access, policy); // throws LockedOutError with its own message if applicable
 
   let dek: Buffer;
-  try {
-    dek = unwrapDataKey(
-      {
-        wrappedKeyHex: access.wrapped_dek,
-        ivHex: access.wrap_iv,
-        authTagHex: access.wrap_auth_tag,
-        kekSaltHex: access.wrap_kek_salt,
-      },
-      input.password,
-    );
-  } catch {
-    throw new Error('Invalid email or password');
+  const credentialsValid = verifyPassword(input.password, access.password_hash);
+  if (credentialsValid) {
+    try {
+      dek = unwrapDataKey(
+        { wrappedKeyHex: access.wrapped_dek, ivHex: access.wrap_iv, authTagHex: access.wrap_auth_tag, kekSaltHex: access.wrap_kek_salt },
+        input.password,
+      );
+    } catch {
+      await recordFailedAttempt(systemDb, access.id, access.failed_login_count, policy);
+      throw new Error(INVALID_CREDENTIALS);
+    }
+  } else {
+    await recordFailedAttempt(systemDb, access.id, access.failed_login_count, policy);
+    throw new Error(INVALID_CREDENTIALS);
   }
+
+  await systemDb.updateTable('company_access').set(clearedLockoutColumns()).where('id', '=', access.id).execute();
+
+  if (access.must_change_password) {
+    return { mustChangePassword: true };
+  }
+
+  const sessionInfo = await establishSession(company, user.id, user.name, user.email, access.role_id, dek);
+  return { mustChangePassword: false, session: sessionInfo };
+}
+
+export async function changePassword(systemDb: Kysely<SystemDatabase>, input: ChangePasswordInput): Promise<SessionInfo> {
+  const company = await systemDb
+    .selectFrom('company')
+    .selectAll()
+    .where('id', '=', input.companyId)
+    .where('is_active', '=', IS_ACTIVE)
+    .executeTakeFirst();
+  if (!company) {
+    throw new Error('Company not found');
+  }
+
+  const user = await systemDb
+    .selectFrom('app_user')
+    .selectAll()
+    .where('email', '=', input.email)
+    .where('is_active', '=', IS_ACTIVE)
+    .executeTakeFirst();
+  const access = user
+    ? await systemDb
+        .selectFrom('company_access')
+        .selectAll()
+        .where('app_user_id', '=', user.id)
+        .where('company_id', '=', company.id)
+        .where('revoked_at', 'is', null)
+        .executeTakeFirst()
+    : undefined;
+
+  if (!user || !access || !access.password_hash || !access.wrapped_dek || !access.wrap_iv || !access.wrap_auth_tag || !access.wrap_kek_salt) {
+    throw new Error(INVALID_CREDENTIALS);
+  }
+
+  const policy = await loadSecurityPolicy(systemDb);
+  assertNotLocked(access, policy);
+
+  let dek: Buffer;
+  if (verifyPassword(input.currentPassword, access.password_hash)) {
+    try {
+      dek = unwrapDataKey(
+        { wrappedKeyHex: access.wrapped_dek, ivHex: access.wrap_iv, authTagHex: access.wrap_auth_tag, kekSaltHex: access.wrap_kek_salt },
+        input.currentPassword,
+      );
+    } catch {
+      await recordFailedAttempt(systemDb, access.id, access.failed_login_count, policy);
+      throw new Error(INVALID_CREDENTIALS);
+    }
+  } else {
+    await recordFailedAttempt(systemDb, access.id, access.failed_login_count, policy);
+    throw new Error(INVALID_CREDENTIALS);
+  }
+
+  const newWrapped = wrapDataKey(dek, input.newPassword);
+  await systemDb
+    .updateTable('company_access')
+    .set({
+      password_hash: hashPassword(input.newPassword),
+      wrapped_dek: newWrapped.wrappedKeyHex,
+      wrap_iv: newWrapped.ivHex,
+      wrap_auth_tag: newWrapped.authTagHex,
+      wrap_kek_salt: newWrapped.kekSaltHex,
+      must_change_password: 0,
+      ...clearedLockoutColumns(),
+    })
+    .where('id', '=', access.id)
+    .execute();
 
   return establishSession(company, user.id, user.name, user.email, access.role_id, dek);
 }
@@ -219,7 +307,7 @@ export async function resetPassword(systemDb: Kysely<SystemDatabase>, input: Res
     .selectFrom('company')
     .selectAll()
     .where('id', '=', input.companyId)
-    .where('is_active', '=', 1 as unknown as boolean)
+    .where('is_active', '=', IS_ACTIVE)
     .executeTakeFirst();
   if (!company) {
     throw new Error('Company not found');
@@ -249,7 +337,7 @@ export async function resetPassword(systemDb: Kysely<SystemDatabase>, input: Res
     .selectFrom('app_user')
     .selectAll()
     .where('email', '=', input.email)
-    .where('is_active', '=', 1 as unknown as boolean)
+    .where('is_active', '=', IS_ACTIVE)
     .executeTakeFirst();
   if (!user) {
     throw new Error('No such user for this company');
@@ -266,24 +354,106 @@ export async function resetPassword(systemDb: Kysely<SystemDatabase>, input: Res
     throw new Error('This user has no access to this company');
   }
 
-  const newPasswordHash = hashPassword(input.newPassword);
   const newWrapped = wrapDataKey(dek, input.newPassword);
-
-  // Rule #4-in-spirit: the password hash and the DEK wrap it depends on must
-  // change together, or a login could observe a mismatched pair.
-  await systemDb.transaction().execute(async (trx) => {
-    await trx.updateTable('app_user').set({ password_hash: newPasswordHash }).where('id', '=', user.id).execute();
-    await trx
-      .updateTable('company_access')
-      .set({
-        wrapped_dek: newWrapped.wrappedKeyHex,
-        wrap_iv: newWrapped.ivHex,
-        wrap_auth_tag: newWrapped.authTagHex,
-        wrap_kek_salt: newWrapped.kekSaltHex,
-      })
-      .where('id', '=', access.id)
-      .execute();
-  });
+  await systemDb
+    .updateTable('company_access')
+    .set({
+      password_hash: hashPassword(input.newPassword),
+      wrapped_dek: newWrapped.wrappedKeyHex,
+      wrap_iv: newWrapped.ivHex,
+      wrap_auth_tag: newWrapped.authTagHex,
+      wrap_kek_salt: newWrapped.kekSaltHex,
+      must_change_password: 0,
+      ...clearedLockoutColumns(),
+    })
+    .where('id', '=', access.id)
+    .execute();
 
   return establishSession(company, user.id, user.name, user.email, access.role_id, dek);
+}
+
+/** Acting user comes from the current session, never from the caller — a permission check against a spoofable identity would be worthless. */
+export async function adminResetPassword(
+  systemDb: Kysely<SystemDatabase>,
+  input: AdminResetPasswordInput,
+): Promise<AdminResetPasswordResult> {
+  const actingSession = session.get();
+  const actingDek = session.getDek();
+  if (!actingSession || !actingDek) {
+    throw new Error('Not logged in');
+  }
+  if (!actingSession.permissions.includes('SYSTEM.RESET_USER_PASSWORD')) {
+    throw new Error('You do not have permission to reset passwords for this company');
+  }
+  if (input.targetEmail.toLowerCase() === actingSession.email.toLowerCase()) {
+    throw new Error('Use "Change password" or your recovery key to reset your own password');
+  }
+
+  const target = await systemDb
+    .selectFrom('app_user')
+    .selectAll()
+    .where('email', '=', input.targetEmail)
+    .where('is_active', '=', IS_ACTIVE)
+    .executeTakeFirst();
+  if (!target) {
+    throw new Error('No such user');
+  }
+
+  const targetAccess = await systemDb
+    .selectFrom('company_access')
+    .selectAll()
+    .where('app_user_id', '=', target.id)
+    .where('company_id', '=', actingSession.companyId)
+    .where('revoked_at', 'is', null)
+    .executeTakeFirst();
+  if (!targetAccess) {
+    throw new Error('This user has no access to this company');
+  }
+
+  const temporaryPassword = generateTemporaryPassword();
+  const wrapped = wrapDataKey(actingDek, temporaryPassword);
+
+  await systemDb
+    .updateTable('company_access')
+    .set({
+      password_hash: hashPassword(temporaryPassword),
+      wrapped_dek: wrapped.wrappedKeyHex,
+      wrap_iv: wrapped.ivHex,
+      wrap_auth_tag: wrapped.authTagHex,
+      wrap_kek_salt: wrapped.kekSaltHex,
+      must_change_password: 1,
+      ...clearedLockoutColumns(),
+    })
+    .where('id', '=', targetAccess.id)
+    .execute();
+
+  return { temporaryPassword };
+}
+
+export async function listCompanyUsers(systemDb: Kysely<SystemDatabase>): Promise<CompanyUserSummary[]> {
+  const actingSession = session.get();
+  const companyDb = session.getCompanyDb();
+  if (!actingSession || !companyDb) {
+    throw new Error('Not logged in');
+  }
+  if (!actingSession.permissions.includes('SYSTEM.MANAGE_USERS')) {
+    throw new Error('You do not have permission to view users for this company');
+  }
+
+  const accessRows = await systemDb
+    .selectFrom('company_access')
+    .innerJoin('app_user', 'app_user.id', 'company_access.app_user_id')
+    .where('company_access.company_id', '=', actingSession.companyId)
+    .where('company_access.revoked_at', 'is', null)
+    .select(['app_user.email as email', 'app_user.name as name', 'company_access.role_id as roleId'])
+    .execute();
+
+  const roles = await companyDb.selectFrom('role').select(['id', 'name']).execute();
+  const roleNameById = new Map(roles.map((role) => [role.id, role.name]));
+
+  return accessRows.map((row) => ({
+    email: row.email,
+    name: row.name,
+    roleName: roleNameById.get(row.roleId) ?? 'Unknown role',
+  }));
 }

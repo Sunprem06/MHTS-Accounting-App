@@ -13,6 +13,7 @@ export const FOUNDATION_PERMISSIONS = [
   { code: 'SYSTEM.MANAGE_USERS', description: 'Invite users and assign roles' },
   { code: 'SYSTEM.MANAGE_ROLES', description: 'Manage roles and their permissions' },
   { code: 'SYSTEM.VIEW_AUDIT_LOG', description: 'View the append-only audit trail' },
+  { code: 'SYSTEM.RESET_USER_PASSWORD', description: "Reset another user's password within this company, offline" },
 ] as const;
 
 /** Seeds the company DB's permission table (idempotent-ish: only called once, at company creation) and an Admin role with all of them. Returns the new role's id. */

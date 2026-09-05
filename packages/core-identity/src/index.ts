@@ -11,3 +11,4 @@ export {
 } from './keyWrap';
 export type { WrappedKey, RawWrappedKey } from './keyWrap';
 export { seedAdminRole, resolvePermissions, FOUNDATION_PERMISSIONS } from './rbac';
+export { generateTemporaryPassword } from './tempPassword';
