@@ -2,14 +2,18 @@ import { useCallback, useEffect, useState } from 'react';
 import type { CompanySummary, SessionInfo } from '../../shared/ipc';
 import { CompanyListScreen } from './screens/CompanyListScreen';
 import { CreateCompanyScreen } from './screens/CreateCompanyScreen';
+import { RecoveryKeyScreen } from './screens/RecoveryKeyScreen';
 import { LoginScreen } from './screens/LoginScreen';
+import { ForgotPasswordScreen } from './screens/ForgotPasswordScreen';
 import { DashboardScreen } from './screens/DashboardScreen';
 
 type View =
   | { name: 'loading' }
   | { name: 'companyList' }
   | { name: 'createCompany' }
+  | { name: 'recoveryKey'; company: CompanySummary; recoveryKey: string }
   | { name: 'login'; company: CompanySummary }
+  | { name: 'forgotPassword'; company: CompanySummary }
   | { name: 'dashboard' };
 
 export function App() {
@@ -59,10 +63,20 @@ export function App() {
     return (
       <CreateCompanyScreen
         onCancel={() => setView({ name: 'companyList' })}
-        onCreated={async (company) => {
+        onCreated={async (result) => {
           await refreshCompanies();
-          setView({ name: 'login', company });
+          setView({ name: 'recoveryKey', company: result.company, recoveryKey: result.recoveryKey });
         }}
+      />
+    );
+  }
+
+  if (view.name === 'recoveryKey') {
+    return (
+      <RecoveryKeyScreen
+        companyName={view.company.tradeName ?? view.company.legalName}
+        recoveryKey={view.recoveryKey}
+        onContinue={() => setView({ name: 'login', company: view.company })}
       />
     );
   }
@@ -72,7 +86,21 @@ export function App() {
       <LoginScreen
         company={view.company}
         onBack={() => setView({ name: 'companyList' })}
+        onForgotPassword={() => setView({ name: 'forgotPassword', company: view.company })}
         onLoggedIn={(info) => {
+          setSession(info);
+          setView({ name: 'dashboard' });
+        }}
+      />
+    );
+  }
+
+  if (view.name === 'forgotPassword') {
+    return (
+      <ForgotPasswordScreen
+        company={view.company}
+        onBack={() => setView({ name: 'login', company: view.company })}
+        onReset={(info) => {
           setSession(info);
           setView({ name: 'dashboard' });
         }}

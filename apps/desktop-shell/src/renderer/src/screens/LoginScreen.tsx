@@ -4,10 +4,11 @@ import type { CompanySummary, SessionInfo } from '../../../shared/ipc';
 interface Props {
   company: CompanySummary;
   onLoggedIn: (session: SessionInfo) => void;
+  onForgotPassword: () => void;
   onBack: () => void;
 }
 
-export function LoginScreen({ company, onLoggedIn, onBack }: Props) {
+export function LoginScreen({ company, onLoggedIn, onForgotPassword, onBack }: Props) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -48,6 +49,11 @@ export function LoginScreen({ company, onLoggedIn, onBack }: Props) {
           Back
         </button>
       </form>
+      <p>
+        <button type="button" onClick={onForgotPassword} disabled={submitting}>
+          Forgot password?
+        </button>
+      </p>
     </div>
   );
 }

@@ -24,10 +24,23 @@ export interface CreateCompanyInput {
   adminPassword: string;
 }
 
+export interface CreateCompanyResult {
+  company: CompanySummary;
+  /** Shown to the user exactly once — never retrievable again. See RecoveryKeyScreen. */
+  recoveryKey: string;
+}
+
 export interface LoginInput {
   companyId: string;
   email: string;
   password: string;
+}
+
+export interface ResetPasswordInput {
+  companyId: string;
+  email: string;
+  recoveryKey: string;
+  newPassword: string;
 }
 
 export interface SessionInfo {
@@ -53,4 +66,5 @@ export const IPC = {
   LOGIN: 'auth:login',
   LOGOUT: 'auth:logout',
   GET_SESSION: 'auth:getSession',
+  RESET_PASSWORD: 'auth:resetPassword',
 } as const;

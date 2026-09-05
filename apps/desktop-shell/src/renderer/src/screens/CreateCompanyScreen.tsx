@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import type { CompanySummary, CreateCompanyInput } from '../../../shared/ipc';
+import type { CreateCompanyInput, CreateCompanyResult } from '../../../shared/ipc';
 
 interface Props {
-  onCreated: (company: CompanySummary) => void;
+  onCreated: (result: CreateCompanyResult) => void;
   onCancel: () => void;
 }
 

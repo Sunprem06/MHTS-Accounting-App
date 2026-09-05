@@ -18,7 +18,7 @@ Then paste the latest entry from the **Session Handoff Log** (Section 4 of this 
 
 | # | Phase | Scope | Status | Owner | Notes |
 |---|---|---|---|---|---|
-| 0 | Foundation | Shell, DB, auth, RBAC, audit trail, backup framework, theme, license/white-label plumbing | 🟨 In progress | | Electron+React shell scaffolded with a real IPC boundary; multi-company creation, login, and RBAC permission resolution built and verified end-to-end against real encrypted files. Backup framework, theme engine, and license/white-label plumbing still pending. |
+| 0 | Foundation | Shell, DB, auth, RBAC, audit trail, backup framework, theme, license/white-label plumbing | 🟨 In progress | | Electron+React shell (real packaged app relaunch-verified, not just build-verified) with a real IPC boundary; multi-company creation + login + password recovery via a one-time recovery key + RBAC permission resolution, all verified end-to-end against real encrypted files. Backup framework, theme engine, and license/white-label plumbing still pending. |
 | 1 | Accounting Core | Chart of accounts, ledgers, vouchers, double-entry, TB/P&L/BS | ⬜ Not started | | |
 | 2 | Sales + Purchase | Customers, suppliers, invoices, receivables/payables, vendor TDS, 43B(h) flag | ⬜ Not started | | |
 | 3 | Inventory | Items, units, warehouses, batches, valuation | ⬜ Not started | | |
@@ -52,6 +52,8 @@ Record every architectural or business decision here the moment it's made, so it
 | 2026-09-05 | AuditLog is hash-chained (`prev_hash`/`hash` columns) + has DB-level triggers blocking UPDATE/DELETE | Rule #5 says "no UI path may hard-delete or edit" — the DB trigger makes this true even for a raw-SQL slip or future admin tool, not just documented UI behavior. Hash chain gives tamper-evidence (detects modification, not just deletion) for the MCA audit-trail requirement. Verified: both UPDATE and DELETE against audit_log correctly raise and abort. | 0 |
 | 2026-09-05 | Key management resolved: System DB key via Electron `safeStorage` (OS keychain — DPAPI/Keychain/libsecret); each Company DB's random DEK is AES-256-GCM-wrapped per user under a scrypt-derived KEK from that user's login password, stored in a new `packages/db-schema` migration (`002_company_access_key_wrap`) on `company_access`. Lives in new pure-TS package `@mhts/core-identity` (password hashing, key-wrap, RBAC permission resolution) — zero Electron dependency, so it's independently testable/curriculum-assignable like the other `core-*` packages. `connection.ts` extended to accept a raw key (`rawKey: Buffer`) alongside the old passphrase mode. | Resolves the TODO explicitly left in `connection.ts` after the Phase 0 Prisma/SQLCipher spike ("do not wire a plaintext key into product code without this decision made first"). A user can only unwrap a company's DEK — and therefore open that Company DB — by supplying the correct password; the DEK never touches disk in the clear. Verified end-to-end (see latest Session Handoff entry): correct password unwraps the exact original DEK, wrong password fails closed via GCM auth-tag mismatch. | 0 |
 | 2026-09-05 | Electron pinned to **44.x** (not the originally-scaffolded 33.x); `@mhts/*` workspace packages and `kysely` must be bundled (esbuild `exclude` in `externalizeDepsPlugin`) rather than left as externalized `require()` calls; `better-sqlite3-multiple-ciphers` must stay external and listed directly in `desktop-shell/package.json`. | Found via real end-to-end verification, not by inspection: (1) `better-sqlite3-multiple-ciphers@13.0.3` declares `engines.node >=22`; Electron 33 bundles Node ~20, and instantiating the native `Database` inside that Electron process hung/deadlocked (not a catchable JS error) — Electron 44 bundles Node ≥24 and it works cleanly. (2) `@mhts/*` packages ship raw TypeScript as `main` and `kysely` is ESM-only; externalizing them produced a `require()` a plain Electron process can't resolve (`ERR_REQUIRE_ESM`) or that points at unbuildable `.ts` source — bundling them with esbuild (electron-vite's default pipeline) resolves both. (3) `better-sqlite3-multiple-ciphers` is *not* a direct dependency of `desktop-shell` (only of `db-schema`), so `externalizeDepsPlugin` never saw it to auto-externalize once (1)/(2) were fixed — esbuild tried to bundle the native addon's JS wrapper, breaking its relative path to the compiled `.node` binary. Also: `better-sqlite3` cannot bind raw JS `boolean` values — insert/where values for `is_active`/`is_system_role` must be `1`/`0`, not `true`/`false`, even though the Kysely `ColumnType`'s declared Select type is `boolean` (SQLite has no boolean type and this driver/setup does no runtime coercion). | 0 |
+| 2026-09-05 (amended) | `electron.vite.config.ts`'s bundle-instead-of-externalize list for `@mhts/*` is now **computed automatically** by reading `packages/*/package.json` names at config-eval time, instead of a hand-maintained array. Only true ESM-only npm deps (currently just `kysely`) stay a short explicit list. | A hand-maintained array is exactly the kind of thing that silently goes stale — a new `core-*` package (there will be several: accounting, GST, payroll, inventory) would hit the identical `ERR_REQUIRE_ESM`-shaped crash (this time a `require()` of unbuildable `.ts` source) the moment something actually imports it into `desktop-shell`, and nothing would catch it except another manual relaunch test. Reading the workspace's own `packages/*` directory makes it structurally impossible to forget. There is no equally reliable generic way to auto-detect "ESM-only npm dependency," so that half is still a short explicit list — extend it if another dependency shows this same failure mode. Re-verified: rebuilt, `grep`-confirmed no bundled `require("@mhts/...")`/`require("kysely")` remained, then actually relaunched the packaged app (`electron .` against a real built `out/`, isolated `--user-data-dir`) — it created and correctly encrypted a real `system.db` and stayed running with no crash, not just a passing build. | 0 |
+| 2026-09-05 | Company-DEK recovery mechanism: a 256-bit **recovery key** is generated at company creation (alongside the DEK), AES-256-GCM-wraps the DEK directly (no password/KDF — the key is already full-entropy random bytes), is stored in a new `company_recovery_key` system-DB table, and is shown to the user **exactly once** on a dedicated screen they must acknowledge saving. `resetPassword` unwraps the DEK with it, re-hashes the password, and re-wraps the DEK under the new password — the recovery key itself is reusable (not single-use), since a solo-admin company has no other way back in if a single reset attempt fails partway. | Considered and rejected an "another admin re-grants access" mechanism as the *only* path: the Blueprint's own `EntityType` enum includes `PROPRIETORSHIP`/`OPC` — a huge share of MHTS's actual target market is a single admin user, so any recovery design that depends on a second already-logged-in user is not a real recovery path for most customers, only a convenience for multi-user companies (worth adding later, doesn't need its own migration). Zero-knowledge trade-off, stated explicitly to the user in the UI copy: if both the password AND the recovery key are lost, the data is unrecoverable by design — no vendor master key exists, because anything that could recover it would also be exploitable by anyone with filesystem access to the encrypted DB, defeating the point of encrypting it at all. Verified end-to-end against real encrypted files: wrong recovery key rejected (GCM auth-tag failure), correct key resets the password and logs in, the OLD password is rejected afterward, the NEW password works, and the same recovery key still works for a second reset. | 0 |
 
 ---
 
@@ -65,7 +67,7 @@ Track anything unresolved so it surfaces automatically in the next session inste
 - [ ] White-label/reseller legal agreement — pending
 - [ ] CA/compliance advisor retained on standing basis — pending
 - [ ] `safeStorage.isEncryptionAvailable()` was only exercised on this Windows dev machine (DPAPI). Linux without a keyring daemon (headless/CI, some minimal desktop environments) will make it return false, and the shell currently just refuses to start rather than offering a fallback — revisit before targeting Linux.
-- [ ] No password-reset / re-issue-access flow exists yet for a user who forgets their password: since the Company DEK is wrapped under a KEK derived from that exact password, a straightforward password reset would orphan that user's wrapped DEK. Needs a real design (e.g. an Admin-initiated re-grant that re-wraps the DEK under the new password) before Phase 0 is "done," not before this pass.
+- [x] Password-reset / recovery gap — **done 2026-09-05, resolved: company-wide recovery key generated at company creation, independently unwraps the DEK** (see Key Decisions Log). Follow-up, not blocking: an "another logged-in admin re-grants access" convenience path for multi-user companies (so a forgotten password doesn't always require digging up the recovery key) — not implemented, only the recovery-key path exists today.
 
 ---
 
@@ -85,6 +87,77 @@ Next concrete step:
 ```
 
 ### Entries:
+```
+Date: 2026-09-05 (session 3)
+Phase: 0 — Foundation
+What was completed:
+  - Fixed a real launch crash the user hit: ERR_REQUIRE_ESM requiring kysely
+    from db-schema/connection.js. Root cause was already understood from
+    session 2 (electron-vite's externalizeDepsPlugin must not externalize
+    @mhts/* or kysely), but the exclude list was a hand-maintained array —
+    made it robust by computing it automatically from packages/*/package.json
+    at config-eval time, so a future core-* package can't silently regress
+    this. Cleared node_modules/.vite + out/ and rebuilt from scratch, then
+    actually relaunched the real packaged app (`electron .` against the real
+    built out/, isolated --user-data-dir, not a custom test harness) and
+    confirmed: it created and correctly encrypted a real system.db and
+    stayed running with no crash. Also relaunched via `electron-vite dev`
+    (the dev-mode path) with the same result.
+  - Resolved the password-reset/recovery gap flagged at the end of session 2.
+    Design (stated to the user before implementing, per their ask): a 256-bit
+    recovery key generated once at company creation, alongside the DEK,
+    AES-256-GCM-wrapping the DEK directly (no password/KDF needed — it's
+    already full-entropy random bytes) and stored in a new company-wide
+    company_recovery_key table (system DB). Shown to the user exactly once
+    on a new RecoveryKeyScreen they must acknowledge saving before continuing.
+    Rejected "another admin re-grants access" as the *only* recovery path,
+    since a large share of MHTS's real target market (proprietorship/OPC
+    entities) is a single-admin company with no second logged-in identity to
+    do the re-granting — recorded as a real trade-off in the Key Decisions
+    Log, not just implemented silently. The recovery key is reusable (not
+    single-use) and the mechanism is explicitly zero-knowledge: losing both
+    the password and the recovery key means the data is unrecoverable by
+    design, no vendor master key exists.
+  - New "Forgot password?" flow: LoginScreen -> ForgotPasswordScreen (email +
+    recovery key + new password) -> new resetPassword IPC handler, which
+    unwraps the DEK with the recovery key, updates the password hash and
+    re-wraps the DEK under the new password atomically (systemDb.transaction),
+    then logs the user straight in (reuses the same session-establishment
+    path as a normal login via a new shared `establishSession` helper).
+  - core-identity/keyWrap.ts refactored to separate the raw AES-256-GCM
+    wrap/unwrap primitives (wrapWithRawKey/unwrapWithRawKey) from the
+    password-specific KDF wrapper (wrapDataKey/unwrapDataKey now built on
+    top of them) plus formatRecoveryKey/parseRecoveryKey (grouped-hex human
+    form). db-schema migration 003 adds the company_recovery_key table.
+  - Verified end-to-end against real encrypted files (throwaway script,
+    bundled with esbuild, run in a real Electron process — not committed,
+    same precedent as prior sessions), calling the ACTUAL handler functions
+    (not a reimplementation) this time: create company -> get recovery key ->
+    normal login works -> wrong recovery key rejected (GCM auth-tag failure)
+    -> correct recovery key resets password and logs in -> OLD password now
+    rejected -> NEW password works -> the same recovery key still works for
+    a second reset.
+What's still pending in this phase: backup framework, theme engine, license/
+  white-label plumbing. An "another admin re-grants access" convenience path
+  for multi-user companies (not needed for correctness, recovery key already
+  covers the hard case). safeStorage's Linux-without-keyring fallback is
+  still unverified (unchanged from session 2).
+Any decisions made (also add to Section 2): dynamic (not hand-maintained)
+  bundle-exclude list for @mhts/* packages in electron.vite.config.ts;
+  recovery-key mechanism and its zero-knowledge trade-off. Both logged above
+  with full reasoning.
+Any blockers (also add to Section 3): Team allocation, white-label/reseller
+  legal agreement, CA/compliance advisor retention — all still pending,
+  unchanged.
+Next concrete step: A real visual click-through of the shell on a normal dev
+  machine (create a company, save the recovery key, log in, sign out, use
+  "Forgot password?" with the saved recovery key, confirm the Dashboard
+  still shows the right permissions) is now the only thing standing between
+  "verified via scripts" and "actually used once by a human" — worth doing
+  before further Foundation work (backup framework, theme engine, licensing)
+  or before Phase 1 starts.
+```
+
 ```
 Date: 2026-09-05 (session 2)
 Phase: 0 — Foundation

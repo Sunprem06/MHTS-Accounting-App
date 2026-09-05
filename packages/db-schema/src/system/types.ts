@@ -52,6 +52,15 @@ export interface CompanyAccessTable {
   wrap_kek_salt: string | null;
 }
 
+export interface CompanyRecoveryKeyTable {
+  company_id: string;
+  /** Company DEK, AES-256-GCM-wrapped directly under the recovery key's own bytes (no password/KDF involved — see keyWrap.ts). Shown to the user once, at company creation; unrecoverable if lost. */
+  wrapped_dek: string;
+  wrap_iv: string;
+  wrap_auth_tag: string;
+  created_at: ColumnType<string, string | undefined, never>;
+}
+
 export interface RuleSetTable {
   id: string;
   /** Controlled vocabulary validated by the rules-resolution service, not a DB CHECK enum
@@ -78,5 +87,6 @@ export interface SystemDatabase {
   company: CompanyTable;
   app_user: AppUserTable;
   company_access: CompanyAccessTable;
+  company_recovery_key: CompanyRecoveryKeyTable;
   rule_set: RuleSetTable;
 }

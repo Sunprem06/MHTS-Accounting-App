@@ -1,4 +1,13 @@
 export { hashPassword, verifyPassword } from './password';
-export { generateDataKey, wrapDataKey, unwrapDataKey } from './keyWrap';
-export type { WrappedKey } from './keyWrap';
+export {
+  generateDataKey,
+  generateRecoveryKey,
+  wrapDataKey,
+  unwrapDataKey,
+  wrapWithRawKey,
+  unwrapWithRawKey,
+  formatRecoveryKey,
+  parseRecoveryKey,
+} from './keyWrap';
+export type { WrappedKey, RawWrappedKey } from './keyWrap';
 export { seedAdminRole, resolvePermissions, FOUNDATION_PERMISSIONS } from './rbac';
