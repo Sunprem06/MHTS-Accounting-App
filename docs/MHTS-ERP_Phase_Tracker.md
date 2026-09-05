@@ -19,7 +19,7 @@ Then paste the latest entry from the **Session Handoff Log** (Section 4 of this 
 | # | Phase | Scope | Status | Owner | Notes |
 |---|---|---|---|---|---|
 | 0 | Foundation | Shell, DB, auth, RBAC, audit trail, backup framework, theme, license/white-label plumbing | 🟨 In progress | | Electron+React shell (real packaged app relaunch-verified, not just build-verified) with a real IPC boundary; multi-company creation, per-company login credentials, offline account lockout, offline Super Admin password reset, and recovery-key-based recovery, all verified end-to-end against real encrypted files. Backup framework, theme engine, and license/white-label plumbing still pending. |
-| 1 | Accounting Core | Chart of accounts, ledgers, vouchers, double-entry, TB/P&L/BS | ✅ Done | | Every item in the Blueprint's Phase 1 line is built, verified end-to-end, and has a real working UI: Chart of Accounts, ledgers, double-entry vouchers (unbalanced/malformed entries impossible — the exit criterion is a real tested code path), Trial Balance, Profit & Loss, and Balance Sheet (Assets = Liabilities + Equity proven to balance, incl. a Current Earnings roll-up). Deliberately deferred beyond the Blueprint's literal scope, not oversights (see Open Questions): Payment/Receipt/Contra-specific UX, voucher edit/cancellation, opening-balance netting across ledgers. |
+| 1 | Accounting Core | Chart of accounts, ledgers, vouchers, double-entry, TB/P&L/BS | ✅ Done | | Every item in the Blueprint's Phase 1 line is built, verified end-to-end, and has a real working UI: Chart of Accounts, ledgers, double-entry vouchers (unbalanced/malformed entries impossible — the exit criterion is a real tested code path), Trial Balance, Profit & Loss, and Balance Sheet (Assets = Liabilities + Equity proven to balance, incl. a Current Earnings roll-up). The two items previously deferred beyond the Blueprint's literal scope are now also done: voucher cancellation (via an auto-generated reversal voucher, not a destructive edit, with a new Voucher Register screen to find and cancel one) and dedicated Payment/Receipt/Contra voucher forms (auto-balancing, alongside the generic Journal form). Still open, not oversights (see Open Questions): opening-balance netting across ledgers. |
 | 2 | Sales + Purchase | Customers, suppliers, invoices, receivables/payables, vendor TDS, 43B(h) flag | ⬜ Not started | | |
 | 3 | Inventory | Items, units, warehouses, batches, valuation | ⬜ Not started | | |
 | 4 | GST Engine | Rules engine, HSN/SAC, ITC, GSTR-1/3B/9/9C prep | ⬜ Not started | | ⚠️ Re-verify current GST slab rules before starting |
@@ -63,6 +63,8 @@ Record every architectural or business decision here the moment it's made, so it
 | 2026-09-05 | New `@mhts/core-audit` package: the first real implementation of the "audit-writing service" that `company/types.ts`'s `AuditLogTable` comment anticipated in Phase 0 but never built (nothing had mutated business data yet). `writeAuditLog(companyDb, entry)` computes the SHA-256 hash chain in application code (reads the previous row's hash, hashes payload+prevHash+an explicitly-generated timestamp, inserts) and is designed to be called from inside the SAME Kysely transaction as the business write it's recording — `createVoucher` is the first caller. | Pulled out as its own `type:core` package rather than folded into `core-accounting` because every future business module (GST, payroll, inventory, sales/purchase) will need the identical write path — this is cross-cutting infra, not accounting-specific logic, and matches the existing pattern of one package per service boundary. The timestamp is generated in code and inserted explicitly rather than left to the column's `CURRENT_TIMESTAMP` default, because it has to be part of the hashed payload — a value the DB hasn't decided yet can't be hashed. Verified end-to-end: every successfully-posted voucher wrote exactly one real `audit_log` row (rejected/unbalanced attempts never reach the transaction, so they correctly write none), and the existing append-only trigger from Phase 0 still blocks `UPDATE`/`DELETE` on those rows. | 1 |
 | 2026-09-05 | Each business module (starting with `core-accounting`) **owns and grants its own RBAC permission codes** (e.g. `ACCOUNTING.MANAGE_CHART_OF_ACCOUNTS`, `ACCOUNTING.CREATE_VOUCHER`, `ACCOUNTING.VIEW_REPORTS`, via a `grantAccountingPermissions(companyDb, roleId)` called alongside `@mhts/core-identity`'s `seedAdminRole` at company creation) rather than `core-identity` maintaining one growing list for every module. | `core-identity`'s `FOUNDATION_PERMISSIONS` is explicitly scoped to Phase 0 system-level permissions (user/role/audit management) — piling every future module's permission codes into that one list would make `core-identity` a dependency magnet for every other `core-*` package, inverting the intended module boundary (identity/RBAC primitives should be upstream of business modules, not entangled with their specific permission sets). `resolvePermissions` already works generically (joins `role_permission`+`permission` by role id) regardless of which module inserted the rows, so no changes were needed there. | 1 |
 | 2026-09-05 | **Phase 1 completed**: Profit & Loss and Balance Sheet, built on a new shared `computeLedgerBalances` helper (`ledgerBalances.ts`) that Trial Balance was refactored onto as well, rather than three separate ad hoc balance queries. | All three reports are really the same query — "sum this ledger's movements within some date bound, signed debit-positive" — with different nature filters and date bounds layered on top (Trial Balance: all natures, all-time, opening included; P&L: INCOME/EXPENSE only, a date range, opening excluded since income/expense don't carry a balance across periods; Balance Sheet: ASSET/LIABILITY/EQUITY only, up to a date, opening included). Building one correct, tested helper and layering three thin views on it is safer than three independent implementations that could each get the sign conventions subtly wrong in different ways. Since this phase has no period-closing entries into a real retained-earnings ledger, the Balance Sheet adds net profit/loss since inception as a synthetic "Current Earnings" equity line — the standard mechanic for an interim (unclosed) balance sheet to actually balance. Verified end-to-end against real posted vouchers: P&L for a date range matches expected income/expense/net-profit exactly, a period with no vouchers correctly shows zero, and the Balance Sheet's Assets exactly equals Liabilities + Equity (including Current Earnings) both with and without posted activity. | 1 |
+| 2026-09-05 | **Voucher cancellation modeled as an auto-generated reversal voucher, never a destructive edit or delete.** Migration 004 adds `cancelled_at`/`cancelled_by_voucher_id` to the original and `reverses_voucher_id` to the reversal, cross-linking them. A reversal voucher cannot itself be cancelled (no unbounded reversal chains), and an already-cancelled voucher cannot be cancelled again. New Voucher Register screen (with a new `listVouchers`) is the first general voucher-listing UI in the app — needed as a real prerequisite for "find and cancel a voucher," not built as a side effect. | Consistent with the append-only audit philosophy already established for `audit_log` (Rule #5) — once a voucher exists, history isn't rewritten, it's corrected going forward. This also means Trial Balance/P&L/BS needed **zero** changes to support cancellation: a reversal's mirror-image lines net to exactly zero in every existing balance computation automatically, since they all just sum `voucher_line` rows regardless of any voucher's cancelled status. Verified end-to-end: cancelling posts a reversal with the same voucher type and a linked narration, the original and reversal are correctly cross-linked and reflected in the register, Trial Balance nets the cancelled voucher's effect to exactly zero, and both the double-cancellation guard and the cancel-a-reversal guard are enforced. | 1 |
+| 2026-09-05 | **Dedicated Payment/Receipt/Contra voucher screens**, alongside the existing generic Journal form (renamed `JournalVoucherScreen` for clarity) — no backend changes needed, since `createVoucher` already accepts arbitrary lines for any voucher type. Payment: pick one "paid from" ledger (auto-credited for the total) + one or more "paid to" lines (debited). Receipt: the mirror image. Contra: a plain two-ledger transfer, one amount. | The whole point is auto-balancing: previously every voucher, regardless of type, required manually entering both a debit and a credit that summed to the same total — easy to get wrong by hand. These forms compute the counter-ledger's amount automatically, so the user only ever enters one side. Server-side validation in `createVoucher` (debits must equal credits) is unchanged and still the actual authority — the auto-balancing is a UX convenience, not a weakening of the correctness guarantee. Verified end-to-end: Payment and Contra vouchers built exactly the way their screens construct lines post correctly and the resulting Trial Balance ties out to the paisa. | 1 |
 
 ---
 
@@ -80,7 +82,7 @@ Track anything unresolved so it surfaces automatically in the next session inste
 - [ ] Email/SMS OTP-based password reset — **deliberately deferred to a later phase, not abandoned** (see Key Decisions Log for the offline-first / cost / DLT-lead-time reasoning). Any Resend/Cloudflare/MSG91 accounts already created are on hold, unused.
 - [ ] There is no "invite a new user" flow yet — `listCompanyUsers`/`adminResetPassword` assume a `company_access` row already exists for the target (currently only created by `createCompany`'s admin bootstrap). Needed before Manage Users is actually usable for onboarding a second real person, not just resetting one.
 - [x] Phase 1: P&L and Balance Sheet reports — **done 2026-09-05**, built on a new shared `computeLedgerBalances` helper alongside a refactored Trial Balance (see Key Decisions Log). Turned out not to need a recursive group-hierarchy rollup after all — every `account_group` row (including sub-groups) already carries its own `nature` directly, so a flat `WHERE nature IN (...)` join was sufficient; the anticipated complexity wasn't actually there.
-- [ ] Phase 1: voucher edit/cancellation not built yet — correcting a mistake today means posting a manual reversal voucher. A real workflow (e.g. a "Cancel voucher" action that posts the exact reversing entries automatically, referencing the original) is deferred, not designed around some other approach that would need undoing.
+- [x] Phase 1: voucher cancellation and Payment/Receipt/Contra-specific UX — **done 2026-09-05** (see Key Decisions Log). Cancellation posts an automatic, cross-linked reversal voucher (never a destructive edit); a new Voucher Register screen lists vouchers and is where cancellation is triggered from. Payment/Receipt/Contra now have dedicated auto-balancing forms; Journal (renamed `JournalVoucherScreen`) remains the generic multi-line form for anything else. Direct in-place voucher *editing* (as opposed to cancellation) is still not offered — intentionally: real accounting practice favors correction-by-reversal over rewriting posted history, so this isn't tracked as a gap.
 - [ ] Phase 1: `computeTrialBalance` does not require opening balances to net to zero across ledgers (only vouchers are forced to balance, via `createVoucher`). A business entering ad hoc opening balances that don't net out will see a Trial Balance that doesn't balance either — real accounting software absorbs this via an opening "Suspense"/equity adjustment ledger, which this pass doesn't build.
 
 ---
@@ -101,6 +103,69 @@ Next concrete step:
 ```
 
 ### Entries:
+```
+Date: 2026-09-05 (session 7)
+Phase: 1 — Accounting Core — fully complete, including both items previously
+  logged as deliberately deferred beyond the Blueprint's literal scope
+What was completed:
+  - User confirmed the two deferred items from session 6 (voucher
+    edit/cancellation, Payment/Receipt/Contra-specific UX) should be built
+    now rather than left open. Both done this session.
+  - Voucher cancellation, modeled as an auto-generated reversal voucher —
+    never a destructive edit or delete, consistent with the append-only
+    audit philosophy already established for audit_log. Migration 004 adds
+    cancelled_at/cancelled_by_voucher_id (on the original) and
+    reverses_voucher_id (on the reversal), cross-linking the two.
+    core-accounting gained listVouchers and cancelVoucher (shares a new
+    private insertVoucherWithLines helper with createVoucher, so sequential
+    numbering + audit-log writing isn't duplicated). Guards: a reversal
+    can't itself be cancelled (no unbounded chains), and an
+    already-cancelled voucher can't be cancelled twice.
+  - New VoucherRegisterScreen — the app's first general voucher-listing UI.
+    Built as a genuine prerequisite for cancellation (there was no way to
+    find/pick an existing voucher before this), not a side effect. Shows
+    Active/Cancelled/Reversal status per voucher with a working Cancel
+    action gated on ACCOUNTING.CREATE_VOUCHER.
+  - Dedicated Payment/Receipt/Contra voucher screens — no backend changes
+    needed, since createVoucher already accepted arbitrary lines for any
+    voucher type. Payment: one "paid from" ledger auto-credited for the
+    total + one or more "paid to" lines debited. Receipt: the mirror image.
+    Contra: a plain two-ledger transfer, one amount. All auto-balance so the
+    user only enters one side, unlike the generic form. Renamed the
+    original generic screen to JournalVoucherScreen (now Journal-only, type
+    dropdown removed) since Payment/Receipt/Contra have their own homes now.
+  - Verified end-to-end against real encrypted files (same throwaway-script
+    precedent as every session, calling the actual handler functions):
+    posted two RECEIPT vouchers, confirmed the register lists both Active;
+    cancelled one, confirmed the reversal is cross-linked correctly and the
+    original shows Cancelled; confirmed cancelling the same voucher twice
+    and cancelling a reversal are both rejected; confirmed Trial Balance
+    nets the cancelled voucher's effect to exactly zero automatically (no
+    report code needed changing for this — the existing sum-based balance
+    computations just work); posted a Payment and a Contra voucher built
+    exactly the way their new screens construct lines, confirmed the final
+    Trial Balance ties out to the paisa. Then relaunched the real packaged
+    app fresh — no crash.
+What's still pending in this phase: nothing — see Open Questions for the
+  one remaining non-blocking item (opening-balance netting across ledgers).
+Any decisions made (also add to Section 2): cancellation-via-reversal, not
+  destructive editing; shared insertVoucherWithLines helper; Payment/Receipt/
+  Contra as thin auto-balancing UX layers over the unchanged createVoucher.
+  All logged above with full reasoning.
+Any blockers (also add to Section 3): Team allocation, white-label/reseller
+  legal agreement, CA/compliance advisor retention — all still pending,
+  unchanged.
+Next concrete step: Phase 1 is genuinely done now, nothing deferred. Start
+  Phase 2 (Sales + Purchase: customers, suppliers, invoices, receivables/
+  payables, vendor TDS, 43B(h) MSME flag) in a fresh chat — see the top of
+  this file ("How to Resume in a New Chat") for exactly how; paste this
+  entry so nothing needs re-explaining. Or circle back to Phase 0's
+  still-pending items first (backup framework, theme engine, license/
+  white-label plumbing, the "invite a new user" flow, and the
+  still-outstanding real visual click-through of the whole shell on a
+  normal dev machine).
+```
+
 ```
 Date: 2026-09-05 (session 6)
 Phase: 1 — Accounting Core — COMPLETE (Blueprint's Phase 1 line fully built

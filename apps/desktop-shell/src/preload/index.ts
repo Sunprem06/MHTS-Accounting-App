@@ -21,6 +21,7 @@ import {
   type ResetPasswordInput,
   type SessionInfo,
   type TrialBalanceResult,
+  type VoucherSummary,
 } from '../shared/ipc';
 
 const api = {
@@ -41,6 +42,8 @@ const api = {
   listLedgers: (): Promise<IpcResult<LedgerAccountSummary[]>> => ipcRenderer.invoke(IPC.LIST_LEDGERS),
   createLedger: (input: CreateLedgerInput): Promise<IpcResult<string>> => ipcRenderer.invoke(IPC.CREATE_LEDGER, input),
   createVoucher: (input: CreateVoucherInput): Promise<IpcResult<string>> => ipcRenderer.invoke(IPC.CREATE_VOUCHER, input),
+  listVouchers: (): Promise<IpcResult<VoucherSummary[]>> => ipcRenderer.invoke(IPC.LIST_VOUCHERS),
+  cancelVoucher: (voucherId: string): Promise<IpcResult<string>> => ipcRenderer.invoke(IPC.CANCEL_VOUCHER, voucherId),
   getTrialBalance: (): Promise<IpcResult<TrialBalanceResult>> => ipcRenderer.invoke(IPC.GET_TRIAL_BALANCE),
   getProfitAndLoss: (input: ProfitAndLossInput): Promise<IpcResult<ProfitAndLossResult>> =>
     ipcRenderer.invoke(IPC.GET_PROFIT_AND_LOSS, input),
