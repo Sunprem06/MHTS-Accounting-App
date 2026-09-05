@@ -50,6 +50,21 @@ export interface CreateVoucherInput {
   lines: VoucherLineInput[];
 }
 
+export interface VoucherSummary {
+  id: string;
+  voucherType: VoucherType;
+  voucherNumber: number;
+  financialYear: string;
+  voucherDate: string;
+  narration: string | null;
+  /** Paise. Sum of the debit side (== sum of the credit side, by construction). */
+  totalAmount: number;
+  cancelledAt: string | null;
+  cancelledByVoucherId: string | null;
+  /** Non-null if this voucher IS a reversal of another one. */
+  reversesVoucherId: string | null;
+}
+
 export interface TrialBalanceRow {
   ledgerId: string;
   ledgerName: string;

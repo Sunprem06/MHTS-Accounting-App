@@ -15,6 +15,7 @@ export type {
   ProfitAndLoss,
   BalanceSheetRow,
   BalanceSheet,
+  VoucherSummary,
 } from './types';
 export {
   ACCOUNTING_PERMISSIONS,
@@ -25,7 +26,7 @@ export {
   createLedgerAccount,
 } from './chartOfAccounts';
 export type { CreateLedgerAccountInput } from './chartOfAccounts';
-export { createVoucher } from './vouchers';
+export { createVoucher, listVouchers, cancelVoucher } from './vouchers';
 export { computeTrialBalance } from './trialBalance';
 export { computeProfitAndLoss } from './profitAndLoss';
 export type { ProfitAndLossOptions } from './profitAndLoss';

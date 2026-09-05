@@ -115,6 +115,20 @@ export interface CreateVoucherInput {
   lines: VoucherLineInput[];
 }
 
+export interface VoucherSummary {
+  id: string;
+  voucherType: VoucherType;
+  voucherNumber: number;
+  financialYear: string;
+  voucherDate: string;
+  narration: string | null;
+  /** Rupees. */
+  totalAmount: number;
+  cancelledAt: string | null;
+  cancelledByVoucherId: string | null;
+  reversesVoucherId: string | null;
+}
+
 export interface TrialBalanceRow {
   ledgerId: string;
   ledgerName: string;
@@ -202,6 +216,8 @@ export const IPC = {
   LIST_LEDGERS: 'accounting:listLedgers',
   CREATE_LEDGER: 'accounting:createLedger',
   CREATE_VOUCHER: 'accounting:createVoucher',
+  LIST_VOUCHERS: 'accounting:listVouchers',
+  CANCEL_VOUCHER: 'accounting:cancelVoucher',
   GET_TRIAL_BALANCE: 'accounting:getTrialBalance',
   GET_PROFIT_AND_LOSS: 'accounting:getProfitAndLoss',
   GET_BALANCE_SHEET: 'accounting:getBalanceSheet',

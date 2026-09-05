@@ -1,20 +1,18 @@
 import { useEffect, useState } from 'react';
-import type { LedgerAccountSummary, VoucherLineInput, VoucherType } from '../../../shared/ipc';
+import type { LedgerAccountSummary, VoucherLineInput } from '../../../shared/ipc';
 
 interface Props {
   onCreated: () => void;
   onBack: () => void;
 }
 
-const VOUCHER_TYPES: VoucherType[] = ['JOURNAL', 'PAYMENT', 'RECEIPT', 'CONTRA'];
-
 function emptyLine(): VoucherLineInput {
   return { ledgerId: '', debitRupees: 0, creditRupees: 0 };
 }
 
-export function NewVoucherScreen({ onCreated, onBack }: Props) {
+/** For adjustments not involving Cash/Bank directly. Payment/Receipt/Contra have their own dedicated, auto-balancing screens. */
+export function JournalVoucherScreen({ onCreated, onBack }: Props) {
   const [ledgers, setLedgers] = useState<LedgerAccountSummary[]>([]);
-  const [voucherType, setVoucherType] = useState<VoucherType>('JOURNAL');
   const [voucherDate, setVoucherDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [narration, setNarration] = useState('');
   const [lines, setLines] = useState<VoucherLineInput[]>([emptyLine(), emptyLine()]);
@@ -47,7 +45,7 @@ export function NewVoucherScreen({ onCreated, onBack }: Props) {
     setError(null);
     setSubmitting(true);
     const result = await window.mhts.createVoucher({
-      voucherType,
+      voucherType: 'JOURNAL',
       voucherDate,
       narration: narration || undefined,
       lines: lines.map((line) => ({
@@ -66,18 +64,8 @@ export function NewVoucherScreen({ onCreated, onBack }: Props) {
 
   return (
     <div style={{ padding: 24, fontFamily: 'sans-serif', maxWidth: 720 }}>
-      <h1>New voucher</h1>
+      <h1>Journal voucher</h1>
       <form onSubmit={handleSubmit}>
-        <label>
-          Type
-          <select value={voucherType} onChange={(e) => setVoucherType(e.target.value as VoucherType)}>
-            {VOUCHER_TYPES.map((type) => (
-              <option key={type} value={type}>
-                {type}
-              </option>
-            ))}
-          </select>
-        </label>{' '}
         <label>
           Date
           <input type="date" value={voucherDate} onChange={(e) => setVoucherDate(e.target.value)} required />

@@ -15,6 +15,8 @@ import {
   listLedgers,
   createLedger,
   createVoucher,
+  listVouchers,
+  cancelVoucher,
   getTrialBalance,
   getProfitAndLoss,
   getBalanceSheet,
@@ -75,6 +77,8 @@ async function bootstrap(): Promise<void> {
   handle(IPC.LIST_LEDGERS, () => listLedgers());
   handleWithArg(IPC.CREATE_LEDGER, (input: CreateLedgerInput) => createLedger(input));
   handleWithArg(IPC.CREATE_VOUCHER, (input: CreateVoucherInput) => createVoucher(systemDb, input));
+  handle(IPC.LIST_VOUCHERS, () => listVouchers());
+  handleWithArg(IPC.CANCEL_VOUCHER, (voucherId: string) => cancelVoucher(systemDb, voucherId));
   handle(IPC.GET_TRIAL_BALANCE, () => getTrialBalance());
   handleWithArg(IPC.GET_PROFIT_AND_LOSS, (input: ProfitAndLossInput) => getProfitAndLoss(input));
   handleWithArg(IPC.GET_BALANCE_SHEET, (asOfDate: string) => getBalanceSheet(asOfDate));

@@ -76,6 +76,12 @@ export interface VoucherTable {
   /** AppUser.id from the system DB — not a foreign key here (cross-file). */
   created_by: string | null;
   created_at: ColumnType<string, string | undefined, never>;
+  /** Set when this voucher has been cancelled — see cancelled_by_voucher_id. Cancellation is a reversal voucher, never a destructive edit. */
+  cancelled_at: string | null;
+  /** The reversal voucher that cancels this one, once cancelled_at is set. */
+  cancelled_by_voucher_id: string | null;
+  /** Set on a reversal voucher itself, pointing back at the voucher it reverses. */
+  reverses_voucher_id: string | null;
 }
 
 export interface VoucherLineTable {

@@ -5,6 +5,8 @@ import {
   listLedgerAccounts,
   createLedgerAccount,
   createVoucher as coreCreateVoucher,
+  listVouchers as coreListVouchers,
+  cancelVoucher as coreCancelVoucher,
   computeTrialBalance,
   computeProfitAndLoss,
   computeBalanceSheet,
@@ -20,6 +22,7 @@ import type {
   ProfitAndLossInput,
   ProfitAndLossResult,
   TrialBalanceResult,
+  VoucherSummary,
 } from '../shared/ipc';
 
 const PAISE_PER_RUPEE = 100;
@@ -58,11 +61,16 @@ export async function createLedger(input: CreateLedgerInput): Promise<string> {
   });
 }
 
+async function financialYearStartMonth(systemDb: Kysely<SystemDatabase>, companyId: string): Promise<number> {
+  const company = await systemDb.selectFrom('company').select('financial_year_start_month').where('id', '=', companyId).executeTakeFirstOrThrow();
+  return company.financial_year_start_month;
+}
+
 export async function createVoucher(systemDb: Kysely<SystemDatabase>, input: CreateVoucherInput): Promise<string> {
   const { info, companyDb } = requireSessionWithCompanyDb('ACCOUNTING.CREATE_VOUCHER');
 
-  const company = await systemDb.selectFrom('company').select('financial_year_start_month').where('id', '=', info.companyId).executeTakeFirstOrThrow();
-  const financialYear = computeFinancialYearLabel(company.financial_year_start_month, new Date(input.voucherDate));
+  const startMonth = await financialYearStartMonth(systemDb, info.companyId);
+  const financialYear = computeFinancialYearLabel(startMonth, new Date(input.voucherDate));
 
   return coreCreateVoucher(
     companyDb,
@@ -80,6 +88,22 @@ export async function createVoucher(systemDb: Kysely<SystemDatabase>, input: Cre
     },
     info.userId,
   );
+}
+
+export async function listVouchers(): Promise<VoucherSummary[]> {
+  const { companyDb } = requireSessionWithCompanyDb('ACCOUNTING.VIEW_REPORTS');
+  const vouchers = await coreListVouchers(companyDb);
+  return vouchers.map((voucher) => ({ ...voucher, totalAmount: paiseToRupees(voucher.totalAmount) }));
+}
+
+export async function cancelVoucher(systemDb: Kysely<SystemDatabase>, voucherId: string): Promise<string> {
+  const { info, companyDb } = requireSessionWithCompanyDb('ACCOUNTING.CREATE_VOUCHER');
+
+  const startMonth = await financialYearStartMonth(systemDb, info.companyId);
+  const reversalDate = new Date().toISOString().slice(0, 10);
+  const financialYear = computeFinancialYearLabel(startMonth, new Date(reversalDate));
+
+  return coreCancelVoucher(companyDb, voucherId, financialYear, reversalDate, info.userId);
 }
 
 export async function getTrialBalance(): Promise<TrialBalanceResult> {

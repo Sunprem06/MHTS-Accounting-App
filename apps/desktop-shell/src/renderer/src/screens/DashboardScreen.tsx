@@ -5,7 +5,11 @@ interface Props {
   onLogout: () => void;
   onManageUsers: () => void;
   onChartOfAccounts: () => void;
-  onNewVoucher: () => void;
+  onJournalVoucher: () => void;
+  onPaymentVoucher: () => void;
+  onReceiptVoucher: () => void;
+  onContraVoucher: () => void;
+  onVoucherRegister: () => void;
   onTrialBalance: () => void;
   onProfitAndLoss: () => void;
   onBalanceSheet: () => void;
@@ -16,7 +20,11 @@ export function DashboardScreen({
   onLogout,
   onManageUsers,
   onChartOfAccounts,
-  onNewVoucher,
+  onJournalVoucher,
+  onPaymentVoucher,
+  onReceiptVoucher,
+  onContraVoucher,
+  onVoucherRegister,
   onTrialBalance,
   onProfitAndLoss,
   onBalanceSheet,
@@ -36,17 +44,23 @@ export function DashboardScreen({
           <li key={code}>{code}</li>
         ))}
       </ul>
-      <p>
-        {session.permissions.includes('ACCOUNTING.VIEW_REPORTS') && (
-          <>
-            <button onClick={onChartOfAccounts}>Chart of accounts</button>{' '}
-            <button onClick={onTrialBalance}>Trial balance</button>{' '}
-            <button onClick={onProfitAndLoss}>Profit &amp; Loss</button>{' '}
-            <button onClick={onBalanceSheet}>Balance sheet</button>{' '}
-          </>
-        )}
-        {session.permissions.includes('ACCOUNTING.CREATE_VOUCHER') && <button onClick={onNewVoucher}>New voucher</button>}
-      </p>
+      {session.permissions.includes('ACCOUNTING.CREATE_VOUCHER') && (
+        <p>
+          <button onClick={onPaymentVoucher}>Payment</button>{' '}
+          <button onClick={onReceiptVoucher}>Receipt</button>{' '}
+          <button onClick={onContraVoucher}>Contra</button>{' '}
+          <button onClick={onJournalVoucher}>Journal</button>
+        </p>
+      )}
+      {session.permissions.includes('ACCOUNTING.VIEW_REPORTS') && (
+        <p>
+          <button onClick={onChartOfAccounts}>Chart of accounts</button>{' '}
+          <button onClick={onVoucherRegister}>Voucher register</button>{' '}
+          <button onClick={onTrialBalance}>Trial balance</button>{' '}
+          <button onClick={onProfitAndLoss}>Profit &amp; Loss</button>{' '}
+          <button onClick={onBalanceSheet}>Balance sheet</button>
+        </p>
+      )}
       <p>
         {session.permissions.includes('SYSTEM.MANAGE_USERS') && <button onClick={onManageUsers}>Manage users</button>}{' '}
         <button onClick={onLogout}>Sign out</button>

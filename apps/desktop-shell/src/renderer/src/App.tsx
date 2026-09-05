@@ -10,7 +10,11 @@ import { SetNewPasswordScreen } from './screens/SetNewPasswordScreen';
 import { DashboardScreen } from './screens/DashboardScreen';
 import { ManageUsersScreen } from './screens/ManageUsersScreen';
 import { ChartOfAccountsScreen } from './screens/ChartOfAccountsScreen';
-import { NewVoucherScreen } from './screens/NewVoucherScreen';
+import { JournalVoucherScreen } from './screens/JournalVoucherScreen';
+import { PaymentVoucherScreen } from './screens/PaymentVoucherScreen';
+import { ReceiptVoucherScreen } from './screens/ReceiptVoucherScreen';
+import { ContraVoucherScreen } from './screens/ContraVoucherScreen';
+import { VoucherRegisterScreen } from './screens/VoucherRegisterScreen';
 import { TrialBalanceScreen } from './screens/TrialBalanceScreen';
 import { ProfitAndLossScreen } from './screens/ProfitAndLossScreen';
 import { BalanceSheetScreen } from './screens/BalanceSheetScreen';
@@ -27,7 +31,11 @@ type View =
   | { name: 'dashboard' }
   | { name: 'manageUsers' }
   | { name: 'chartOfAccounts' }
-  | { name: 'newVoucher' }
+  | { name: 'journalVoucher' }
+  | { name: 'paymentVoucher' }
+  | { name: 'receiptVoucher' }
+  | { name: 'contraVoucher' }
+  | { name: 'voucherRegister' }
   | { name: 'trialBalance' }
   | { name: 'profitAndLoss' }
   | { name: 'balanceSheet' };
@@ -159,8 +167,24 @@ export function App() {
     return <ChartOfAccountsScreen session={session!} onBack={() => setView({ name: 'dashboard' })} />;
   }
 
-  if (view.name === 'newVoucher') {
-    return <NewVoucherScreen onCreated={() => setView({ name: 'dashboard' })} onBack={() => setView({ name: 'dashboard' })} />;
+  if (view.name === 'journalVoucher') {
+    return <JournalVoucherScreen onCreated={() => setView({ name: 'dashboard' })} onBack={() => setView({ name: 'dashboard' })} />;
+  }
+
+  if (view.name === 'paymentVoucher') {
+    return <PaymentVoucherScreen onCreated={() => setView({ name: 'dashboard' })} onBack={() => setView({ name: 'dashboard' })} />;
+  }
+
+  if (view.name === 'receiptVoucher') {
+    return <ReceiptVoucherScreen onCreated={() => setView({ name: 'dashboard' })} onBack={() => setView({ name: 'dashboard' })} />;
+  }
+
+  if (view.name === 'contraVoucher') {
+    return <ContraVoucherScreen onCreated={() => setView({ name: 'dashboard' })} onBack={() => setView({ name: 'dashboard' })} />;
+  }
+
+  if (view.name === 'voucherRegister') {
+    return <VoucherRegisterScreen session={session!} onBack={() => setView({ name: 'dashboard' })} />;
   }
 
   if (view.name === 'trialBalance') {
@@ -180,7 +204,11 @@ export function App() {
       session={session!}
       onManageUsers={() => setView({ name: 'manageUsers' })}
       onChartOfAccounts={() => setView({ name: 'chartOfAccounts' })}
-      onNewVoucher={() => setView({ name: 'newVoucher' })}
+      onJournalVoucher={() => setView({ name: 'journalVoucher' })}
+      onPaymentVoucher={() => setView({ name: 'paymentVoucher' })}
+      onReceiptVoucher={() => setView({ name: 'receiptVoucher' })}
+      onContraVoucher={() => setView({ name: 'contraVoucher' })}
+      onVoucherRegister={() => setView({ name: 'voucherRegister' })}
       onTrialBalance={() => setView({ name: 'trialBalance' })}
       onProfitAndLoss={() => setView({ name: 'profitAndLoss' })}
       onBalanceSheet={() => setView({ name: 'balanceSheet' })}
