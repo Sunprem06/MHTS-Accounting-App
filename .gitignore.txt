@@ -1,0 +1,10 @@
+node_modules/
+dist/
+build/
+out/
+.env
+*.db
+*.sqlite
+*.sqlite3
+.DS_Store
+*.log
