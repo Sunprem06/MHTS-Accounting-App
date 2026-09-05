@@ -1,0 +1,17 @@
+{
+  "name": "core-identity",
+  "sourceRoot": "packages/core-identity/src",
+  "projectType": "library",
+  "tags": ["type:core"],
+  "targets": {
+    "build": {
+      "executor": "@nx/js:tsc",
+      "outputs": ["{options.outputPath}"],
+      "options": {
+        "outputPath": "dist/packages/core-identity",
+        "main": "packages/core-identity/src/index.ts",
+        "tsConfig": "packages/core-identity/tsconfig.json"
+      }
+    }
+  }
+}
