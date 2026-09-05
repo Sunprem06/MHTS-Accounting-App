@@ -1,0 +1,17 @@
+{
+  "name": "core-payroll-engine",
+  "sourceRoot": "packages/core-payroll-engine/src",
+  "projectType": "library",
+  "tags": ["type:core"],
+  "targets": {
+    "build": {
+      "executor": "@nx/js:tsc",
+      "outputs": ["{options.outputPath}"],
+      "options": {
+        "outputPath": "dist/packages/core-payroll-engine",
+        "main": "packages/core-payroll-engine/src/index.ts",
+        "tsConfig": "packages/core-payroll-engine/tsconfig.json"
+      }
+    }
+  }
+}

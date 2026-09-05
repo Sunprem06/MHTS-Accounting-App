@@ -1,0 +1,7 @@
+{
+  "name": "print-templates",
+  "sourceRoot": "apps/print-templates/src",
+  "projectType": "application",
+  "tags": ["type:app"],
+  "targets": {}
+}

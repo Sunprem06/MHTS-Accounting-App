@@ -1,0 +1,7 @@
+{
+  "name": "desktop-shell",
+  "sourceRoot": "apps/desktop-shell/src",
+  "projectType": "application",
+  "tags": ["type:app"],
+  "targets": {}
+}

@@ -1,0 +1,17 @@
+{
+  "name": "core-rules-engine",
+  "sourceRoot": "packages/core-rules-engine/src",
+  "projectType": "library",
+  "tags": ["type:core"],
+  "targets": {
+    "build": {
+      "executor": "@nx/js:tsc",
+      "outputs": ["{options.outputPath}"],
+      "options": {
+        "outputPath": "dist/packages/core-rules-engine",
+        "main": "packages/core-rules-engine/src/index.ts",
+        "tsConfig": "packages/core-rules-engine/tsconfig.json"
+      }
+    }
+  }
+}
