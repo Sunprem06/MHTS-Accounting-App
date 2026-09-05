@@ -1,0 +1,6 @@
+{
+  "name": "@mhts/print-templates",
+  "version": "0.0.0",
+  "private": true,
+  "main": "src/index.ts"
+}

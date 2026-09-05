@@ -1,0 +1,17 @@
+{
+  "name": "core-gst-engine",
+  "sourceRoot": "packages/core-gst-engine/src",
+  "projectType": "library",
+  "tags": ["type:core"],
+  "targets": {
+    "build": {
+      "executor": "@nx/js:tsc",
+      "outputs": ["{options.outputPath}"],
+      "options": {
+        "outputPath": "dist/packages/core-gst-engine",
+        "main": "packages/core-gst-engine/src/index.ts",
+        "tsConfig": "packages/core-gst-engine/tsconfig.json"
+      }
+    }
+  }
+}

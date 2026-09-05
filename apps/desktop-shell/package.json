@@ -1,0 +1,15 @@
+{
+  "name": "@mhts/desktop-shell",
+  "version": "0.0.0",
+  "private": true,
+  "main": "src/index.ts",
+  "dependencies": {
+    "@mhts/core-accounting": "*",
+    "@mhts/core-gst-engine": "*",
+    "@mhts/core-inventory": "*",
+    "@mhts/core-payroll-engine": "*",
+    "@mhts/core-rules-engine": "*",
+    "@mhts/db-schema": "*",
+    "@mhts/shared-types": "*"
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "name": "core-accounting",
+  "sourceRoot": "packages/core-accounting/src",
+  "projectType": "library",
+  "tags": ["type:core"],
+  "targets": {
+    "build": {
+      "executor": "@nx/js:tsc",
+      "outputs": ["{options.outputPath}"],
+      "options": {
+        "outputPath": "dist/packages/core-accounting",
+        "main": "packages/core-accounting/src/index.ts",
+        "tsConfig": "packages/core-accounting/tsconfig.json"
+      }
+    }
+  }
+}

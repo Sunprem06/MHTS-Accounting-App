@@ -1,0 +1,26 @@
+{
+  "compileOnSave": false,
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "lib": ["ES2022"],
+    "strict": true,
+    "declaration": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "baseUrl": ".",
+    "paths": {
+      "@mhts/core-accounting": ["packages/core-accounting/src/index.ts"],
+      "@mhts/core-gst-engine": ["packages/core-gst-engine/src/index.ts"],
+      "@mhts/core-payroll-engine": ["packages/core-payroll-engine/src/index.ts"],
+      "@mhts/core-inventory": ["packages/core-inventory/src/index.ts"],
+      "@mhts/core-rules-engine": ["packages/core-rules-engine/src/index.ts"],
+      "@mhts/db-schema": ["packages/db-schema/src/index.ts"],
+      "@mhts/shared-types": ["packages/shared-types/src/index.ts"]
+    }
+  },
+  "exclude": ["node_modules", "tmp", "dist"]
+}

@@ -1,0 +1,17 @@
+{
+  "name": "core-inventory",
+  "sourceRoot": "packages/core-inventory/src",
+  "projectType": "library",
+  "tags": ["type:core"],
+  "targets": {
+    "build": {
+      "executor": "@nx/js:tsc",
+      "outputs": ["{options.outputPath}"],
+      "options": {
+        "outputPath": "dist/packages/core-inventory",
+        "main": "packages/core-inventory/src/index.ts",
+        "tsConfig": "packages/core-inventory/tsconfig.json"
+      }
+    }
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "name": "db-schema",
+  "sourceRoot": "packages/db-schema/src",
+  "projectType": "library",
+  "tags": ["type:db"],
+  "targets": {
+    "build": {
+      "executor": "@nx/js:tsc",
+      "outputs": ["{options.outputPath}"],
+      "options": {
+        "outputPath": "dist/packages/db-schema",
+        "main": "packages/db-schema/src/index.ts",
+        "tsConfig": "packages/db-schema/tsconfig.json"
+      }
+    }
+  }
+}

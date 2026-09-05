@@ -32,7 +32,7 @@ This means: if you migrate the shell to Tauri in 18 months, or spin up a cloud/w
 
 **Database:** SQLite (`better-sqlite3`, WAL mode) — one **encrypted** database file per company (via SQLCipher), giving you hard tenant isolation for free (Section 6's "never leak data between companies" becomes a filesystem-level guarantee, not just an application-level check).
 
-**Migrations/ORM:** Prisma (TypeScript-native, built-in migration versioning — satisfies Section 78 directly). Flag for a Phase 0 spike: validate Prisma + SQLCipher compatibility; fall back to Kysely + a custom migration runner if it's limiting.
+**Migrations/ORM:** ~~Prisma~~ — **Kysely + `better-sqlite3-multiple-ciphers` + Kysely's built-in `Migrator`**. The Phase 0 spike (2026-09-05) confirmed Prisma is not viable here: `@prisma/adapter-better-sqlite3` hardcodes `require('better-sqlite3')` internally and never applies a `PRAGMA key` before its first query, so it cannot open a SQLCipher-encrypted file — this is true for both the legacy Rust query engine and the current driver-adapter model. Kysely, by contrast, accepts any pre-opened, already-keyed `better-sqlite3`-compatible connection via `SqliteDialect`, which works cleanly with `better-sqlite3-multiple-ciphers` (the actively-maintained, SQLCipher-compatible fork — real Zetetic SQLCipher needs OpenSSL linking and isn't realistically npm-installable cross-platform). See Phase Tracker Key Decisions Log.
 
 **Printing:** Electron's native print + `pdfmake`/`puppeteer-print` for templated PDF generation → OS print dialog. No proprietary driver, satisfying Section 53.
 
@@ -95,26 +95,31 @@ Team baseline: 1 architect/lead + 2–4 full-stack engineers + 1 part-time CA/co
 
 ---
 
-## 6. Repository Structure (monorepo, Nx or Turborepo)
+## 6. Repository Structure (monorepo — **Nx**, decided 2026-09-05)
+
+Nx over Turborepo: its `@nx/enforce-module-boundaries` ESLint rule encodes Rule #1 (business logic has zero Electron/UI dependency) as a lint failure via project tags, not just a documented convention — a good fit given this codebase doubles as KoodaldigiXS teaching material with trainees assigned isolated `core-*` packages.
 
 ```
 mhts-erp/
 ├── packages/
-│   ├── core-accounting/      # pure TS, zero UI deps
-│   ├── core-gst-engine/      # pure TS, rules-driven
-│   ├── core-payroll-engine/  # pure TS, rules-driven
-│   ├── core-inventory/       # pure TS
-│   ├── db-schema/            # Prisma schema + migrations
-│   └── shared-types/
+│   ├── core-accounting/       # type:core — pure TS, zero UI deps
+│   ├── core-gst-engine/       # type:core — pure TS, rules-driven
+│   ├── core-payroll-engine/   # type:core — pure TS, rules-driven
+│   ├── core-inventory/        # type:core — pure TS
+│   ├── core-rules-engine/     # type:core — shared RuleSet resolution service (Section 3)
+│   ├── db-schema/             # type:db — Kysely schema + migrations, two-tier: system/ + company/
+│   └── shared-types/          # type:shared
 ├── apps/
-│   ├── desktop-shell/        # Electron + React + TS
-│   └── print-templates/
+│   ├── desktop-shell/         # type:app — Electron + React + TS
+│   └── print-templates/       # type:app
 ├── docs/
 │   └── compliance-checklist.md   # living doc, ties to Section 4 above
 └── curriculum/                    # KoodaldigiXS mapping — see Section 7
 ```
 
 Each `packages/core-*` maps 1:1 to a service boundary from the original spec (Section 4) — this is deliberate: it's both good architecture and a clean curriculum module boundary.
+
+**DB architecture is two-tier**, per Rule #3: a single **System DB** (company registry, login identities, cross-company access grants, and the shared GST/Payroll `RuleSet` reference data — the deliberate exception to "no cross-company tables," since it's the registry, not business data) plus one **Company DB** per company (company-scoped Role/Permission, and that company's own append-only AuditLog). See `packages/db-schema/src/{system,company}`.
 
 ---
 

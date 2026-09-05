@@ -1,0 +1,26 @@
+{
+  "name": "mhts-erp",
+  "version": "0.0.0",
+  "private": true,
+  "license": "UNLICENSED",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "nx run-many -t build",
+    "test": "nx run-many -t test",
+    "lint": "nx run-many -t lint",
+    "graph": "nx graph"
+  },
+  "devDependencies": {
+    "@nx/eslint": "23.2.0",
+    "@nx/eslint-plugin": "23.2.0",
+    "@nx/js": "23.2.0",
+    "@typescript-eslint/eslint-plugin": "^8.0.0",
+    "@typescript-eslint/parser": "^8.0.0",
+    "eslint": "^9.0.0",
+    "nx": "23.2.0",
+    "typescript": "^5.7.0"
+  }
+}

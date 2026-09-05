@@ -8,3 +8,5 @@ out/
 *.sqlite3
 .DS_Store
 *.log
+.nx/cache
+.nx/workspace-data
