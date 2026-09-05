@@ -12,6 +12,8 @@ import { ManageUsersScreen } from './screens/ManageUsersScreen';
 import { ChartOfAccountsScreen } from './screens/ChartOfAccountsScreen';
 import { NewVoucherScreen } from './screens/NewVoucherScreen';
 import { TrialBalanceScreen } from './screens/TrialBalanceScreen';
+import { ProfitAndLossScreen } from './screens/ProfitAndLossScreen';
+import { BalanceSheetScreen } from './screens/BalanceSheetScreen';
 
 type View =
   | { name: 'loading' }
@@ -26,7 +28,9 @@ type View =
   | { name: 'manageUsers' }
   | { name: 'chartOfAccounts' }
   | { name: 'newVoucher' }
-  | { name: 'trialBalance' };
+  | { name: 'trialBalance' }
+  | { name: 'profitAndLoss' }
+  | { name: 'balanceSheet' };
 
 export function App() {
   const [view, setView] = useState<View>({ name: 'loading' });
@@ -163,6 +167,14 @@ export function App() {
     return <TrialBalanceScreen onBack={() => setView({ name: 'dashboard' })} />;
   }
 
+  if (view.name === 'profitAndLoss') {
+    return <ProfitAndLossScreen onBack={() => setView({ name: 'dashboard' })} />;
+  }
+
+  if (view.name === 'balanceSheet') {
+    return <BalanceSheetScreen onBack={() => setView({ name: 'dashboard' })} />;
+  }
+
   return (
     <DashboardScreen
       session={session!}
@@ -170,6 +182,8 @@ export function App() {
       onChartOfAccounts={() => setView({ name: 'chartOfAccounts' })}
       onNewVoucher={() => setView({ name: 'newVoucher' })}
       onTrialBalance={() => setView({ name: 'trialBalance' })}
+      onProfitAndLoss={() => setView({ name: 'profitAndLoss' })}
+      onBalanceSheet={() => setView({ name: 'balanceSheet' })}
       onLogout={async () => {
         await window.mhts.logout();
         setSession(null);

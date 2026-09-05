@@ -4,6 +4,7 @@ import {
   type AccountGroupSummary,
   type AdminResetPasswordInput,
   type AdminResetPasswordResult,
+  type BalanceSheetResult,
   type ChangePasswordInput,
   type CompanySummary,
   type CompanyUserSummary,
@@ -15,6 +16,8 @@ import {
   type LedgerAccountSummary,
   type LoginInput,
   type LoginResult,
+  type ProfitAndLossInput,
+  type ProfitAndLossResult,
   type ResetPasswordInput,
   type SessionInfo,
   type TrialBalanceResult,
@@ -39,6 +42,10 @@ const api = {
   createLedger: (input: CreateLedgerInput): Promise<IpcResult<string>> => ipcRenderer.invoke(IPC.CREATE_LEDGER, input),
   createVoucher: (input: CreateVoucherInput): Promise<IpcResult<string>> => ipcRenderer.invoke(IPC.CREATE_VOUCHER, input),
   getTrialBalance: (): Promise<IpcResult<TrialBalanceResult>> => ipcRenderer.invoke(IPC.GET_TRIAL_BALANCE),
+  getProfitAndLoss: (input: ProfitAndLossInput): Promise<IpcResult<ProfitAndLossResult>> =>
+    ipcRenderer.invoke(IPC.GET_PROFIT_AND_LOSS, input),
+  getBalanceSheet: (asOfDate: string): Promise<IpcResult<BalanceSheetResult>> =>
+    ipcRenderer.invoke(IPC.GET_BALANCE_SHEET, asOfDate),
 };
 
 export type MhtsApi = typeof api;

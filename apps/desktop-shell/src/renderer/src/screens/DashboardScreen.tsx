@@ -7,6 +7,8 @@ interface Props {
   onChartOfAccounts: () => void;
   onNewVoucher: () => void;
   onTrialBalance: () => void;
+  onProfitAndLoss: () => void;
+  onBalanceSheet: () => void;
 }
 
 export function DashboardScreen({
@@ -16,6 +18,8 @@ export function DashboardScreen({
   onChartOfAccounts,
   onNewVoucher,
   onTrialBalance,
+  onProfitAndLoss,
+  onBalanceSheet,
 }: Props) {
   return (
     <div style={{ padding: 24, fontFamily: 'sans-serif', maxWidth: 480 }}>
@@ -37,6 +41,8 @@ export function DashboardScreen({
           <>
             <button onClick={onChartOfAccounts}>Chart of accounts</button>{' '}
             <button onClick={onTrialBalance}>Trial balance</button>{' '}
+            <button onClick={onProfitAndLoss}>Profit &amp; Loss</button>{' '}
+            <button onClick={onBalanceSheet}>Balance sheet</button>{' '}
           </>
         )}
         {session.permissions.includes('ACCOUNTING.CREATE_VOUCHER') && <button onClick={onNewVoucher}>New voucher</button>}

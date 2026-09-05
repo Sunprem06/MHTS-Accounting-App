@@ -131,6 +131,46 @@ export interface TrialBalanceResult {
   totalCredit: number;
 }
 
+export interface ProfitAndLossRow {
+  ledgerId: string;
+  ledgerName: string;
+  groupName: string;
+  /** Rupees. Positive = income earned / expense incurred. */
+  amount: number;
+}
+
+export interface ProfitAndLossInput {
+  fromDate: string;
+  toDate: string;
+}
+
+export interface ProfitAndLossResult {
+  incomeRows: ProfitAndLossRow[];
+  expenseRows: ProfitAndLossRow[];
+  totalIncome: number;
+  totalExpense: number;
+  netProfit: number;
+}
+
+export interface BalanceSheetRow {
+  ledgerId: string;
+  ledgerName: string;
+  groupName: string;
+  nature: AccountNature;
+  /** Rupees. Debit-positive for ASSET rows, credit-positive for LIABILITY/EQUITY rows. */
+  amount: number;
+}
+
+export interface BalanceSheetResult {
+  asOfDate: string;
+  assetRows: BalanceSheetRow[];
+  liabilityRows: BalanceSheetRow[];
+  equityRows: BalanceSheetRow[];
+  currentEarnings: number;
+  totalAssets: number;
+  totalLiabilitiesAndEquity: number;
+}
+
 export interface SessionInfo {
   userId: string;
   userName: string;
@@ -163,4 +203,6 @@ export const IPC = {
   CREATE_LEDGER: 'accounting:createLedger',
   CREATE_VOUCHER: 'accounting:createVoucher',
   GET_TRIAL_BALANCE: 'accounting:getTrialBalance',
+  GET_PROFIT_AND_LOSS: 'accounting:getProfitAndLoss',
+  GET_BALANCE_SHEET: 'accounting:getBalanceSheet',
 } as const;
