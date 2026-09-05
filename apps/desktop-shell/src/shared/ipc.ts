@@ -69,6 +69,68 @@ export interface CompanyUserSummary {
   roleName: string;
 }
 
+export type AccountNature = 'ASSET' | 'LIABILITY' | 'EQUITY' | 'INCOME' | 'EXPENSE';
+export type BalanceSide = 'DEBIT' | 'CREDIT';
+export type VoucherType = 'JOURNAL' | 'PAYMENT' | 'RECEIPT' | 'CONTRA';
+
+export interface AccountGroupSummary {
+  id: string;
+  name: string;
+  parentGroupId: string | null;
+  nature: AccountNature;
+  isSystemGroup: boolean;
+}
+
+export interface LedgerAccountSummary {
+  id: string;
+  name: string;
+  groupId: string;
+  groupName: string;
+  nature: AccountNature;
+  openingBalance: number;
+  openingBalanceSide: BalanceSide;
+  isSystemLedger: boolean;
+}
+
+export interface CreateLedgerInput {
+  name: string;
+  groupId: string;
+  /** Rupees, as typed by the user — converted to paise at the IPC boundary. */
+  openingBalanceRupees: number;
+  openingBalanceSide: BalanceSide;
+}
+
+export interface VoucherLineInput {
+  ledgerId: string;
+  /** Rupees, as typed by the user — converted to paise at the IPC boundary. Exactly one of debit/credit per line. */
+  debitRupees: number;
+  creditRupees: number;
+  lineNarration?: string;
+}
+
+export interface CreateVoucherInput {
+  voucherType: VoucherType;
+  voucherDate: string;
+  narration?: string;
+  lines: VoucherLineInput[];
+}
+
+export interface TrialBalanceRow {
+  ledgerId: string;
+  ledgerName: string;
+  groupName: string;
+  nature: AccountNature;
+  /** Rupees, for display. */
+  debitBalance: number;
+  creditBalance: number;
+}
+
+export interface TrialBalanceResult {
+  rows: TrialBalanceRow[];
+  totalDebit: number;
+  totalCredit: number;
+}
+
 export interface SessionInfo {
   userId: string;
   userName: string;
@@ -96,4 +158,9 @@ export const IPC = {
   CHANGE_PASSWORD: 'auth:changePassword',
   RESET_PASSWORD: 'auth:resetPassword',
   ADMIN_RESET_PASSWORD: 'auth:adminResetPassword',
+  LIST_ACCOUNT_GROUPS: 'accounting:listAccountGroups',
+  LIST_LEDGERS: 'accounting:listLedgers',
+  CREATE_LEDGER: 'accounting:createLedger',
+  CREATE_VOUCHER: 'accounting:createVoucher',
+  GET_TRIAL_BALANCE: 'accounting:getTrialBalance',
 } as const;

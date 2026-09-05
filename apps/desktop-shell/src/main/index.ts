@@ -10,6 +10,7 @@ import {
   adminResetPassword,
   listCompanyUsers,
 } from './handlers';
+import { listAccountGroups, listLedgers, createLedger, createVoucher, getTrialBalance } from './accountingHandlers';
 import { session } from './session';
 import {
   IPC,
@@ -17,6 +18,8 @@ import {
   type AdminResetPasswordInput,
   type ChangePasswordInput,
   type CreateCompanyInput,
+  type CreateLedgerInput,
+  type CreateVoucherInput,
   type LoginInput,
   type ResetPasswordInput,
 } from '../shared/ipc';
@@ -58,6 +61,12 @@ async function bootstrap(): Promise<void> {
     await session.clear();
   });
   handle(IPC.GET_SESSION, async () => session.get());
+
+  handle(IPC.LIST_ACCOUNT_GROUPS, () => listAccountGroups());
+  handle(IPC.LIST_LEDGERS, () => listLedgers());
+  handleWithArg(IPC.CREATE_LEDGER, (input: CreateLedgerInput) => createLedger(input));
+  handleWithArg(IPC.CREATE_VOUCHER, (input: CreateVoucherInput) => createVoucher(systemDb, input));
+  handle(IPC.GET_TRIAL_BALANCE, () => getTrialBalance());
 
   createWindow();
 }

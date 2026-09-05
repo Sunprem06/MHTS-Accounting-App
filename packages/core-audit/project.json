@@ -1,0 +1,17 @@
+{
+  "name": "core-audit",
+  "sourceRoot": "packages/core-audit/src",
+  "projectType": "library",
+  "tags": ["type:core"],
+  "targets": {
+    "build": {
+      "executor": "@nx/js:tsc",
+      "outputs": ["{options.outputPath}"],
+      "options": {
+        "outputPath": "dist/packages/core-audit",
+        "main": "packages/core-audit/src/index.ts",
+        "tsConfig": "packages/core-audit/tsconfig.json"
+      }
+    }
+  }
+}

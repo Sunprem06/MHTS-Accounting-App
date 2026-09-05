@@ -1,6 +1,7 @@
 import { contextBridge, ipcRenderer } from 'electron';
 import {
   IPC,
+  type AccountGroupSummary,
   type AdminResetPasswordInput,
   type AdminResetPasswordResult,
   type ChangePasswordInput,
@@ -8,11 +9,15 @@ import {
   type CompanyUserSummary,
   type CreateCompanyInput,
   type CreateCompanyResult,
+  type CreateLedgerInput,
+  type CreateVoucherInput,
   type IpcResult,
+  type LedgerAccountSummary,
   type LoginInput,
   type LoginResult,
   type ResetPasswordInput,
   type SessionInfo,
+  type TrialBalanceResult,
 } from '../shared/ipc';
 
 const api = {
@@ -29,6 +34,11 @@ const api = {
     ipcRenderer.invoke(IPC.ADMIN_RESET_PASSWORD, input),
   logout: (): Promise<IpcResult<void>> => ipcRenderer.invoke(IPC.LOGOUT),
   getSession: (): Promise<IpcResult<SessionInfo | null>> => ipcRenderer.invoke(IPC.GET_SESSION),
+  listAccountGroups: (): Promise<IpcResult<AccountGroupSummary[]>> => ipcRenderer.invoke(IPC.LIST_ACCOUNT_GROUPS),
+  listLedgers: (): Promise<IpcResult<LedgerAccountSummary[]>> => ipcRenderer.invoke(IPC.LIST_LEDGERS),
+  createLedger: (input: CreateLedgerInput): Promise<IpcResult<string>> => ipcRenderer.invoke(IPC.CREATE_LEDGER, input),
+  createVoucher: (input: CreateVoucherInput): Promise<IpcResult<string>> => ipcRenderer.invoke(IPC.CREATE_VOUCHER, input),
+  getTrialBalance: (): Promise<IpcResult<TrialBalanceResult>> => ipcRenderer.invoke(IPC.GET_TRIAL_BALANCE),
 };
 
 export type MhtsApi = typeof api;

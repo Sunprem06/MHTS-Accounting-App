@@ -9,6 +9,9 @@ import { ForgotPasswordScreen } from './screens/ForgotPasswordScreen';
 import { SetNewPasswordScreen } from './screens/SetNewPasswordScreen';
 import { DashboardScreen } from './screens/DashboardScreen';
 import { ManageUsersScreen } from './screens/ManageUsersScreen';
+import { ChartOfAccountsScreen } from './screens/ChartOfAccountsScreen';
+import { NewVoucherScreen } from './screens/NewVoucherScreen';
+import { TrialBalanceScreen } from './screens/TrialBalanceScreen';
 
 type View =
   | { name: 'loading' }
@@ -20,7 +23,10 @@ type View =
   | { name: 'forgotPassword'; company: CompanySummary }
   | { name: 'setNewPassword'; company: CompanySummary }
   | { name: 'dashboard' }
-  | { name: 'manageUsers' };
+  | { name: 'manageUsers' }
+  | { name: 'chartOfAccounts' }
+  | { name: 'newVoucher' }
+  | { name: 'trialBalance' };
 
 export function App() {
   const [view, setView] = useState<View>({ name: 'loading' });
@@ -145,10 +151,25 @@ export function App() {
     return <ManageUsersScreen session={session!} onBack={() => setView({ name: 'dashboard' })} />;
   }
 
+  if (view.name === 'chartOfAccounts') {
+    return <ChartOfAccountsScreen session={session!} onBack={() => setView({ name: 'dashboard' })} />;
+  }
+
+  if (view.name === 'newVoucher') {
+    return <NewVoucherScreen onCreated={() => setView({ name: 'dashboard' })} onBack={() => setView({ name: 'dashboard' })} />;
+  }
+
+  if (view.name === 'trialBalance') {
+    return <TrialBalanceScreen onBack={() => setView({ name: 'dashboard' })} />;
+  }
+
   return (
     <DashboardScreen
       session={session!}
       onManageUsers={() => setView({ name: 'manageUsers' })}
+      onChartOfAccounts={() => setView({ name: 'chartOfAccounts' })}
+      onNewVoucher={() => setView({ name: 'newVoucher' })}
+      onTrialBalance={() => setView({ name: 'trialBalance' })}
       onLogout={async () => {
         await window.mhts.logout();
         setSession(null);
