@@ -16,6 +16,7 @@ import {
   seedAdminRole,
   resolvePermissions,
 } from '@mhts/core-identity';
+import { seedChartOfAccounts, grantAccountingPermissions } from '@mhts/core-accounting';
 import type { AppPaths } from './db';
 import { companyDbFilePath, createAndMigrateCompanyDb, openExistingCompanyDb } from './db';
 import { session } from './session';
@@ -94,6 +95,8 @@ export async function createCompany(
 
   const companyDb = await createAndMigrateCompanyDb(filePath, dek);
   const adminRoleId = await seedAdminRole(companyDb);
+  await grantAccountingPermissions(companyDb, adminRoleId);
+  await seedChartOfAccounts(companyDb);
   await companyDb.destroy();
 
   await systemDb

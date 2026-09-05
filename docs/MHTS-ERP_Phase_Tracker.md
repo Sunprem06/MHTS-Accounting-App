@@ -19,7 +19,7 @@ Then paste the latest entry from the **Session Handoff Log** (Section 4 of this 
 | # | Phase | Scope | Status | Owner | Notes |
 |---|---|---|---|---|---|
 | 0 | Foundation | Shell, DB, auth, RBAC, audit trail, backup framework, theme, license/white-label plumbing | 🟨 In progress | | Electron+React shell (real packaged app relaunch-verified, not just build-verified) with a real IPC boundary; multi-company creation, per-company login credentials, offline account lockout, offline Super Admin password reset, and recovery-key-based recovery, all verified end-to-end against real encrypted files. Backup framework, theme engine, and license/white-label plumbing still pending. |
-| 1 | Accounting Core | Chart of accounts, ledgers, vouchers, double-entry, TB/P&L/BS | ⬜ Not started | | |
+| 1 | Accounting Core | Chart of accounts, ledgers, vouchers, double-entry, TB/P&L/BS | 🟨 In progress | | First increment done + verified end-to-end: default Chart of Accounts seeded per company, ledger creation, double-entry voucher engine (unbalanced/malformed entries impossible), Trial Balance report, all with a real UI and wired into the append-only audit log. P&L/BS reports, Payment/Receipt/Contra-specific UX, and voucher edit/cancellation still pending. |
 | 2 | Sales + Purchase | Customers, suppliers, invoices, receivables/payables, vendor TDS, 43B(h) flag | ⬜ Not started | | |
 | 3 | Inventory | Items, units, warehouses, batches, valuation | ⬜ Not started | | |
 | 4 | GST Engine | Rules engine, HSN/SAC, ITC, GSTR-1/3B/9/9C prep | ⬜ Not started | | ⚠️ Re-verify current GST slab rules before starting |
@@ -59,6 +59,9 @@ Record every architectural or business decision here the moment it's made, so it
 | 2026-09-05 | **Offline Super Admin password reset**: any role holding the new `SYSTEM.RESET_USER_PASSWORD` permission can, while logged in, reset another user's password for *that* company — no internet, no recovery key needed. Mechanically: the acting session now also holds the raw unwrapped Company DEK in main-process memory (`SessionManager.dek`, never sent over IPC), which is used to re-wrap the DEK for the target user under a freshly server-generated temporary password (never admin-typed, to avoid weak/reused temp passwords). The target's `must_change_password` flag forces them through a real password change (`changePassword` IPC) before a session is established — `login` still verifies the temp password and unwraps the DEK either way, so it never leaks "this account needs a reset" for free to a wrong guess. | Holding the raw DEK in session memory doesn't weaken anything: SQLCipher already keeps the derived key resident for the life of the open `companyDb` connection, so this isn't exposing key material that wasn't already effectively live. A `RESET_USER_PASSWORD` holder is explicitly barred from targeting their own account (must use "Change password" or the recovery key instead) — resetting your own password via your own still-valid session would be a confusing, unnecessary code path. Verified end-to-end: temp password forces `mustChangePassword`, old temp password stops working the moment `changePassword` completes, new self-chosen password works, and the guard against self-targeting is enforced. | 0 |
 | 2026-09-05 | **Account lockout**: configurable via a new singleton `security_policy` row (system DB) — `max_failed_attempts` (default 5), `lockout_duration_seconds` (default 900), `backoff_base_seconds` (default 2, doubling per attempt: 2s/4s/8s/16s...). Lockout *state* (`failed_login_count`, `locked_until`, `last_failed_attempt_at`) lives per `company_access` row, not globally — consistent with passwords now being per-company. No CAPTCHA. | CAPTCHA is both inappropriate for an offline desktop app's UX and, per the user, typically requires internet to verify anyway — defeating the point. Thresholds are DB-configurable specifically so they never need a code change to retune (mirrors the "rules as data" instinct from Rule #2, applied here to a security policy rather than GST/payroll). Verified end-to-end (with the test tuning `max_failed_attempts`/`backoff_base_seconds` down via the *same* configurable row, not a separate code path): repeated wrong passwords lock the account (even the correct password is then refused), and a successful login after the lockout window clears all lockout state. | 0 |
 | 2026-09-05 | Solo-admin "forgot password" routing shows **both** recovery options unconditionally (ask an admin / use the recovery key), rather than trying to detect whether another admin exists before login. | Originally proposed a pre-auth `hasResetCapableAdmins` check; caught before implementing that it can't work — role/permission data lives inside the encrypted Company DB, which nothing can open pre-login. Rather than build a denormalized permission-mirror into the System DB (real sync-maintenance debt once role editing exists in a later phase, for a minor UX nicety), the "ask an admin" instruction panel itself carries an explicit "use your recovery key instead" escape hatch — simpler, no new schema, and still never dead-ends the user, which was the actual requirement. | 0 |
+| 2026-09-05 | **Phase 1 kicked off**, scoped to a first increment (not the full 8–10-week phase): default Chart of Accounts seeded per company (`account_group`/`ledger_account`, migration 002), a double-entry `voucher`/`voucher_line` engine (migration 003), and a Trial Balance report. All amounts are stored as **integers in paise**, never REAL/float, everywhere in the schema and in `@mhts/core-accounting` — the standard fix for floating-point rounding bugs in financial software, decided once before any ledger data existed rather than migrated later. | Matches the Blueprint's Phase 1 exit criterion verbatim: "Assets = Liabilities + Equity enforced; unbalanced entries impossible" is now a real, tested code path (`createVoucher` validates every line has exactly one of a debit/credit, requires ≥2 lines, and requires total debits = total credits, inside one Kysely transaction — Rule #4 atomicity), not an aspiration. Deferred to a later Phase 1 pass, not this one: P&L/BS reports (need the same group-hierarchy rollup, better proven against real voucher data first), Payment/Receipt/Contra-specific UX (one generic double-entry form covers all four voucher types for now), and voucher edit/cancellation (correcting a mistake means posting a reversal voucher for now, consistent with the append-only audit philosophy already established in Phase 0 — a proper edit/cancel workflow is a fast-follow, not skipped). | 1 |
+| 2026-09-05 | New `@mhts/core-audit` package: the first real implementation of the "audit-writing service" that `company/types.ts`'s `AuditLogTable` comment anticipated in Phase 0 but never built (nothing had mutated business data yet). `writeAuditLog(companyDb, entry)` computes the SHA-256 hash chain in application code (reads the previous row's hash, hashes payload+prevHash+an explicitly-generated timestamp, inserts) and is designed to be called from inside the SAME Kysely transaction as the business write it's recording — `createVoucher` is the first caller. | Pulled out as its own `type:core` package rather than folded into `core-accounting` because every future business module (GST, payroll, inventory, sales/purchase) will need the identical write path — this is cross-cutting infra, not accounting-specific logic, and matches the existing pattern of one package per service boundary. The timestamp is generated in code and inserted explicitly rather than left to the column's `CURRENT_TIMESTAMP` default, because it has to be part of the hashed payload — a value the DB hasn't decided yet can't be hashed. Verified end-to-end: every successfully-posted voucher wrote exactly one real `audit_log` row (rejected/unbalanced attempts never reach the transaction, so they correctly write none), and the existing append-only trigger from Phase 0 still blocks `UPDATE`/`DELETE` on those rows. | 1 |
+| 2026-09-05 | Each business module (starting with `core-accounting`) **owns and grants its own RBAC permission codes** (e.g. `ACCOUNTING.MANAGE_CHART_OF_ACCOUNTS`, `ACCOUNTING.CREATE_VOUCHER`, `ACCOUNTING.VIEW_REPORTS`, via a `grantAccountingPermissions(companyDb, roleId)` called alongside `@mhts/core-identity`'s `seedAdminRole` at company creation) rather than `core-identity` maintaining one growing list for every module. | `core-identity`'s `FOUNDATION_PERMISSIONS` is explicitly scoped to Phase 0 system-level permissions (user/role/audit management) — piling every future module's permission codes into that one list would make `core-identity` a dependency magnet for every other `core-*` package, inverting the intended module boundary (identity/RBAC primitives should be upstream of business modules, not entangled with their specific permission sets). `resolvePermissions` already works generically (joins `role_permission`+`permission` by role id) regardless of which module inserted the rows, so no changes were needed there. | 1 |
 
 ---
 
@@ -75,6 +78,9 @@ Track anything unresolved so it surfaces automatically in the next session inste
 - [x] Password-reset / recovery gap — **done 2026-09-05, resolved in two parts: (1) company-wide recovery key at company creation, (2) offline Super Admin reset via a new `SYSTEM.RESET_USER_PASSWORD` permission** (see Key Decisions Log). Both paths now exist and are routed to from the login screen with no dead end either way.
 - [ ] Email/SMS OTP-based password reset — **deliberately deferred to a later phase, not abandoned** (see Key Decisions Log for the offline-first / cost / DLT-lead-time reasoning). Any Resend/Cloudflare/MSG91 accounts already created are on hold, unused.
 - [ ] There is no "invite a new user" flow yet — `listCompanyUsers`/`adminResetPassword` assume a `company_access` row already exists for the target (currently only created by `createCompany`'s admin bootstrap). Needed before Manage Users is actually usable for onboarding a second real person, not just resetting one.
+- [ ] Phase 1: P&L and Balance Sheet reports not built yet — Trial Balance only, this pass. Both need the same account-group hierarchy rollup (recursively summing a group's ledgers, including its sub-groups) — worth doing once there's real voucher data to test against, not before.
+- [ ] Phase 1: voucher edit/cancellation not built yet — correcting a mistake today means posting a manual reversal voucher. A real workflow (e.g. a "Cancel voucher" action that posts the exact reversing entries automatically, referencing the original) is deferred, not designed around some other approach that would need undoing.
+- [ ] Phase 1: `computeTrialBalance` does not require opening balances to net to zero across ledgers (only vouchers are forced to balance, via `createVoucher`). A business entering ad hoc opening balances that don't net out will see a Trial Balance that doesn't balance either — real accounting software absorbs this via an opening "Suspense"/equity adjustment ledger, which this pass doesn't build.
 
 ---
 
@@ -94,6 +100,87 @@ Next concrete step:
 ```
 
 ### Entries:
+```
+Date: 2026-09-05 (session 5)
+Phase: 1 — Accounting Core (kicked off; Phase 0 left at the state session 4
+  ended it — see the entry below for exactly what's still pending there)
+What was completed:
+  - Scoped and built a first increment of Phase 1, not the full 8-10 week
+    phase: default Chart of Accounts, a double-entry voucher engine, and a
+    Trial Balance report — matching the Blueprint's Phase 1 exit criterion
+    ("Assets = Liabilities + Equity enforced; unbalanced entries impossible")
+    as a real, tested code path rather than an aspiration.
+  - Foundational decision made before writing any schema: all amounts are
+    stored as integers in paise, never REAL/float, everywhere in the schema
+    and in the new @mhts/core-accounting package — avoids the classic
+    floating-point rounding bug in financial software, decided once now
+    rather than migrated later once real ledger data exists.
+  - db-schema company DB migrations 002 (account_group + ledger_account) and
+    003 (voucher + voucher_line, with a unique index enforcing sequential
+    numbering per voucher_type+financial_year).
+  - New @mhts/core-accounting package: seedChartOfAccounts (standard
+    Tally-familiar default groups + a default Cash ledger, seeded at company
+    creation), createLedgerAccount/listLedgerAccounts/listAccountGroups,
+    createVoucher (validates every line has exactly one of a debit/credit,
+    requires >=2 lines, requires total debits = total credits, inserts
+    header+lines+audit-log entry in ONE Kysely transaction per Rule #4),
+    computeTrialBalance, and computeFinancialYearLabel (derives '2026-27'
+    style labels from the company's financial_year_start_month).
+  - New @mhts/core-audit package: the first real implementation of the
+    "audit-writing service" that Phase 0's AuditLogTable comment anticipated
+    but nothing had actually built yet (nothing mutated business data until
+    now). writeAuditLog computes the SHA-256 hash chain in application code
+    and is meant to be called inside the same transaction as the business
+    write it records — createVoucher is its first caller. Pulled out as its
+    own package (not folded into core-accounting) since every future module
+    -- GST, payroll, inventory, sales/purchase -- will need the identical
+    write path.
+  - Established the pattern that each business module owns and grants its
+    own RBAC permission codes (ACCOUNTING.MANAGE_CHART_OF_ACCOUNTS /
+    CREATE_VOUCHER / VIEW_REPORTS, via grantAccountingPermissions called
+    alongside core-identity's seedAdminRole at company creation) rather than
+    core-identity accumulating every module's permissions in one list.
+  - Real (not fake) UI wired end to end: ChartOfAccountsScreen (list + add
+    ledger), NewVoucherScreen (dynamic lines, client-side balance check
+    mirroring the server-side one), TrialBalanceScreen, all reachable from
+    the Dashboard and gated on the new permissions. Money is entered/shown
+    in rupees in the UI; the rupee<->paise conversion happens once, at the
+    IPC boundary (apps/desktop-shell/src/main/accountingHandlers.ts), never
+    scattered through business logic.
+  - Verified end-to-end against real encrypted files (same throwaway-script
+    precedent as every prior session, calling the actual handler functions):
+    company creation seeds the expected default groups + Cash ledger; a
+    balanced RECEIPT voucher posts correctly; an unbalanced voucher is
+    rejected with a clear message; a line carrying both a debit AND a credit
+    is rejected; Trial Balance reflects the posted voucher with matching
+    totals; RECEIPT vouchers number sequentially (1, 2); every successfully-
+    posted voucher wrote exactly one real audit_log row and audit_log is
+    still append-only. Then cleared caches and relaunched the real packaged
+    app fresh (electron . against a rebuilt out/, isolated --user-data-dir)
+    — new system.db created cleanly, no crash.
+What's still pending in this phase: P&L and Balance Sheet reports (need the
+  same account-group hierarchy rollup, better proven against real voucher
+  data first); Payment/Receipt/Contra-specific UX (one generic double-entry
+  form covers all four voucher types today); voucher edit/cancellation
+  (correcting a mistake means posting a manual reversal voucher for now);
+  computeTrialBalance doesn't require opening balances to net to zero across
+  ledgers (only vouchers are forced to balance) — see Open Questions.
+Any decisions made (also add to Section 2): paise-not-float money
+  representation; Phase 1 scoped to a first increment; new core-audit
+  package and its transaction-scoped write pattern; each module owns its own
+  permission codes. All logged above with full reasoning.
+Any blockers (also add to Section 3): Team allocation, white-label/reseller
+  legal agreement, CA/compliance advisor retention — all still pending,
+  unchanged. Three new non-blocking Phase 1 open questions added (P&L/BS,
+  voucher edit/cancel, opening-balance netting) — see Section 3.
+Next concrete step: Either continue Phase 1 (P&L/BS reports are the most
+  natural next piece, reusing the account-group hierarchy already in place)
+  or circle back to Phase 0's still-pending items (backup framework, theme
+  engine, license/white-label plumbing, the "invite a new user" flow, and
+  the still-outstanding real visual click-through of the whole shell on a
+  normal dev machine) — whichever the user wants next.
+```
+
 ```
 Date: 2026-09-05 (session 4)
 Phase: 0 — Foundation
