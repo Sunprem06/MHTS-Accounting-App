@@ -10,7 +10,15 @@ import {
   adminResetPassword,
   listCompanyUsers,
 } from './handlers';
-import { listAccountGroups, listLedgers, createLedger, createVoucher, getTrialBalance } from './accountingHandlers';
+import {
+  listAccountGroups,
+  listLedgers,
+  createLedger,
+  createVoucher,
+  getTrialBalance,
+  getProfitAndLoss,
+  getBalanceSheet,
+} from './accountingHandlers';
 import { session } from './session';
 import {
   IPC,
@@ -21,6 +29,7 @@ import {
   type CreateLedgerInput,
   type CreateVoucherInput,
   type LoginInput,
+  type ProfitAndLossInput,
   type ResetPasswordInput,
 } from '../shared/ipc';
 
@@ -67,6 +76,8 @@ async function bootstrap(): Promise<void> {
   handleWithArg(IPC.CREATE_LEDGER, (input: CreateLedgerInput) => createLedger(input));
   handleWithArg(IPC.CREATE_VOUCHER, (input: CreateVoucherInput) => createVoucher(systemDb, input));
   handle(IPC.GET_TRIAL_BALANCE, () => getTrialBalance());
+  handleWithArg(IPC.GET_PROFIT_AND_LOSS, (input: ProfitAndLossInput) => getProfitAndLoss(input));
+  handleWithArg(IPC.GET_BALANCE_SHEET, (asOfDate: string) => getBalanceSheet(asOfDate));
 
   createWindow();
 }

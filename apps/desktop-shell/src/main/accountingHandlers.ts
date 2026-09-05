@@ -6,14 +6,19 @@ import {
   createLedgerAccount,
   createVoucher as coreCreateVoucher,
   computeTrialBalance,
+  computeProfitAndLoss,
+  computeBalanceSheet,
   computeFinancialYearLabel,
 } from '@mhts/core-accounting';
 import { session } from './session';
 import type {
   AccountGroupSummary,
+  BalanceSheetResult,
   CreateLedgerInput,
   CreateVoucherInput,
   LedgerAccountSummary,
+  ProfitAndLossInput,
+  ProfitAndLossResult,
   TrialBalanceResult,
 } from '../shared/ipc';
 
@@ -91,5 +96,31 @@ export async function getTrialBalance(): Promise<TrialBalanceResult> {
     })),
     totalDebit: paiseToRupees(trialBalance.totalDebit),
     totalCredit: paiseToRupees(trialBalance.totalCredit),
+  };
+}
+
+export async function getProfitAndLoss(input: ProfitAndLossInput): Promise<ProfitAndLossResult> {
+  const { companyDb } = requireSessionWithCompanyDb('ACCOUNTING.VIEW_REPORTS');
+  const pnl = await computeProfitAndLoss(companyDb, { fromDate: input.fromDate, toDate: input.toDate });
+  return {
+    incomeRows: pnl.incomeRows.map((row) => ({ ...row, amount: paiseToRupees(row.amount) })),
+    expenseRows: pnl.expenseRows.map((row) => ({ ...row, amount: paiseToRupees(row.amount) })),
+    totalIncome: paiseToRupees(pnl.totalIncome),
+    totalExpense: paiseToRupees(pnl.totalExpense),
+    netProfit: paiseToRupees(pnl.netProfit),
+  };
+}
+
+export async function getBalanceSheet(asOfDate: string): Promise<BalanceSheetResult> {
+  const { companyDb } = requireSessionWithCompanyDb('ACCOUNTING.VIEW_REPORTS');
+  const balanceSheet = await computeBalanceSheet(companyDb, asOfDate);
+  return {
+    asOfDate: balanceSheet.asOfDate,
+    assetRows: balanceSheet.assetRows.map((row) => ({ ...row, amount: paiseToRupees(row.amount) })),
+    liabilityRows: balanceSheet.liabilityRows.map((row) => ({ ...row, amount: paiseToRupees(row.amount) })),
+    equityRows: balanceSheet.equityRows.map((row) => ({ ...row, amount: paiseToRupees(row.amount) })),
+    currentEarnings: paiseToRupees(balanceSheet.currentEarnings),
+    totalAssets: paiseToRupees(balanceSheet.totalAssets),
+    totalLiabilitiesAndEquity: paiseToRupees(balanceSheet.totalLiabilitiesAndEquity),
   };
 }

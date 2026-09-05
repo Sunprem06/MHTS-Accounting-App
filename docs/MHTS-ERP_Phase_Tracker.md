@@ -19,7 +19,7 @@ Then paste the latest entry from the **Session Handoff Log** (Section 4 of this 
 | # | Phase | Scope | Status | Owner | Notes |
 |---|---|---|---|---|---|
 | 0 | Foundation | Shell, DB, auth, RBAC, audit trail, backup framework, theme, license/white-label plumbing | 🟨 In progress | | Electron+React shell (real packaged app relaunch-verified, not just build-verified) with a real IPC boundary; multi-company creation, per-company login credentials, offline account lockout, offline Super Admin password reset, and recovery-key-based recovery, all verified end-to-end against real encrypted files. Backup framework, theme engine, and license/white-label plumbing still pending. |
-| 1 | Accounting Core | Chart of accounts, ledgers, vouchers, double-entry, TB/P&L/BS | 🟨 In progress | | First increment done + verified end-to-end: default Chart of Accounts seeded per company, ledger creation, double-entry voucher engine (unbalanced/malformed entries impossible), Trial Balance report, all with a real UI and wired into the append-only audit log. P&L/BS reports, Payment/Receipt/Contra-specific UX, and voucher edit/cancellation still pending. |
+| 1 | Accounting Core | Chart of accounts, ledgers, vouchers, double-entry, TB/P&L/BS | ✅ Done | | Every item in the Blueprint's Phase 1 line is built, verified end-to-end, and has a real working UI: Chart of Accounts, ledgers, double-entry vouchers (unbalanced/malformed entries impossible — the exit criterion is a real tested code path), Trial Balance, Profit & Loss, and Balance Sheet (Assets = Liabilities + Equity proven to balance, incl. a Current Earnings roll-up). Deliberately deferred beyond the Blueprint's literal scope, not oversights (see Open Questions): Payment/Receipt/Contra-specific UX, voucher edit/cancellation, opening-balance netting across ledgers. |
 | 2 | Sales + Purchase | Customers, suppliers, invoices, receivables/payables, vendor TDS, 43B(h) flag | ⬜ Not started | | |
 | 3 | Inventory | Items, units, warehouses, batches, valuation | ⬜ Not started | | |
 | 4 | GST Engine | Rules engine, HSN/SAC, ITC, GSTR-1/3B/9/9C prep | ⬜ Not started | | ⚠️ Re-verify current GST slab rules before starting |
@@ -62,6 +62,7 @@ Record every architectural or business decision here the moment it's made, so it
 | 2026-09-05 | **Phase 1 kicked off**, scoped to a first increment (not the full 8–10-week phase): default Chart of Accounts seeded per company (`account_group`/`ledger_account`, migration 002), a double-entry `voucher`/`voucher_line` engine (migration 003), and a Trial Balance report. All amounts are stored as **integers in paise**, never REAL/float, everywhere in the schema and in `@mhts/core-accounting` — the standard fix for floating-point rounding bugs in financial software, decided once before any ledger data existed rather than migrated later. | Matches the Blueprint's Phase 1 exit criterion verbatim: "Assets = Liabilities + Equity enforced; unbalanced entries impossible" is now a real, tested code path (`createVoucher` validates every line has exactly one of a debit/credit, requires ≥2 lines, and requires total debits = total credits, inside one Kysely transaction — Rule #4 atomicity), not an aspiration. Deferred to a later Phase 1 pass, not this one: P&L/BS reports (need the same group-hierarchy rollup, better proven against real voucher data first), Payment/Receipt/Contra-specific UX (one generic double-entry form covers all four voucher types for now), and voucher edit/cancellation (correcting a mistake means posting a reversal voucher for now, consistent with the append-only audit philosophy already established in Phase 0 — a proper edit/cancel workflow is a fast-follow, not skipped). | 1 |
 | 2026-09-05 | New `@mhts/core-audit` package: the first real implementation of the "audit-writing service" that `company/types.ts`'s `AuditLogTable` comment anticipated in Phase 0 but never built (nothing had mutated business data yet). `writeAuditLog(companyDb, entry)` computes the SHA-256 hash chain in application code (reads the previous row's hash, hashes payload+prevHash+an explicitly-generated timestamp, inserts) and is designed to be called from inside the SAME Kysely transaction as the business write it's recording — `createVoucher` is the first caller. | Pulled out as its own `type:core` package rather than folded into `core-accounting` because every future business module (GST, payroll, inventory, sales/purchase) will need the identical write path — this is cross-cutting infra, not accounting-specific logic, and matches the existing pattern of one package per service boundary. The timestamp is generated in code and inserted explicitly rather than left to the column's `CURRENT_TIMESTAMP` default, because it has to be part of the hashed payload — a value the DB hasn't decided yet can't be hashed. Verified end-to-end: every successfully-posted voucher wrote exactly one real `audit_log` row (rejected/unbalanced attempts never reach the transaction, so they correctly write none), and the existing append-only trigger from Phase 0 still blocks `UPDATE`/`DELETE` on those rows. | 1 |
 | 2026-09-05 | Each business module (starting with `core-accounting`) **owns and grants its own RBAC permission codes** (e.g. `ACCOUNTING.MANAGE_CHART_OF_ACCOUNTS`, `ACCOUNTING.CREATE_VOUCHER`, `ACCOUNTING.VIEW_REPORTS`, via a `grantAccountingPermissions(companyDb, roleId)` called alongside `@mhts/core-identity`'s `seedAdminRole` at company creation) rather than `core-identity` maintaining one growing list for every module. | `core-identity`'s `FOUNDATION_PERMISSIONS` is explicitly scoped to Phase 0 system-level permissions (user/role/audit management) — piling every future module's permission codes into that one list would make `core-identity` a dependency magnet for every other `core-*` package, inverting the intended module boundary (identity/RBAC primitives should be upstream of business modules, not entangled with their specific permission sets). `resolvePermissions` already works generically (joins `role_permission`+`permission` by role id) regardless of which module inserted the rows, so no changes were needed there. | 1 |
+| 2026-09-05 | **Phase 1 completed**: Profit & Loss and Balance Sheet, built on a new shared `computeLedgerBalances` helper (`ledgerBalances.ts`) that Trial Balance was refactored onto as well, rather than three separate ad hoc balance queries. | All three reports are really the same query — "sum this ledger's movements within some date bound, signed debit-positive" — with different nature filters and date bounds layered on top (Trial Balance: all natures, all-time, opening included; P&L: INCOME/EXPENSE only, a date range, opening excluded since income/expense don't carry a balance across periods; Balance Sheet: ASSET/LIABILITY/EQUITY only, up to a date, opening included). Building one correct, tested helper and layering three thin views on it is safer than three independent implementations that could each get the sign conventions subtly wrong in different ways. Since this phase has no period-closing entries into a real retained-earnings ledger, the Balance Sheet adds net profit/loss since inception as a synthetic "Current Earnings" equity line — the standard mechanic for an interim (unclosed) balance sheet to actually balance. Verified end-to-end against real posted vouchers: P&L for a date range matches expected income/expense/net-profit exactly, a period with no vouchers correctly shows zero, and the Balance Sheet's Assets exactly equals Liabilities + Equity (including Current Earnings) both with and without posted activity. | 1 |
 
 ---
 
@@ -78,7 +79,7 @@ Track anything unresolved so it surfaces automatically in the next session inste
 - [x] Password-reset / recovery gap — **done 2026-09-05, resolved in two parts: (1) company-wide recovery key at company creation, (2) offline Super Admin reset via a new `SYSTEM.RESET_USER_PASSWORD` permission** (see Key Decisions Log). Both paths now exist and are routed to from the login screen with no dead end either way.
 - [ ] Email/SMS OTP-based password reset — **deliberately deferred to a later phase, not abandoned** (see Key Decisions Log for the offline-first / cost / DLT-lead-time reasoning). Any Resend/Cloudflare/MSG91 accounts already created are on hold, unused.
 - [ ] There is no "invite a new user" flow yet — `listCompanyUsers`/`adminResetPassword` assume a `company_access` row already exists for the target (currently only created by `createCompany`'s admin bootstrap). Needed before Manage Users is actually usable for onboarding a second real person, not just resetting one.
-- [ ] Phase 1: P&L and Balance Sheet reports not built yet — Trial Balance only, this pass. Both need the same account-group hierarchy rollup (recursively summing a group's ledgers, including its sub-groups) — worth doing once there's real voucher data to test against, not before.
+- [x] Phase 1: P&L and Balance Sheet reports — **done 2026-09-05**, built on a new shared `computeLedgerBalances` helper alongside a refactored Trial Balance (see Key Decisions Log). Turned out not to need a recursive group-hierarchy rollup after all — every `account_group` row (including sub-groups) already carries its own `nature` directly, so a flat `WHERE nature IN (...)` join was sufficient; the anticipated complexity wasn't actually there.
 - [ ] Phase 1: voucher edit/cancellation not built yet — correcting a mistake today means posting a manual reversal voucher. A real workflow (e.g. a "Cancel voucher" action that posts the exact reversing entries automatically, referencing the original) is deferred, not designed around some other approach that would need undoing.
 - [ ] Phase 1: `computeTrialBalance` does not require opening balances to net to zero across ledgers (only vouchers are forced to balance, via `createVoucher`). A business entering ad hoc opening balances that don't net out will see a Trial Balance that doesn't balance either — real accounting software absorbs this via an opening "Suspense"/equity adjustment ledger, which this pass doesn't build.
 
@@ -100,6 +101,78 @@ Next concrete step:
 ```
 
 ### Entries:
+```
+Date: 2026-09-05 (session 6)
+Phase: 1 — Accounting Core — COMPLETE (Blueprint's Phase 1 line fully built
+  and verified: Chart of Accounts, ledgers, groups, vouchers, double-entry,
+  Trial Balance, P&L, Balance Sheet)
+What was completed:
+  - Both Phase 0 and Phase 1 PRs (from session 5) were reviewed and merged
+    into main by the user during this session, in the correct order (Phase
+    0 first, then Phase 1 — Phase 1 was branched off Phase 0 before Phase 0
+    merged, so its PR diff only became clean after Phase 0 landed). Verified
+    after merge: main's tree is byte-for-byte identical to what was tested
+    (`git diff <local Phase 1 tip> origin/main` was empty), and a fresh
+    `nx run-many -t build,lint` from main passes clean across all 11
+    projects — the merge didn't silently break anything.
+  - Finished Profit & Loss and Balance Sheet — the two pieces of the
+    Blueprint's Phase 1 line ("TB/P&L/BS") that were still open. Refactored
+    Trial Balance onto a new shared `computeLedgerBalances` helper
+    (packages/core-accounting/src/ledgerBalances.ts) rather than three
+    separate balance queries, since all three reports are the same
+    "ledger's signed balance within some date/nature bound" computation with
+    different filters layered on top.
+  - Balance Sheet adds net profit/loss since inception as a synthetic
+    "Current Earnings" equity line (no period-closing entries into a real
+    retained-earnings ledger exist in this phase) — the standard mechanic
+    for an interim balance sheet to actually balance.
+  - Wired end to end: accountingHandlers.ts (getProfitAndLoss/
+    getBalanceSheet, paise->rupees conversion at the boundary as before),
+    main/index.ts + preload IPC registration, and two new real (not fake)
+    screens — ProfitAndLossScreen (date-range income/expense/net-profit) and
+    BalanceSheetScreen (assets vs. liabilities+equity, side by side),
+    reachable from the Dashboard.
+  - Verified end-to-end against real encrypted files (same throwaway-script
+    precedent as every session, calling the actual handler functions):
+    posted 4 vouchers across capital introduction/cash sale/rent payment/
+    bank contra; Trial Balance still balances; P&L for the active date range
+    matches expected income/expense/net-profit exactly; P&L for a quiet
+    period correctly shows zero; Balance Sheet's Assets exactly equals
+    Liabilities + Equity (including Current Earnings) both with posted
+    activity and as of a date before any vouchers existed. Then relaunched
+    the real packaged app fresh — no crash.
+  - Resolved one Open Question in the process, not just implemented around
+    it: the anticipated need for a recursive account-group hierarchy rollup
+    turned out unnecessary — every account_group row (including sub-groups)
+    already carries its own `nature` directly, so a flat WHERE-IN filter on
+    nature was sufficient.
+  - Phase Status Board updated: Phase 1 marked done. Two items remain
+    deliberately deferred beyond the Blueprint's literal Phase 1 scope, not
+    oversights — Payment/Receipt/Contra-specific UX (one generic
+    double-entry form still covers all four voucher types) and voucher
+    edit/cancellation (correcting a mistake still means posting a manual
+    reversal voucher). Both stay open in Section 3 for whenever they're
+    wanted.
+What's still pending in this phase: nothing blocking — see the two
+  deliberately-deferred items above if you want them built later.
+Any decisions made (also add to Section 2): computeLedgerBalances as a
+  shared helper for TB/P&L/BS instead of three separate queries; synthetic
+  Current Earnings equity line for an unclosed Balance Sheet. Both logged
+  above with full reasoning.
+Any blockers (also add to Section 3): Team allocation, white-label/reseller
+  legal agreement, CA/compliance advisor retention — all still pending,
+  unchanged.
+Next concrete step: Phase 1 is done against the Blueprint's literal scope.
+  Start Phase 2 (Sales + Purchase: customers, suppliers, invoices,
+  receivables/payables, vendor TDS, 43B(h) MSME flag) in a fresh chat — see
+  the top of this file ("How to Resume in a New Chat") for exactly how to
+  kick that off; paste this entry so nothing needs re-explaining. Or, if
+  preferred, circle back to Phase 0's still-pending items first (backup
+  framework, theme engine, license/white-label plumbing, the "invite a new
+  user" flow, and the still-outstanding real visual click-through of the
+  whole shell on a normal dev machine).
+```
+
 ```
 Date: 2026-09-05 (session 5)
 Phase: 1 — Accounting Core (kicked off; Phase 0 left at the state session 4

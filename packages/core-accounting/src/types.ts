@@ -64,3 +64,41 @@ export interface TrialBalance {
   totalDebit: number;
   totalCredit: number;
 }
+
+export interface ProfitAndLossRow {
+  ledgerId: string;
+  ledgerName: string;
+  groupName: string;
+  /** Positive = income earned / expense incurred. Never negative in the ordinary case (a net-negative row usually means a return/reversal). */
+  amount: number;
+}
+
+export interface ProfitAndLoss {
+  incomeRows: ProfitAndLossRow[];
+  expenseRows: ProfitAndLossRow[];
+  totalIncome: number;
+  totalExpense: number;
+  /** totalIncome - totalExpense. Negative means a loss for the period. */
+  netProfit: number;
+}
+
+export interface BalanceSheetRow {
+  ledgerId: string;
+  ledgerName: string;
+  groupName: string;
+  nature: AccountNature;
+  /** Debit-positive for ASSET rows, credit-positive for LIABILITY/EQUITY rows — the presentation convention where both sides of the sheet read as positive numbers. */
+  amount: number;
+}
+
+export interface BalanceSheet {
+  asOfDate: string;
+  assetRows: BalanceSheetRow[];
+  liabilityRows: BalanceSheetRow[];
+  equityRows: BalanceSheetRow[];
+  /** Net profit/loss since inception up to asOfDate, not yet closed into a real equity ledger — shown as a synthetic "Current Earnings" line so the sheet balances without requiring period-closing journal entries. */
+  currentEarnings: number;
+  totalAssets: number;
+  /** liabilityRows + equityRows + currentEarnings. Should equal totalAssets when the books are consistent. */
+  totalLiabilitiesAndEquity: number;
+}
