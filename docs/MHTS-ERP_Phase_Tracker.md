@@ -20,7 +20,7 @@ Then paste the latest entry from the **Session Handoff Log** (Section 4 of this 
 |---|---|---|---|---|---|
 | 0 | Foundation | Shell, DB, auth, RBAC, audit trail, backup framework, theme, license/white-label plumbing | 🟨 In progress | | Electron+React shell (real packaged app relaunch-verified, not just build-verified) with a real IPC boundary; multi-company creation, per-company login credentials, offline account lockout, offline Super Admin password reset, and recovery-key-based recovery, all verified end-to-end against real encrypted files. Backup framework, theme engine, and license/white-label plumbing still pending. |
 | 1 | Accounting Core | Chart of accounts, ledgers, vouchers, double-entry, TB/P&L/BS | ✅ Done | | Every item in the Blueprint's Phase 1 line is built, verified end-to-end, and has a real working UI: Chart of Accounts, ledgers, double-entry vouchers (unbalanced/malformed entries impossible — the exit criterion is a real tested code path), Trial Balance, Profit & Loss, and Balance Sheet (Assets = Liabilities + Equity proven to balance, incl. a Current Earnings roll-up). The two items previously deferred beyond the Blueprint's literal scope are now also done: voucher cancellation (via an auto-generated reversal voucher, not a destructive edit, with a new Voucher Register screen to find and cancel one) and dedicated Payment/Receipt/Contra voucher forms (auto-balancing, alongside the generic Journal form). Still open, not oversights (see Open Questions): opening-balance netting across ledgers. |
-| 2 | Sales + Purchase | Customers, suppliers, invoices, receivables/payables, vendor TDS, 43B(h) flag | ⬜ Not started | | |
+| 2 | Sales + Purchase | Customers, suppliers, invoices, receivables/payables, vendor TDS, 43B(h) flag | ✅ Done | | Customer/supplier master (unified `business_party`, own dedicated ledger under the existing Sundry Debtors/Creditors groups); Sales/Purchase Invoices AND Orders (order→invoice conversion), all posting through the unchanged Phase 1 double-entry engine; vendor TDS (194C/194J/194Q/194I) with threshold-aware deduction, rate resolved from a new versioned rule_set mechanism (never hardcoded); Section 43B(h) MSME due-date stamping + an ageing report. Verified end-to-end against real encrypted files. Deferred, tracked in Open Questions: bill-wise (invoice-level) payment allocation, TDS Form 26Q/16A generation, a rate-editing admin UI, 194Q's buyer-turnover eligibility gate. |
 | 3 | Inventory | Items, units, warehouses, batches, valuation | ⬜ Not started | | |
 | 4 | GST Engine | Rules engine, HSN/SAC, ITC, GSTR-1/3B/9/9C prep | ⬜ Not started | | ⚠️ Re-verify current GST slab rules before starting |
 | 5 | Banking | Accounts, reconciliation, cheque/UTR | ⬜ Not started | | |
@@ -64,6 +64,14 @@ Record every architectural or business decision here the moment it's made, so it
 | 2026-09-05 | Each business module (starting with `core-accounting`) **owns and grants its own RBAC permission codes** (e.g. `ACCOUNTING.MANAGE_CHART_OF_ACCOUNTS`, `ACCOUNTING.CREATE_VOUCHER`, `ACCOUNTING.VIEW_REPORTS`, via a `grantAccountingPermissions(companyDb, roleId)` called alongside `@mhts/core-identity`'s `seedAdminRole` at company creation) rather than `core-identity` maintaining one growing list for every module. | `core-identity`'s `FOUNDATION_PERMISSIONS` is explicitly scoped to Phase 0 system-level permissions (user/role/audit management) — piling every future module's permission codes into that one list would make `core-identity` a dependency magnet for every other `core-*` package, inverting the intended module boundary (identity/RBAC primitives should be upstream of business modules, not entangled with their specific permission sets). `resolvePermissions` already works generically (joins `role_permission`+`permission` by role id) regardless of which module inserted the rows, so no changes were needed there. | 1 |
 | 2026-09-05 | **Phase 1 completed**: Profit & Loss and Balance Sheet, built on a new shared `computeLedgerBalances` helper (`ledgerBalances.ts`) that Trial Balance was refactored onto as well, rather than three separate ad hoc balance queries. | All three reports are really the same query — "sum this ledger's movements within some date bound, signed debit-positive" — with different nature filters and date bounds layered on top (Trial Balance: all natures, all-time, opening included; P&L: INCOME/EXPENSE only, a date range, opening excluded since income/expense don't carry a balance across periods; Balance Sheet: ASSET/LIABILITY/EQUITY only, up to a date, opening included). Building one correct, tested helper and layering three thin views on it is safer than three independent implementations that could each get the sign conventions subtly wrong in different ways. Since this phase has no period-closing entries into a real retained-earnings ledger, the Balance Sheet adds net profit/loss since inception as a synthetic "Current Earnings" equity line — the standard mechanic for an interim (unclosed) balance sheet to actually balance. Verified end-to-end against real posted vouchers: P&L for a date range matches expected income/expense/net-profit exactly, a period with no vouchers correctly shows zero, and the Balance Sheet's Assets exactly equals Liabilities + Equity (including Current Earnings) both with and without posted activity. | 1 |
 | 2026-09-05 | **Voucher cancellation modeled as an auto-generated reversal voucher, never a destructive edit or delete.** Migration 004 adds `cancelled_at`/`cancelled_by_voucher_id` to the original and `reverses_voucher_id` to the reversal, cross-linking them. A reversal voucher cannot itself be cancelled (no unbounded reversal chains), and an already-cancelled voucher cannot be cancelled again. New Voucher Register screen (with a new `listVouchers`) is the first general voucher-listing UI in the app — needed as a real prerequisite for "find and cancel a voucher," not built as a side effect. | Consistent with the append-only audit philosophy already established for `audit_log` (Rule #5) — once a voucher exists, history isn't rewritten, it's corrected going forward. This also means Trial Balance/P&L/BS needed **zero** changes to support cancellation: a reversal's mirror-image lines net to exactly zero in every existing balance computation automatically, since they all just sum `voucher_line` rows regardless of any voucher's cancelled status. Verified end-to-end: cancelling posts a reversal with the same voucher type and a linked narration, the original and reversal are correctly cross-linked and reflected in the register, Trial Balance nets the cancelled voucher's effect to exactly zero, and both the double-cancellation guard and the cancel-a-reversal guard are enforced. | 1 |
+| 2026-09-05 | **Phase 2 kicked off and completed in one pass** (all three of: base scope, vendor TDS, and Sales/Purchase Orders — user explicitly chose to include all three rather than defer any). Customers/suppliers share one `business_party` table (`party_type` CUSTOMER/SUPPLIER/BOTH) rather than two separate tables, since a real counterparty is often both. | A business's own customer/supplier list very often overlaps (a company that buys raw material from a vendor who is also a retail customer); forcing two disjoint tables would mean duplicating the same real-world entity, with no clean way to represent "this is the same party." One table with a type discriminant, mirroring the existing VOUCHER_TYPES-style closed-vocabulary convention, avoided that without adding real complexity. | 2 |
+| 2026-09-05 | **No new default chart-of-accounts groups for Phase 2** — Sundry Debtors/Sundry Creditors/Duties & Taxes/Sales Accounts/Purchase Accounts were already seeded by Phase 1's `seedChartOfAccounts`. Each party gets its own dedicated ledger sub-account under Sundry Debtors/Creditors at creation time (one atomic transaction, ledger + party row together), so a party's outstanding balance IS that ledger's balance — `computeLedgerBalances` needed zero changes to support receivables/payables. | Re-verified before building anything: Phase 1's default groups already exactly matched what Phase 2 needed, so building new ones would have been pure duplication. Discovering and reusing existing infrastructure instead of assuming it needs building is the same instinct that resolved the account-group-hierarchy question in Phase 1 session 6. | 2 |
+| 2026-09-05 | **Sales/Purchase invoices don't store their own `financial_year` or invoice number** — each invoice posts a real voucher (new voucher types `SALES_INVOICE`/`PURCHASE_INVOICE`) via `core-accounting`'s existing engine, and `voucher.voucher_number` (already sequential per type+year, from Phase 1) IS the invoice number, joined via `voucher_id` wherever displayed. Orders, which have no ledger impact until converted, DO get their own sequential numbering (`sales_order`/`purchase_order` tables), since there's no voucher to borrow numbering from yet. | Avoids maintaining two numbering sources that could drift out of sync. Matches the project's general instinct (see Phase 1's `computeLedgerBalances`) of building one correct mechanism and reusing it rather than parallel near-duplicates. | 2 |
+| 2026-09-05 | **`core-accounting`'s `createVoucher` was refactored into a thin wrapper around a new exported `createVoucherInTransaction(trx, input, actorUserId)`**, and the same split was applied to `core-sales-purchase`'s `createSalesInvoice`/`createPurchaseInvoice` (→ `...InTransaction` variants). Order-to-invoice conversion (`convertSalesOrderToInvoice`/`convertPurchaseOrderToInvoice`) uses the `...InTransaction` variants directly so the invoice-and-its-voucher AND the source order's status update commit or roll back as ONE transaction. | The Blueprint's literal Phase 2 exit criterion is "full invoice-to-ledger-to-report chain, **atomic**." An earlier draft called the already-transactional `createSalesInvoice` (its own transaction) and then updated the order's status in a second, separate transaction — a crash in between would leave a posted, ledger-correct invoice with its source order still reading CONFIRMED, inviting an accidental duplicate invoice on retry. Rule #4 applies to the whole conversion operation, not just the invoice-posting half of it. Not needed for TDS-threshold cumulative-sum reads: this app's Electron main process is single-threaded with a synchronous SQLite driver, so there is no real read/write race to guard against there the way there is for the two-write conversion case. | 2 |
+| 2026-09-05 | **Vendor TDS rate/threshold resolution reuses the existing (until now unbuilt) `rule_set` system-DB table** via a new, real `@mhts/core-rules-engine` implementation (`createRuleSetVersion`/`resolveEffectiveRule`/`listRuleSetVersions` — date-effective lookup + versioning, a superseded rate is closed off with an end date, never edited in place). TDS *section codes* (194C/194J/194Q/194I) are a small fixed vocabulary in `core-sales-purchase` (like `VOUCHER_TYPES`); the *rate and threshold* for each are `rule_set` rows, resolved at invoice time, never a JS constant. | Direct application of Rule #2 to TDS, which the Blueprint didn't originally call out alongside GST/payroll but changes on the same kind of schedule (Finance Act amendments). `core-rules-engine` had been left a deliberate stub in Phase 0 ("resolution logic... out of scope for this pass... consumed by core-gst-engine and core-payroll-engine"); building real resolution logic now, driven by TDS's actual need, means Phase 4/7's GST and payroll engines inherit a proven mechanism instead of building their own from scratch. | 2 |
+| 2026-09-05 | **TDS is threshold-aware, not flat-rate-on-the-whole-invoice**: `computeTdsAmount` sums a party's prior cumulative taxable value under that section this financial year, and only taxes the portion of THIS invoice that falls above the section's threshold — correctly giving ₹0 while under threshold, a partial amount on the invoice that crosses it, and the full rate on every invoice after. Default seeded rates (2% §194C/₹1,00,000 threshold, 10% §194J/₹30,000, 0.1% §194Q/₹50,00,000, 10% §194I/₹2,40,000, all effective 2025-04-01) are explicitly flagged in their `source_reference` as simplified defaults pending CA review — several real sub-cases are collapsed to one representative rate (194C's individual/HUF-vs-other split, 194I's plant/machinery-vs-land/building split, 194Q's buyer-turnover eligibility gate). | This is the actual statutory mechanism (194C/194Q especially), not an approximation invented for convenience — computing it properly was no harder than a flat rate once the cumulative-lookup query existed, so there was no reason to ship the less correct version. The CA-review flag follows CLAUDE.md's own standing disclaimer ("not exhaustive — defer to a CA review before shipping any tax/payroll logic") rather than presenting a simplified number as authoritative. | 2 |
+| 2026-09-05 | **Section 43B(h) MSME due date**: simplified to `min(party's credit period, 45 days)` for a flagged MSME vendor, `due_date` stamped on the purchase invoice at creation time (a snapshot, along with `is_msme_vendor`, so a later edit to the party record can't rewrite a past invoice's ageing). The real rule's 15-day fallback (when no written agreement exists) is not modeled — this pass has no concept of "agreement exists," so it always assumes one and applies the 45-day cap. | Recorded as a known, explicit simplification (see Open Questions) rather than silently treating 45 days as universally correct — a business without a supplier agreement is legally on a stricter 15-day clock, and the ageing report would currently under-flag that case. | 2 |
+| 2026-09-05 | **Receivables/Payables/MSME-ageing reports have no bill-wise (invoice-level) payment allocation** — a generic Payment voucher still just credits whichever ledger the user picks, with no link back to a specific invoice (unchanged from Phase 1). Party-level outstanding balance (receivables/payables) is exact, since it's just that party's own ledger balance. MSME ageing, which needs to know WHICH invoices are still open, estimates this with a FIFO settlement assumption: a supplier's current outstanding balance is assumed to cover their most recent invoices, walking oldest-to-newest up to that balance. | Full bill-wise allocation (matching a specific payment to a specific invoice) is a real, substantial feature in its own right — building it wasn't asked for and would have doubled this increment's scope for a report-accuracy refinement, not a new capability. FIFO-assumed ageing is a standard, defensible approximation used by simpler accounting tools without bill-wise tracking, but it IS an approximation — flagged honestly in code comments and here rather than presented as certain. | 2 |
 | 2026-09-05 | **Dedicated Payment/Receipt/Contra voucher screens**, alongside the existing generic Journal form (renamed `JournalVoucherScreen` for clarity) — no backend changes needed, since `createVoucher` already accepts arbitrary lines for any voucher type. Payment: pick one "paid from" ledger (auto-credited for the total) + one or more "paid to" lines (debited). Receipt: the mirror image. Contra: a plain two-ledger transfer, one amount. | The whole point is auto-balancing: previously every voucher, regardless of type, required manually entering both a debit and a credit that summed to the same total — easy to get wrong by hand. These forms compute the counter-ledger's amount automatically, so the user only ever enters one side. Server-side validation in `createVoucher` (debits must equal credits) is unchanged and still the actual authority — the auto-balancing is a UX convenience, not a weakening of the correctness guarantee. Verified end-to-end: Payment and Contra vouchers built exactly the way their screens construct lines post correctly and the resulting Trial Balance ties out to the paisa. | 1 |
 
 ---
@@ -84,6 +92,12 @@ Track anything unresolved so it surfaces automatically in the next session inste
 - [x] Phase 1: P&L and Balance Sheet reports — **done 2026-09-05**, built on a new shared `computeLedgerBalances` helper alongside a refactored Trial Balance (see Key Decisions Log). Turned out not to need a recursive group-hierarchy rollup after all — every `account_group` row (including sub-groups) already carries its own `nature` directly, so a flat `WHERE nature IN (...)` join was sufficient; the anticipated complexity wasn't actually there.
 - [x] Phase 1: voucher cancellation and Payment/Receipt/Contra-specific UX — **done 2026-09-05** (see Key Decisions Log). Cancellation posts an automatic, cross-linked reversal voucher (never a destructive edit); a new Voucher Register screen lists vouchers and is where cancellation is triggered from. Payment/Receipt/Contra now have dedicated auto-balancing forms; Journal (renamed `JournalVoucherScreen`) remains the generic multi-line form for anything else. Direct in-place voucher *editing* (as opposed to cancellation) is still not offered — intentionally: real accounting practice favors correction-by-reversal over rewriting posted history, so this isn't tracked as a gap.
 - [ ] Phase 1: `computeTrialBalance` does not require opening balances to net to zero across ledgers (only vouchers are forced to balance, via `createVoucher`). A business entering ad hoc opening balances that don't net out will see a Trial Balance that doesn't balance either — real accounting software absorbs this via an opening "Suspense"/equity adjustment ledger, which this pass doesn't build.
+- [x] Phase 2: Sales + Purchase — **done 2026-09-05**, including vendor TDS and Sales/Purchase Orders (user chose to include all three in one pass rather than defer any). See Key Decisions Log for the full design (unified `business_party`, invoices posting through the unchanged voucher engine, threshold-aware TDS resolved from a new real `core-rules-engine`, 43B(h) due-date snapshotting). The items below are genuine simplifications within that delivered scope, not oversights.
+- [ ] Phase 2: **No bill-wise (invoice-level) payment allocation.** A generic Payment/Receipt voucher has no link to a specific invoice — Receivables/Payables (party-level totals) are exact, but MSME ageing estimates which invoices are still open via a FIFO settlement assumption (oldest invoices assumed paid first). Real bill-wise allocation — letting a payment be applied against one or more specific invoices — would make ageing exact instead of estimated; worth building whenever Banking (Phase 5) or a UAT pass calls for precise invoice-level settlement tracking.
+- [ ] Phase 2: **TDS rates have no admin/editing UI yet** — `@mhts/core-rules-engine`'s `createRuleSetVersion`/`resolveEffectiveRule` are real and used (seeded defaults for 194C/194J/194Q/194I), but there's no screen for a user or CA to add a new dated rate version when the Finance Act changes one. Same gap will apply to GST (Phase 4) and payroll (Phase 7) rule sets, which share this same mechanism — probably worth solving once, generically, rather than three times per-module.
+- [ ] Phase 2: **194Q's buyer-turnover eligibility gate is not enforced** — the section only actually applies when the buyer's own preceding-year turnover exceeds Rs 10 crore, which isn't tracked anywhere on the Company record. Today the app will let a company apply 194Q regardless; the user must know not to select it if ineligible.
+- [ ] Phase 2: **Section 43B(h) MSME due date always assumes a 45-day cap**, never the 15-day fallback that applies when no written supplier agreement exists (this pass has no "agreement exists" flag on a party). A business without agreements in place will be under-flagged by the ageing report for invoices between day 16 and day 45.
+- [ ] Phase 2: **No vendor TDS Form 26Q/16A generation** — `purchase_invoice.tds_section`/`tds_amount` capture what's needed to build these later, but the actual quarterly-return/certificate generation isn't built. Natural to pair with GST's own GSTR prep work in Phase 4, or its own small pass once real invoice volume exists to test against.
 
 ---
 
@@ -103,6 +117,140 @@ Next concrete step:
 ```
 
 ### Entries:
+```
+Date: 2026-09-05 (session 8)
+Phase: 2 — Sales + Purchase — kicked off AND completed in this session, all
+  three of base scope/vendor TDS/Sales+Purchase Orders (user explicitly chose
+  "do all three" over the initially-proposed staged/deferred scope)
+What was completed:
+  - Proposed a staged Increment-1 plan (defer TDS and Orders) per this
+    project's plan-first rule for financial logic; user asked for all three
+    in one pass instead, so the plan below reflects the full combined scope.
+  - New `business_party` table (migration 005, company DB) unifying
+    customers/suppliers via a `party_type` discriminant (CUSTOMER/SUPPLIER/
+    BOTH) rather than two separate tables, since a real counterparty is
+    often both. Each party gets its own dedicated ledger sub-account under
+    the EXISTING Sundry Debtors/Sundry Creditors groups (Phase 1 already
+    seeds these — no new default chart-of-accounts groups were needed for
+    Phase 2 at all), created atomically alongside the party row.
+  - `sales_invoice`/`sales_invoice_line` and `purchase_invoice`/
+    `purchase_invoice_line` tables — deliberately carry NO financial_year or
+    invoice-number columns of their own: each invoice posts a real voucher
+    (new voucher types SALES_INVOICE/PURCHASE_INVOICE) through the unchanged
+    Phase 1 double-entry engine, and voucher.voucher_number (already
+    sequential per type+year) IS the invoice number, joined via voucher_id.
+  - `sales_order`/`purchase_order` (+ line tables) — DO get their own
+    sequential numbering (no voucher exists yet pre-conversion). Lifecycle:
+    DRAFT -> CONFIRMED -> CONVERTED (or CANCELLED from DRAFT/CONFIRMED).
+    Converting copies the order's lines into a brand-new invoice (a REAL
+    ledger posting) and marks the order CONVERTED.
+  - Refactored `core-accounting`'s createVoucher into a thin wrapper over a
+    newly-exported `createVoucherInTransaction(trx, input, actorUserId)`,
+    and applied the identical split to core-sales-purchase's
+    createSalesInvoice/createPurchaseInvoice (-> ...InTransaction variants).
+    convertSalesOrderToInvoice/convertPurchaseOrderToInvoice use the
+    ...InTransaction variants directly so the invoice-and-its-voucher AND the
+    source order's CONVERTED status update commit or roll back as ONE
+    transaction — closes a real atomicity gap an earlier draft had (a crash
+    between two separate transactions could leave a posted invoice pointing
+    at an order that still read CONFIRMED, inviting an accidental duplicate
+    invoice on retry). Matches the Blueprint's literal Phase 2 exit criterion
+    ("full invoice-to-ledger-to-report chain, atomic").
+  - Vendor TDS (194C/194J/194Q/194I): section codes are a small fixed
+    vocabulary in core-sales-purchase (like VOUCHER_TYPES); the RATE and
+    THRESHOLD for each are resolved from the system DB's `rule_set` table via
+    a newly-real `@mhts/core-rules-engine` (createRuleSetVersion/
+    resolveEffectiveRule/listRuleSetVersions — date-effective lookup +
+    versioning, a superseded rate gets an end date, never edited in place).
+    core-rules-engine had been a deliberate Phase 0 stub ("resolution logic
+    out of scope for this pass"); it's now real, and GST (Phase 4)/payroll
+    (Phase 7) inherit a working mechanism instead of building their own.
+    TDS is threshold-aware (computeTdsAmount), not flat-rate-on-the-whole-
+    invoice: sums a party's prior cumulative taxable value under that section
+    this FY, taxes only the portion of THIS invoice above the threshold.
+    Seeded default rates are flagged in their source_reference as simplified
+    pending CA review (real sub-cases collapsed to one representative rate
+    per section) — installation-wide seeding happens ONCE at app bootstrap
+    (main/index.ts), never per-company (rule_set is shared across every
+    company, per the existing two-tier System/Company DB design).
+  - Section 43B(h): purchase_invoice snapshots is_msme_vendor + a computed
+    due_date (min(credit period, 45 days) for a flagged MSME vendor) at
+    creation time, so a later edit to the party can't rewrite a past
+    invoice's ageing. New listMsmeAgeing report (FIFO settlement assumption —
+    see Open Questions) flags overdue MSME invoices.
+  - Receivables/Payables: exact party-level outstanding balance, reusing
+    Phase 1's computeLedgerBalances completely unchanged (each party's own
+    ledger balance IS their outstanding amount).
+  - RBAC: new SALES.*/PURCHASE.* permission codes (MANAGE_PARTIES,
+    CREATE_INVOICE, CREATE_ORDER, VIEW_REPORTS), granted the same way
+    ACCOUNTING.* ones are, at company creation.
+  - Real (not fake) UI: PartiesScreen, New/Register screens for Sales and
+    Purchase Invoices AND Orders (order registers have Confirm/Cancel/Convert
+    actions), Receivables/Payables/MsmeAgeing screens — a dozen new screens,
+    all wired through real IPC handlers (new salesPurchaseHandlers.ts) to the
+    real core-sales-purchase logic, gated on the new permissions, reachable
+    from the Dashboard. A shared DocumentLinesEditor component (description +
+    ledger + amount + optional tax ledger/amount per line) is reused across
+    all four invoice/order creation screens rather than duplicated 4x, given
+    each line has more fields than the existing Payment/Receipt lines.
+    Invoice cancellation reuses the EXISTING generic cancelVoucher unchanged
+    (an invoice IS a voucher underneath) — no new cancellation mechanism.
+  - Verified end-to-end against real encrypted files (same throwaway-script
+    precedent as every prior session, calling the actual handler functions,
+    run in a real Electron process): company+parties created; a sales
+    invoice with a manual tax line posts correctly and the customer's ledger
+    debit balance in the Trial Balance matches exactly; a Rs 2,00,000
+    purchase invoice under 194C correctly deducts Rs 2,000 TDS (threshold-
+    aware: 2% of only the Rs 1,00,000 excess over the section's Rs 1,00,000
+    threshold) with the MSME due date correctly capped at 45 days; Payables
+    correctly shows the NET (post-TDS) amount owed; MSME ageing correctly
+    flags the invoice as 1-day overdue the day after due, and shows nothing
+    overdue on the invoice date itself; a sales order's full DRAFT ->
+    CONFIRMED -> CONVERTED lifecycle posts a real invoice on conversion, and
+    converting the same order twice is correctly rejected; a purchase
+    order's carried-forward TDS section (194J) is correctly applied at
+    conversion time (threshold-aware: Rs 2,000 TDS on the Rs 20,000 excess
+    over 194J's Rs 30,000 threshold); a sales invoice against a
+    supplier-only party is correctly rejected; cancelling an invoice via the
+    existing generic cancelVoucher nets its effect out of the Trial Balance
+    exactly. Then relaunched the real packaged app fresh (electron . against
+    a rebuilt out/, isolated --user-data-dir, cleared node_modules/.vite
+    first) — confirmed no bundled require("@mhts/...")/require("kysely")
+    remained (the dynamic bundle-exclude list from session 3 correctly
+    picked up the brand-new core-sales-purchase package with zero config
+    changes, exactly the point of making it dynamic) and the app created a
+    real encrypted system.db and stayed running with no crash.
+What's still pending in this phase: nothing blocking — see Open Questions for
+  five genuine, explicitly-flagged simplifications (no bill-wise payment
+  allocation — ageing is FIFO-estimated, not exact; no TDS-rate admin UI; no
+  194Q buyer-turnover eligibility gate; MSME due date always assumes the
+  45-day cap, never the 15-day no-agreement fallback; no Form 26Q/16A
+  generation yet).
+Any decisions made (also add to Section 2): unified business_party table;
+  reusing Phase 1's default chart-of-accounts groups unchanged; invoices
+  never duplicating voucher_number/financial_year; the createVoucher /
+  createVoucherInTransaction split (and its sales/purchase mirror) for real
+  order-conversion atomicity; TDS rates as real rule_set-backed data via a
+  newly-implemented core-rules-engine; threshold-aware TDS computation;
+  simplified 45-day-only MSME due date; FIFO-assumed MSME ageing in the
+  absence of bill-wise allocation. All logged above with full reasoning.
+Any blockers (also add to Section 3): Team allocation, white-label/reseller
+  legal agreement, CA/compliance advisor retention — all still pending,
+  unchanged. The new TDS default rates explicitly need CA review before
+  being relied on for a real filing (flagged in their own source_reference,
+  not just here).
+Next concrete step: Phase 2 is done. Options for what's next: Phase 3
+  (Inventory — items, units, warehouses, batches, valuation) is the
+  Blueprint's literal next phase and would let Sales/Purchase invoice lines
+  start referencing real stock items instead of plain descriptions; or
+  circle back to Phase 0's still-pending items (backup framework, theme
+  engine, license/white-label plumbing, the "invite a new user" flow); or
+  address one of this session's flagged Phase 2 simplifications (bill-wise
+  payment allocation would be the highest-value one, since it turns MSME
+  ageing from estimated to exact). This branch (phase2/sales-purchase-core)
+  needs a PR opened and reviewed/merged before any of the above starts.
+```
+
 ```
 Date: 2026-09-05 (session 7)
 Phase: 1 — Accounting Core — fully complete, including both items previously

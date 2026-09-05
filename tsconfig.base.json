@@ -14,6 +14,7 @@
     "baseUrl": ".",
     "paths": {
       "@mhts/core-accounting": ["packages/core-accounting/src/index.ts"],
+      "@mhts/core-sales-purchase": ["packages/core-sales-purchase/src/index.ts"],
       "@mhts/core-gst-engine": ["packages/core-gst-engine/src/index.ts"],
       "@mhts/core-payroll-engine": ["packages/core-payroll-engine/src/index.ts"],
       "@mhts/core-inventory": ["packages/core-inventory/src/index.ts"],

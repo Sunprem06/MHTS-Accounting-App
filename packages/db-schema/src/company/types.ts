@@ -94,6 +94,125 @@ export interface VoucherLineTable {
   line_narration: string | null;
 }
 
+export interface BusinessPartyTable {
+  id: string;
+  /** 'CUSTOMER' | 'SUPPLIER' | 'BOTH' — see @mhts/core-sales-purchase. */
+  party_type: string;
+  name: string;
+  gstin: string | null;
+  state_code: string | null;
+  /** Section 43B(h) — Udyam-registered MSME vendors unpaid past 45 days are tax-disallowed. */
+  is_msme_udyam_registered: ColumnType<boolean, boolean | number, boolean | number>;
+  udyam_registration_number: string | null;
+  credit_period_days: number | null;
+  /** This party's own sub-ledger under Sundry Debtors/Sundry Creditors — its balance IS the party's outstanding amount. */
+  ledger_account_id: string;
+  is_active: ColumnType<boolean, boolean | number, boolean | number>;
+  created_at: ColumnType<string, string | undefined, never>;
+}
+
+export interface SalesInvoiceTable {
+  id: string;
+  party_id: string;
+  invoice_date: string;
+  narration: string | null;
+  /** The invoice number IS voucher.voucher_number, joined via this id — never duplicated. */
+  voucher_id: string;
+  created_by: string | null;
+  created_at: ColumnType<string, string | undefined, never>;
+}
+
+export interface SalesInvoiceLineTable {
+  id: string;
+  sales_invoice_id: string;
+  description: string;
+  income_ledger_id: string;
+  /** Paise. Taxable value. */
+  amount: number;
+  /** Manually entered — GST rules engine lands in Phase 4 (Rule #2: never hardcode a rate). */
+  tax_ledger_id: string | null;
+  tax_amount: number;
+  line_narration: string | null;
+}
+
+export interface PurchaseInvoiceTable {
+  id: string;
+  party_id: string;
+  invoice_date: string;
+  narration: string | null;
+  voucher_id: string;
+  /** Snapshot of business_party.is_msme_udyam_registered at creation time. */
+  is_msme_vendor: ColumnType<boolean, boolean | number, boolean | number>;
+  due_date: string;
+  /** e.g. '194C'. Null if no TDS deducted. Rate resolved from rule_set (system DB), never hardcoded. */
+  tds_section: string | null;
+  tds_amount: number;
+  created_by: string | null;
+  created_at: ColumnType<string, string | undefined, never>;
+}
+
+export interface PurchaseInvoiceLineTable {
+  id: string;
+  purchase_invoice_id: string;
+  description: string;
+  expense_ledger_id: string;
+  /** Paise. Taxable value. */
+  amount: number;
+  tax_ledger_id: string | null;
+  tax_amount: number;
+  line_narration: string | null;
+}
+
+export interface SalesOrderTable {
+  id: string;
+  financial_year: string;
+  order_number: number;
+  party_id: string;
+  order_date: string;
+  /** 'DRAFT' | 'CONFIRMED' | 'CONVERTED' | 'CANCELLED'. */
+  status: string;
+  narration: string | null;
+  converted_to_invoice_id: string | null;
+  created_by: string | null;
+  created_at: ColumnType<string, string | undefined, never>;
+}
+
+export interface SalesOrderLineTable {
+  id: string;
+  sales_order_id: string;
+  description: string;
+  income_ledger_id: string;
+  amount: number;
+  tax_ledger_id: string | null;
+  tax_amount: number;
+  line_narration: string | null;
+}
+
+export interface PurchaseOrderTable {
+  id: string;
+  financial_year: string;
+  order_number: number;
+  party_id: string;
+  order_date: string;
+  status: string;
+  narration: string | null;
+  tds_section: string | null;
+  converted_to_invoice_id: string | null;
+  created_by: string | null;
+  created_at: ColumnType<string, string | undefined, never>;
+}
+
+export interface PurchaseOrderLineTable {
+  id: string;
+  purchase_order_id: string;
+  description: string;
+  expense_ledger_id: string;
+  amount: number;
+  tax_ledger_id: string | null;
+  tax_amount: number;
+  line_narration: string | null;
+}
+
 export interface CompanyDatabase {
   role: RoleTable;
   permission: PermissionTable;
@@ -103,4 +222,13 @@ export interface CompanyDatabase {
   ledger_account: LedgerAccountTable;
   voucher: VoucherTable;
   voucher_line: VoucherLineTable;
+  business_party: BusinessPartyTable;
+  sales_invoice: SalesInvoiceTable;
+  sales_invoice_line: SalesInvoiceLineTable;
+  purchase_invoice: PurchaseInvoiceTable;
+  purchase_invoice_line: PurchaseInvoiceLineTable;
+  sales_order: SalesOrderTable;
+  sales_order_line: SalesOrderLineTable;
+  purchase_order: PurchaseOrderTable;
+  purchase_order_line: PurchaseOrderLineTable;
 }

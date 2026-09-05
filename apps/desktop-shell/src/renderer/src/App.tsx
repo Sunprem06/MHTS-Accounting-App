@@ -18,6 +18,18 @@ import { VoucherRegisterScreen } from './screens/VoucherRegisterScreen';
 import { TrialBalanceScreen } from './screens/TrialBalanceScreen';
 import { ProfitAndLossScreen } from './screens/ProfitAndLossScreen';
 import { BalanceSheetScreen } from './screens/BalanceSheetScreen';
+import { PartiesScreen } from './screens/PartiesScreen';
+import { NewSalesInvoiceScreen } from './screens/NewSalesInvoiceScreen';
+import { NewPurchaseInvoiceScreen } from './screens/NewPurchaseInvoiceScreen';
+import { SalesInvoiceRegisterScreen } from './screens/SalesInvoiceRegisterScreen';
+import { PurchaseInvoiceRegisterScreen } from './screens/PurchaseInvoiceRegisterScreen';
+import { NewSalesOrderScreen } from './screens/NewSalesOrderScreen';
+import { NewPurchaseOrderScreen } from './screens/NewPurchaseOrderScreen';
+import { SalesOrderRegisterScreen } from './screens/SalesOrderRegisterScreen';
+import { PurchaseOrderRegisterScreen } from './screens/PurchaseOrderRegisterScreen';
+import { ReceivablesScreen } from './screens/ReceivablesScreen';
+import { PayablesScreen } from './screens/PayablesScreen';
+import { MsmeAgeingScreen } from './screens/MsmeAgeingScreen';
 
 type View =
   | { name: 'loading' }
@@ -38,7 +50,19 @@ type View =
   | { name: 'voucherRegister' }
   | { name: 'trialBalance' }
   | { name: 'profitAndLoss' }
-  | { name: 'balanceSheet' };
+  | { name: 'balanceSheet' }
+  | { name: 'parties' }
+  | { name: 'newSalesInvoice' }
+  | { name: 'newPurchaseInvoice' }
+  | { name: 'salesInvoiceRegister' }
+  | { name: 'purchaseInvoiceRegister' }
+  | { name: 'newSalesOrder' }
+  | { name: 'newPurchaseOrder' }
+  | { name: 'salesOrderRegister' }
+  | { name: 'purchaseOrderRegister' }
+  | { name: 'receivables' }
+  | { name: 'payables' }
+  | { name: 'msmeAgeing' };
 
 export function App() {
   const [view, setView] = useState<View>({ name: 'loading' });
@@ -199,6 +223,54 @@ export function App() {
     return <BalanceSheetScreen onBack={() => setView({ name: 'dashboard' })} />;
   }
 
+  if (view.name === 'parties') {
+    return <PartiesScreen session={session!} onBack={() => setView({ name: 'dashboard' })} />;
+  }
+
+  if (view.name === 'newSalesInvoice') {
+    return <NewSalesInvoiceScreen onCreated={() => setView({ name: 'salesInvoiceRegister' })} onBack={() => setView({ name: 'dashboard' })} />;
+  }
+
+  if (view.name === 'newPurchaseInvoice') {
+    return <NewPurchaseInvoiceScreen onCreated={() => setView({ name: 'purchaseInvoiceRegister' })} onBack={() => setView({ name: 'dashboard' })} />;
+  }
+
+  if (view.name === 'salesInvoiceRegister') {
+    return <SalesInvoiceRegisterScreen session={session!} onBack={() => setView({ name: 'dashboard' })} />;
+  }
+
+  if (view.name === 'purchaseInvoiceRegister') {
+    return <PurchaseInvoiceRegisterScreen session={session!} onBack={() => setView({ name: 'dashboard' })} />;
+  }
+
+  if (view.name === 'newSalesOrder') {
+    return <NewSalesOrderScreen onCreated={() => setView({ name: 'salesOrderRegister' })} onBack={() => setView({ name: 'dashboard' })} />;
+  }
+
+  if (view.name === 'newPurchaseOrder') {
+    return <NewPurchaseOrderScreen onCreated={() => setView({ name: 'purchaseOrderRegister' })} onBack={() => setView({ name: 'dashboard' })} />;
+  }
+
+  if (view.name === 'salesOrderRegister') {
+    return <SalesOrderRegisterScreen session={session!} onBack={() => setView({ name: 'dashboard' })} />;
+  }
+
+  if (view.name === 'purchaseOrderRegister') {
+    return <PurchaseOrderRegisterScreen session={session!} onBack={() => setView({ name: 'dashboard' })} />;
+  }
+
+  if (view.name === 'receivables') {
+    return <ReceivablesScreen onBack={() => setView({ name: 'dashboard' })} />;
+  }
+
+  if (view.name === 'payables') {
+    return <PayablesScreen onBack={() => setView({ name: 'dashboard' })} />;
+  }
+
+  if (view.name === 'msmeAgeing') {
+    return <MsmeAgeingScreen onBack={() => setView({ name: 'dashboard' })} />;
+  }
+
   return (
     <DashboardScreen
       session={session!}
@@ -212,6 +284,18 @@ export function App() {
       onTrialBalance={() => setView({ name: 'trialBalance' })}
       onProfitAndLoss={() => setView({ name: 'profitAndLoss' })}
       onBalanceSheet={() => setView({ name: 'balanceSheet' })}
+      onParties={() => setView({ name: 'parties' })}
+      onNewSalesInvoice={() => setView({ name: 'newSalesInvoice' })}
+      onNewPurchaseInvoice={() => setView({ name: 'newPurchaseInvoice' })}
+      onSalesInvoiceRegister={() => setView({ name: 'salesInvoiceRegister' })}
+      onPurchaseInvoiceRegister={() => setView({ name: 'purchaseInvoiceRegister' })}
+      onNewSalesOrder={() => setView({ name: 'newSalesOrder' })}
+      onNewPurchaseOrder={() => setView({ name: 'newPurchaseOrder' })}
+      onSalesOrderRegister={() => setView({ name: 'salesOrderRegister' })}
+      onPurchaseOrderRegister={() => setView({ name: 'purchaseOrderRegister' })}
+      onReceivables={() => setView({ name: 'receivables' })}
+      onPayables={() => setView({ name: 'payables' })}
+      onMsmeAgeing={() => setView({ name: 'msmeAgeing' })}
       onLogout={async () => {
         await window.mhts.logout();
         setSession(null);
