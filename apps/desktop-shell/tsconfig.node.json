@@ -1,0 +1,8 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "../../dist/out-tsc/desktop-shell-node",
+    "types": ["electron-vite/node"]
+  },
+  "include": ["src/main/**/*.ts", "src/preload/**/*.ts", "../../packages/db-schema/src/**/*.d.ts"]
+}

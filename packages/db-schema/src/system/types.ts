@@ -45,6 +45,11 @@ export interface CompanyAccessTable {
   role_id: string;
   granted_at: ColumnType<string, string | undefined, never>;
   revoked_at: string | null;
+  /** Company DB's SQLCipher data key (DEK), AES-256-GCM-wrapped under a KEK derived from this user's password. Null only transiently during the 002 migration. */
+  wrapped_dek: string | null;
+  wrap_iv: string | null;
+  wrap_auth_tag: string | null;
+  wrap_kek_salt: string | null;
 }
 
 export interface RuleSetTable {
