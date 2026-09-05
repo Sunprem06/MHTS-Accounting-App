@@ -1,0 +1,17 @@
+{
+  "name": "core-sales-purchase",
+  "sourceRoot": "packages/core-sales-purchase/src",
+  "projectType": "library",
+  "tags": ["type:core"],
+  "targets": {
+    "build": {
+      "executor": "@nx/js:tsc",
+      "outputs": ["{options.outputPath}"],
+      "options": {
+        "outputPath": "dist/packages/core-sales-purchase",
+        "main": "packages/core-sales-purchase/src/index.ts",
+        "tsConfig": "packages/core-sales-purchase/tsconfig.json"
+      }
+    }
+  }
+}

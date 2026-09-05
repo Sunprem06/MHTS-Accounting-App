@@ -17,6 +17,15 @@ export type {
   LedgerAccountTable,
   VoucherTable,
   VoucherLineTable,
+  BusinessPartyTable,
+  SalesInvoiceTable,
+  SalesInvoiceLineTable,
+  PurchaseInvoiceTable,
+  PurchaseInvoiceLineTable,
+  SalesOrderTable,
+  SalesOrderLineTable,
+  PurchaseOrderTable,
+  PurchaseOrderLineTable,
 } from './company/types';
 export { openSystemDb, openCompanyDb } from './connection';
 export type { OpenEncryptedDbOptions } from './connection';

@@ -15,6 +15,7 @@
     "@mhts/core-inventory": "*",
     "@mhts/core-payroll-engine": "*",
     "@mhts/core-rules-engine": "*",
+    "@mhts/core-sales-purchase": "*",
     "@mhts/db-schema": "*",
     "@mhts/shared-types": "*",
     "better-sqlite3-multiple-ciphers": "^13.0.3",

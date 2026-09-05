@@ -100,41 +100,58 @@ async function insertVoucherWithLines(trx: Transaction<CompanyDatabase>, options
 }
 
 /**
- * Creates a voucher and its lines atomically (CLAUDE.md Rule #4), enforcing
- * that debits equal credits — this is the literal implementation of "unbalanced
- * entries impossible." Also writes the append-only audit log entry as part of
- * the SAME transaction, so a voucher can never exist without being audited.
+ * The validating half of createVoucher, usable by a caller that already has
+ * its own open transaction (e.g. @mhts/core-sales-purchase posting an
+ * invoice's voucher and inserting its own invoice/line rows as ONE atomic
+ * unit — CLAUDE.md Rule #4 applies just as much to "invoice touching ledger
+ * + receivable" as it does to a plain voucher). Enforces that debits equal
+ * credits — the literal implementation of "unbalanced entries impossible" —
+ * and writes the audit log entry inside the same transaction, so a voucher
+ * can never exist without being audited.
  */
-export async function createVoucher(
-  companyDb: Kysely<CompanyDatabase>,
+export async function createVoucherInTransaction(
+  trx: Transaction<CompanyDatabase>,
   input: CreateVoucherInput,
   actorUserId: string | null,
-): Promise<string> {
+): Promise<{ voucherId: string; voucherNumber: number }> {
   if (!VOUCHER_TYPES.includes(input.voucherType)) {
     throw new Error(`Unknown voucher type: ${input.voucherType}`);
   }
   validateLines(input.lines);
 
   const ledgerIds = [...new Set(input.lines.map((line) => line.ledgerId))];
-  const existingLedgers = await companyDb.selectFrom('ledger_account').select('id').where('id', 'in', ledgerIds).execute();
+  const existingLedgers = await trx.selectFrom('ledger_account').select('id').where('id', 'in', ledgerIds).execute();
   if (existingLedgers.length !== ledgerIds.length) {
     throw new Error('One or more ledger accounts do not exist');
   }
 
   const voucherId = randomUUID();
-  await companyDb.transaction().execute((trx) =>
-    insertVoucherWithLines(trx, {
-      id: voucherId,
-      voucherType: input.voucherType,
-      financialYear: input.financialYear,
-      voucherDate: input.voucherDate,
-      narration: input.narration ?? null,
-      lines: input.lines,
-      actorUserId,
-      reversesVoucherId: null,
-    }),
-  );
+  const voucherNumber = await insertVoucherWithLines(trx, {
+    id: voucherId,
+    voucherType: input.voucherType,
+    financialYear: input.financialYear,
+    voucherDate: input.voucherDate,
+    narration: input.narration ?? null,
+    lines: input.lines,
+    actorUserId,
+    reversesVoucherId: null,
+  });
 
+  return { voucherId, voucherNumber };
+}
+
+/**
+ * Creates a voucher and its lines atomically (CLAUDE.md Rule #4) in a
+ * transaction of its own — the standalone entry point used by the generic
+ * Journal/Payment/Receipt/Contra screens, which have nothing else to commit
+ * alongside the voucher itself.
+ */
+export async function createVoucher(
+  companyDb: Kysely<CompanyDatabase>,
+  input: CreateVoucherInput,
+  actorUserId: string | null,
+): Promise<string> {
+  const { voucherId } = await companyDb.transaction().execute((trx) => createVoucherInTransaction(trx, input, actorUserId));
   return voucherId;
 }
 

@@ -1,5 +1,6 @@
 import { join } from 'node:path';
 import { app, BrowserWindow, ipcMain } from 'electron';
+import { seedDefaultTdsRates } from '@mhts/core-sales-purchase';
 import { resolveAppPaths, openAndMigrateSystemDb } from './db';
 import {
   listCompanies,
@@ -21,6 +22,27 @@ import {
   getProfitAndLoss,
   getBalanceSheet,
 } from './accountingHandlers';
+import {
+  createParty,
+  listParties,
+  createSalesInvoice,
+  listSalesInvoices,
+  createPurchaseInvoice,
+  listPurchaseInvoices,
+  createSalesOrder,
+  listSalesOrders,
+  confirmSalesOrder,
+  cancelSalesOrder,
+  convertSalesOrder,
+  createPurchaseOrder,
+  listPurchaseOrders,
+  confirmPurchaseOrder,
+  cancelPurchaseOrder,
+  convertPurchaseOrder,
+  listReceivables,
+  listPayables,
+  listMsmeAgeing,
+} from './salesPurchaseHandlers';
 import { session } from './session';
 import {
   IPC,
@@ -29,6 +51,11 @@ import {
   type ChangePasswordInput,
   type CreateCompanyInput,
   type CreateLedgerInput,
+  type CreatePartyInput,
+  type CreatePurchaseInvoiceInput,
+  type CreatePurchaseOrderInput,
+  type CreateSalesInvoiceInput,
+  type CreateSalesOrderInput,
   type CreateVoucherInput,
   type LoginInput,
   type ProfitAndLossInput,
@@ -60,6 +87,10 @@ function handleWithArg<Arg, T>(channel: string, fn: (arg: Arg) => Promise<T>): v
 async function bootstrap(): Promise<void> {
   const paths = resolveAppPaths();
   const systemDb = await openAndMigrateSystemDb(paths);
+  // Installation-wide reference data (rule_set is shared across every company in this
+  // install — see @mhts/db-schema's system/types.ts) — seeded once here, idempotently,
+  // never per-company (createCompany must not re-seed/duplicate/version-bump this).
+  await seedDefaultTdsRates(systemDb);
 
   handle(IPC.LIST_COMPANIES, () => listCompanies(systemDb));
   handleWithArg(IPC.CREATE_COMPANY, (input: CreateCompanyInput) => createCompany(systemDb, paths, input));
@@ -82,6 +113,26 @@ async function bootstrap(): Promise<void> {
   handle(IPC.GET_TRIAL_BALANCE, () => getTrialBalance());
   handleWithArg(IPC.GET_PROFIT_AND_LOSS, (input: ProfitAndLossInput) => getProfitAndLoss(input));
   handleWithArg(IPC.GET_BALANCE_SHEET, (asOfDate: string) => getBalanceSheet(asOfDate));
+
+  handleWithArg(IPC.CREATE_PARTY, (input: CreatePartyInput) => createParty(input));
+  handle(IPC.LIST_PARTIES, () => listParties());
+  handleWithArg(IPC.CREATE_SALES_INVOICE, (input: CreateSalesInvoiceInput) => createSalesInvoice(systemDb, input));
+  handle(IPC.LIST_SALES_INVOICES, () => listSalesInvoices());
+  handleWithArg(IPC.CREATE_PURCHASE_INVOICE, (input: CreatePurchaseInvoiceInput) => createPurchaseInvoice(systemDb, input));
+  handle(IPC.LIST_PURCHASE_INVOICES, () => listPurchaseInvoices());
+  handleWithArg(IPC.CREATE_SALES_ORDER, (input: CreateSalesOrderInput) => createSalesOrder(systemDb, input));
+  handle(IPC.LIST_SALES_ORDERS, () => listSalesOrders());
+  handleWithArg(IPC.CONFIRM_SALES_ORDER, (orderId: string) => confirmSalesOrder(orderId));
+  handleWithArg(IPC.CANCEL_SALES_ORDER, (orderId: string) => cancelSalesOrder(orderId));
+  handleWithArg(IPC.CONVERT_SALES_ORDER, (orderId: string) => convertSalesOrder(systemDb, orderId));
+  handleWithArg(IPC.CREATE_PURCHASE_ORDER, (input: CreatePurchaseOrderInput) => createPurchaseOrder(systemDb, input));
+  handle(IPC.LIST_PURCHASE_ORDERS, () => listPurchaseOrders());
+  handleWithArg(IPC.CONFIRM_PURCHASE_ORDER, (orderId: string) => confirmPurchaseOrder(orderId));
+  handleWithArg(IPC.CANCEL_PURCHASE_ORDER, (orderId: string) => cancelPurchaseOrder(orderId));
+  handleWithArg(IPC.CONVERT_PURCHASE_ORDER, (orderId: string) => convertPurchaseOrder(systemDb, orderId));
+  handle(IPC.LIST_RECEIVABLES, () => listReceivables());
+  handle(IPC.LIST_PAYABLES, () => listPayables());
+  handleWithArg(IPC.LIST_MSME_AGEING, (asOfDate: string) => listMsmeAgeing(asOfDate));
 
   createWindow();
 }

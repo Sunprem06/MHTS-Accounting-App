@@ -10,8 +10,8 @@ export type AccountNature = (typeof ACCOUNT_NATURES)[number];
 export const BALANCE_SIDES = ['DEBIT', 'CREDIT'] as const;
 export type BalanceSide = (typeof BALANCE_SIDES)[number];
 
-/** More types (SALES, PURCHASE, ...) land in later phases alongside their own modules. */
-export const VOUCHER_TYPES = ['JOURNAL', 'PAYMENT', 'RECEIPT', 'CONTRA'] as const;
+/** SALES_INVOICE/PURCHASE_INVOICE added in Phase 2 (@mhts/core-sales-purchase) — posted via createVoucherInTransaction, same engine as every other voucher type. */
+export const VOUCHER_TYPES = ['JOURNAL', 'PAYMENT', 'RECEIPT', 'CONTRA', 'SALES_INVOICE', 'PURCHASE_INVOICE'] as const;
 export type VoucherType = (typeof VOUCHER_TYPES)[number];
 
 export interface AccountGroupSummary {
