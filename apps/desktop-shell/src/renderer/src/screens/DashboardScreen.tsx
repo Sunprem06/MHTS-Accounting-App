@@ -50,6 +50,15 @@ interface Props {
   onExpenseClaimRegister: () => void;
   onOutstandingReimbursements: () => void;
   onDocumentSearch: () => void;
+  onEmployeePayrollProfile: () => void;
+  onSalaryComponents: () => void;
+  onSalaryStructure: () => void;
+  onPayrollSettings: () => void;
+  onManagePayrollRules: () => void;
+  onAttendance: () => void;
+  onLeave: () => void;
+  onPayrollRuns: () => void;
+  onGratuity: () => void;
 }
 
 export function DashboardScreen({
@@ -102,6 +111,15 @@ export function DashboardScreen({
   onExpenseClaimRegister,
   onOutstandingReimbursements,
   onDocumentSearch,
+  onEmployeePayrollProfile,
+  onSalaryComponents,
+  onSalaryStructure,
+  onPayrollSettings,
+  onManagePayrollRules,
+  onAttendance,
+  onLeave,
+  onPayrollRuns,
+  onGratuity,
 }: Props) {
   return (
     <div style={{ padding: 24, fontFamily: 'sans-serif', maxWidth: 480 }}>
@@ -230,6 +248,26 @@ export function DashboardScreen({
       {session.permissions.includes('DOCUMENTS.VIEW') && (
         <p>
           <button onClick={onDocumentSearch}>Document search</button>
+        </p>
+      )}
+      {(session.permissions.includes('PAYROLL.MANAGE_EMPLOYEE_PROFILE') ||
+        session.permissions.includes('PAYROLL.MANAGE_SALARY_STRUCTURE') ||
+        session.permissions.includes('PAYROLL.MANAGE_RULES') ||
+        session.permissions.includes('PAYROLL.MANAGE_ATTENDANCE') ||
+        session.permissions.includes('PAYROLL.APPLY_LEAVE') ||
+        session.permissions.includes('PAYROLL.RUN_PAYROLL') ||
+        session.permissions.includes('PAYROLL.MANAGE_GRATUITY') ||
+        session.permissions.includes('PAYROLL.VIEW_REPORTS')) && (
+        <p>
+          {session.permissions.includes('PAYROLL.MANAGE_EMPLOYEE_PROFILE') && <button onClick={onEmployeePayrollProfile}>Employee payroll profiles</button>}{' '}
+          {session.permissions.includes('PAYROLL.MANAGE_SALARY_STRUCTURE') && <button onClick={onSalaryComponents}>Salary components</button>}{' '}
+          {session.permissions.includes('PAYROLL.MANAGE_SALARY_STRUCTURE') && <button onClick={onSalaryStructure}>Salary structure (CTC)</button>}{' '}
+          {session.permissions.includes('PAYROLL.MANAGE_RULES') && <button onClick={onPayrollSettings}>Payroll settings</button>}{' '}
+          {session.permissions.includes('PAYROLL.MANAGE_RULES') && <button onClick={onManagePayrollRules}>Manage payroll rules</button>}{' '}
+          {session.permissions.includes('PAYROLL.MANAGE_ATTENDANCE') && <button onClick={onAttendance}>Attendance</button>}{' '}
+          {(session.permissions.includes('PAYROLL.APPLY_LEAVE') || session.permissions.includes('PAYROLL.APPROVE_LEAVE')) && <button onClick={onLeave}>Leave</button>}{' '}
+          {(session.permissions.includes('PAYROLL.RUN_PAYROLL') || session.permissions.includes('PAYROLL.VIEW_REPORTS')) && <button onClick={onPayrollRuns}>Payroll runs</button>}{' '}
+          {(session.permissions.includes('PAYROLL.MANAGE_GRATUITY') || session.permissions.includes('PAYROLL.VIEW_REPORTS')) && <button onClick={onGratuity}>Gratuity</button>}
         </p>
       )}
       <p>

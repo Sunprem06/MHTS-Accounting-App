@@ -10,8 +10,8 @@ export type AccountNature = (typeof ACCOUNT_NATURES)[number];
 export const BALANCE_SIDES = ['DEBIT', 'CREDIT'] as const;
 export type BalanceSide = (typeof BALANCE_SIDES)[number];
 
-/** SALES_INVOICE/PURCHASE_INVOICE added in Phase 2 (@mhts/core-sales-purchase); STOCK_ADJUSTMENT added in Phase 3 (@mhts/core-inventory); EXPENSE_CLAIM added in Phase 6 (@mhts/core-expense) — all posted via createVoucherInTransaction, same engine as every other voucher type. */
-export const VOUCHER_TYPES = ['JOURNAL', 'PAYMENT', 'RECEIPT', 'CONTRA', 'SALES_INVOICE', 'PURCHASE_INVOICE', 'STOCK_ADJUSTMENT', 'EXPENSE_CLAIM'] as const;
+/** SALES_INVOICE/PURCHASE_INVOICE added in Phase 2 (@mhts/core-sales-purchase); STOCK_ADJUSTMENT added in Phase 3 (@mhts/core-inventory); EXPENSE_CLAIM added in Phase 6 (@mhts/core-expense); PAYROLL and GRATUITY_PROVISION added in Phase 7 (@mhts/core-payroll-engine) — all posted via createVoucherInTransaction, same engine as every other voucher type. */
+export const VOUCHER_TYPES = ['JOURNAL', 'PAYMENT', 'RECEIPT', 'CONTRA', 'SALES_INVOICE', 'PURCHASE_INVOICE', 'STOCK_ADJUSTMENT', 'EXPENSE_CLAIM', 'PAYROLL', 'GRATUITY_PROVISION'] as const;
 export type VoucherType = (typeof VOUCHER_TYPES)[number];
 
 export interface AccountGroupSummary {

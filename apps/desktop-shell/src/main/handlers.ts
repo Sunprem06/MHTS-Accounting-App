@@ -23,6 +23,7 @@ import { seedGstLedgers, grantGstPermissions } from '@mhts/core-gst-engine';
 import { grantBankingPermissions } from '@mhts/core-banking';
 import { grantExpensePermissions, seedExpenseLedgers } from '@mhts/core-expense';
 import { grantDocumentsPermissions } from '@mhts/core-documents';
+import { grantPayrollPermissions, seedPayrollLedgers, seedDefaultCompanyPayrollSettings } from '@mhts/core-payroll-engine';
 import type { AppPaths } from './db';
 import { companyDbFilePath, createAndMigrateCompanyDb, openExistingCompanyDb } from './db';
 import { checkLicenseStatus } from './licenseHandlers';
@@ -136,6 +137,9 @@ export async function createCompany(
   await grantExpensePermissions(companyDb, adminRoleId);
   await seedExpenseLedgers(companyDb); // required — no default EXPENSE ledgers exist today
   await grantDocumentsPermissions(companyDb, adminRoleId);
+  await grantPayrollPermissions(companyDb, adminRoleId);
+  await seedPayrollLedgers(companyDb);
+  await seedDefaultCompanyPayrollSettings(companyDb);
   await companyDb.destroy();
 
   await systemDb
