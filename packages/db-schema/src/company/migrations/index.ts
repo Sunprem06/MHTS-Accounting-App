@@ -8,6 +8,7 @@ import * as m006BillWiseSettlement from './006_bill_wise_settlement';
 import * as m007Inventory from './007_inventory';
 import * as m008Gst from './008_gst';
 import * as m009GstItcRcm from './009_gst_itc_rcm';
+import * as m010Banking from './010_banking';
 
 export const migrations: Record<string, Migration> = {
   '001_init': m001Init,
@@ -19,4 +20,5 @@ export const migrations: Record<string, Migration> = {
   '007_inventory': m007Inventory,
   '008_gst': m008Gst,
   '009_gst_itc_rcm': m009GstItcRcm,
+  '010_banking': m010Banking,
 };

@@ -73,6 +73,23 @@ import {
 } from './inventoryHandlers';
 import { createOrUpdateGstRate, listGstRates, listActiveGstRates, previewGst, getGstSummary, getGstr1, getGstr3b, getGstr9, getGstr9c } from './gstHandlers';
 import { exportCsv } from './csvExport';
+import {
+  listBankAccounts,
+  createBankAccount,
+  recordBankVoucher,
+  updateInstrumentStatus,
+  listPaymentInstruments,
+  listReconcilableLines,
+  markLineReconciled,
+  markLineUnreconciled,
+  getReconciliationStatement,
+  pickStatementFile,
+  previewStatementCsv,
+  importStatementFile,
+  listStatementImports,
+  getStatementImportLines,
+  resolveStatementLineMatch,
+} from './bankingHandlers';
 import { session } from './session';
 import {
   IPC,
@@ -109,6 +126,15 @@ import {
   type GstReturnPeriodInput,
   type GstFinancialYearInput,
   type ExportCsvInput,
+  type CreateBankAccountInput,
+  type RecordBankVoucherInput,
+  type UpdateInstrumentStatusInput,
+  type ListReconcilableLinesInput,
+  type MarkReconciledInput,
+  type GetReconciliationStatementInput,
+  type ImportStatementFileInput,
+  type ResolveStatementLineMatchInput,
+  type InstrumentStatus,
 } from '../shared/ipc';
 
 function handle<T>(channel: string, fn: () => Promise<T>): void {
@@ -230,6 +256,22 @@ async function bootstrap(): Promise<void> {
   handleWithArg(IPC.GET_GSTR9, (input: GstFinancialYearInput) => getGstr9(systemDb, input));
   handleWithArg(IPC.GET_GSTR9C, (input: GstFinancialYearInput) => getGstr9c(systemDb, input));
   handleWithArg(IPC.EXPORT_CSV, (input: ExportCsvInput) => exportCsv(input));
+
+  handle(IPC.LIST_BANK_ACCOUNTS, () => listBankAccounts());
+  handleWithArg(IPC.CREATE_BANK_ACCOUNT, (input: CreateBankAccountInput) => createBankAccount(input));
+  handleWithArg(IPC.RECORD_BANK_VOUCHER, (input: RecordBankVoucherInput) => recordBankVoucher(systemDb, input));
+  handleWithArg(IPC.UPDATE_INSTRUMENT_STATUS, (input: UpdateInstrumentStatusInput) => updateInstrumentStatus(input));
+  handleWithArg(IPC.LIST_PAYMENT_INSTRUMENTS, (status: InstrumentStatus | undefined) => listPaymentInstruments(status));
+  handleWithArg(IPC.LIST_RECONCILABLE_LINES, (input: ListReconcilableLinesInput) => listReconcilableLines(input));
+  handleWithArg(IPC.MARK_LINE_RECONCILED, (input: MarkReconciledInput) => markLineReconciled(input));
+  handleWithArg(IPC.MARK_LINE_UNRECONCILED, (voucherLineId: string) => markLineUnreconciled(voucherLineId));
+  handleWithArg(IPC.GET_RECONCILIATION_STATEMENT, (input: GetReconciliationStatementInput) => getReconciliationStatement(input));
+  handle(IPC.PICK_STATEMENT_FILE, () => pickStatementFile());
+  handleWithArg(IPC.PREVIEW_STATEMENT_CSV, (csvText: string) => previewStatementCsv(csvText));
+  handleWithArg(IPC.IMPORT_STATEMENT_FILE, (input: ImportStatementFileInput) => importStatementFile(input));
+  handleWithArg(IPC.LIST_STATEMENT_IMPORTS, (bankAccountId: string) => listStatementImports(bankAccountId));
+  handleWithArg(IPC.GET_STATEMENT_IMPORT_LINES, (importId: string) => getStatementImportLines(importId));
+  handleWithArg(IPC.RESOLVE_STATEMENT_LINE_MATCH, (input: ResolveStatementLineMatchInput) => resolveStatementLineMatch(input));
 
   createWindow();
 }

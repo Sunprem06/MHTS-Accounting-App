@@ -1,21 +1,30 @@
 import { useEffect, useState } from 'react';
-import type { LedgerAccountSummary } from '../../../shared/ipc';
+import type { LedgerAccountSummary, PaymentInstrumentInput, SessionInfo } from '../../../shared/ipc';
+import { PaymentInstrumentFields } from './PaymentInstrumentFields';
 
 interface Props {
+  session: SessionInfo;
   onCreated: () => void;
   onBack: () => void;
 }
 
+const BANK_ACCOUNTS_GROUP = 'Bank Accounts';
+
 /** A transfer between the business's own Cash/Bank ledgers — no external party, so just two ledgers and one amount. */
-export function ContraVoucherScreen({ onCreated, onBack }: Props) {
+export function ContraVoucherScreen({ session, onCreated, onBack }: Props) {
   const [ledgers, setLedgers] = useState<LedgerAccountSummary[]>([]);
   const [fromLedgerId, setFromLedgerId] = useState('');
   const [toLedgerId, setToLedgerId] = useState('');
   const [voucherDate, setVoucherDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [narration, setNarration] = useState('');
   const [amountRupees, setAmountRupees] = useState(0);
+  const [instrument, setInstrument] = useState<PaymentInstrumentInput | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  const eitherSideIsBank =
+    ledgers.find((l) => l.id === fromLedgerId)?.groupName === BANK_ACCOUNTS_GROUP || ledgers.find((l) => l.id === toLedgerId)?.groupName === BANK_ACCOUNTS_GROUP;
+  const canRecordInstrument = session.permissions.includes('BANKING.RECORD_PAYMENT_INSTRUMENT');
 
   useEffect(() => {
     (async () => {
@@ -40,7 +49,7 @@ export function ContraVoucherScreen({ onCreated, onBack }: Props) {
       return;
     }
     setSubmitting(true);
-    const result = await window.mhts.createVoucher({
+    const result = await window.mhts.recordBankVoucher({
       voucherType: 'CONTRA',
       voucherDate,
       narration: narration || undefined,
@@ -48,6 +57,7 @@ export function ContraVoucherScreen({ onCreated, onBack }: Props) {
         { ledgerId: toLedgerId, debitRupees: amountRupees, creditRupees: 0 },
         { ledgerId: fromLedgerId, debitRupees: 0, creditRupees: amountRupees },
       ],
+      instrument: eitherSideIsBank ? instrument : null,
     });
     setSubmitting(false);
     if (result.ok) {
@@ -105,6 +115,7 @@ export function ContraVoucherScreen({ onCreated, onBack }: Props) {
           <input value={narration} onChange={(e) => setNarration(e.target.value)} style={{ width: '100%' }} />
         </label>
         <br />
+        {eitherSideIsBank && canRecordInstrument && <PaymentInstrumentFields value={instrument} onChange={setInstrument} />}
         {error && <p style={{ color: 'crimson' }}>{error}</p>}
         <button type="submit" disabled={submitting || amountRupees <= 0}>
           {submitting ? 'Saving…' : 'Save contra'}

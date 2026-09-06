@@ -1,0 +1,17 @@
+{
+  "name": "core-banking",
+  "sourceRoot": "packages/core-banking/src",
+  "projectType": "library",
+  "tags": ["type:core"],
+  "targets": {
+    "build": {
+      "executor": "@nx/js:tsc",
+      "outputs": ["{options.outputPath}"],
+      "options": {
+        "outputPath": "dist/packages/core-banking",
+        "main": "packages/core-banking/src/index.ts",
+        "tsConfig": "packages/core-banking/tsconfig.json"
+      }
+    }
+  }
+}

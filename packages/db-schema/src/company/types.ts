@@ -359,6 +359,76 @@ export interface StockMovementLayerConsumptionTable {
   value_consumed_paise: number;
 }
 
+export interface BankAccountTable {
+  id: string;
+  /** This bank's own dedicated ledger under the Bank Accounts group — its balance IS the bank's book balance. */
+  ledger_account_id: string;
+  account_number: string;
+  ifsc_code: string;
+  bank_name: string;
+  branch_name: string | null;
+  /** 'SAVINGS' | 'CURRENT' | 'CC' | 'OD' — see @mhts/core-banking. */
+  account_type: string;
+  is_active: ColumnType<boolean, boolean | number, boolean | number>;
+  created_at: ColumnType<string, string | undefined, never>;
+}
+
+export interface VoucherPaymentInstrumentTable {
+  id: string;
+  voucher_id: string;
+  /** 'CASH' | 'CHEQUE' | 'NEFT' | 'RTGS' | 'UPI' | 'IMPS' | 'DD' | 'CARD' — see @mhts/core-banking. */
+  instrument_type: string;
+  cheque_number: string | null;
+  cheque_date: string | null;
+  utr_reference: string | null;
+  /** 'PENDING' | 'PRESENTED' | 'CLEARED' | 'BOUNCED' | 'CANCELLED'. */
+  instrument_status: string;
+  status_date: string | null;
+  created_at: ColumnType<string, string | undefined, never>;
+}
+
+export interface BankReconciliationTable {
+  id: string;
+  voucher_line_id: string;
+  is_reconciled: ColumnType<boolean, boolean | number, boolean | number>;
+  reconciled_at: string | null;
+  reconciled_by: string | null;
+  /** The real date this movement appeared on the bank statement — can differ from voucher_date. */
+  bank_statement_date: string | null;
+  /** 'MANUAL' | 'IMPORT'. */
+  matched_via: string | null;
+  created_at: ColumnType<string, string | undefined, never>;
+}
+
+export interface BankStatementImportTable {
+  id: string;
+  bank_account_id: string;
+  file_name: string;
+  imported_at: ColumnType<string, string | undefined, never>;
+  /** AppUser.id from the system DB — not a foreign key here (cross-file). */
+  imported_by: string | null;
+  total_lines: number;
+  matched_lines: number;
+  unmatched_lines: number;
+}
+
+export interface BankStatementLineTable {
+  id: string;
+  import_id: string;
+  bank_account_id: string;
+  statement_date: string;
+  description: string;
+  /** Always positive. Paise. */
+  amount_paise: number;
+  /** 'CREDIT' | 'DEBIT' — the BANK's own terminology, the OPPOSITE sense of our ledger's debit/credit on an asset ledger. See migration 010_banking.ts. */
+  direction: string;
+  /** 'MATCHED' | 'UNMATCHED' | 'IGNORED'. */
+  match_status: string;
+  matched_voucher_line_id: string | null;
+  is_likely_duplicate: ColumnType<boolean, boolean | number, boolean | number>;
+  created_at: ColumnType<string, string | undefined, never>;
+}
+
 export interface CompanyDatabase {
   role: RoleTable;
   permission: PermissionTable;
@@ -386,4 +456,9 @@ export interface CompanyDatabase {
   stock_movement: StockMovementTable;
   stock_receipt_layer: StockReceiptLayerTable;
   stock_movement_layer_consumption: StockMovementLayerConsumptionTable;
+  bank_account: BankAccountTable;
+  voucher_payment_instrument: VoucherPaymentInstrumentTable;
+  bank_reconciliation: BankReconciliationTable;
+  bank_statement_import: BankStatementImportTable;
+  bank_statement_line: BankStatementLineTable;
 }

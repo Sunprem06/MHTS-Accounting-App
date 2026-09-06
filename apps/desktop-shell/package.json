@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@mhts/core-accounting": "*",
+    "@mhts/core-banking": "*",
     "@mhts/core-gst-engine": "*",
     "@mhts/core-identity": "*",
     "@mhts/core-inventory": "*",
