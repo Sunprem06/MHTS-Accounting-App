@@ -90,6 +90,19 @@ import {
   getStatementImportLines,
   resolveStatementLineMatch,
 } from './bankingHandlers';
+import {
+  listEmployees,
+  createEmployee,
+  listExpenseClaims,
+  createExpenseClaim,
+  submitExpenseClaim,
+  approveExpenseClaim,
+  rejectExpenseClaim,
+  cancelExpenseClaim,
+  reimburseExpenseClaim,
+  listOutstandingReimbursements,
+} from './expenseHandlers';
+import { pickAttachmentFile, uploadDocument, listDocumentsForEntity, downloadDocument, deleteDocument, searchDocuments } from './documentHandlers';
 import { session } from './session';
 import {
   IPC,
@@ -135,6 +148,13 @@ import {
   type ImportStatementFileInput,
   type ResolveStatementLineMatchInput,
   type InstrumentStatus,
+  type CreateEmployeeInput,
+  type CreateExpenseClaimInput,
+  type RejectExpenseClaimInput,
+  type ReimburseExpenseClaimInput,
+  type UploadDocumentInput,
+  type SearchDocumentsInput,
+  type ListDocumentsForEntityInput,
 } from '../shared/ipc';
 
 function handle<T>(channel: string, fn: () => Promise<T>): void {
@@ -272,6 +292,24 @@ async function bootstrap(): Promise<void> {
   handleWithArg(IPC.LIST_STATEMENT_IMPORTS, (bankAccountId: string) => listStatementImports(bankAccountId));
   handleWithArg(IPC.GET_STATEMENT_IMPORT_LINES, (importId: string) => getStatementImportLines(importId));
   handleWithArg(IPC.RESOLVE_STATEMENT_LINE_MATCH, (input: ResolveStatementLineMatchInput) => resolveStatementLineMatch(input));
+
+  handle(IPC.LIST_EMPLOYEES, () => listEmployees());
+  handleWithArg(IPC.CREATE_EMPLOYEE, (input: CreateEmployeeInput) => createEmployee(input));
+  handle(IPC.LIST_EXPENSE_CLAIMS, () => listExpenseClaims());
+  handleWithArg(IPC.CREATE_EXPENSE_CLAIM, (input: CreateExpenseClaimInput) => createExpenseClaim(systemDb, input));
+  handleWithArg(IPC.SUBMIT_EXPENSE_CLAIM, (expenseClaimId: string) => submitExpenseClaim(expenseClaimId));
+  handleWithArg(IPC.APPROVE_EXPENSE_CLAIM, (expenseClaimId: string) => approveExpenseClaim(systemDb, expenseClaimId));
+  handleWithArg(IPC.REJECT_EXPENSE_CLAIM, (input: RejectExpenseClaimInput) => rejectExpenseClaim(input));
+  handleWithArg(IPC.CANCEL_EXPENSE_CLAIM, (expenseClaimId: string) => cancelExpenseClaim(systemDb, expenseClaimId));
+  handleWithArg(IPC.REIMBURSE_EXPENSE_CLAIM, (input: ReimburseExpenseClaimInput) => reimburseExpenseClaim(systemDb, input));
+  handleWithArg(IPC.LIST_OUTSTANDING_REIMBURSEMENTS, (employeeId: string | undefined) => listOutstandingReimbursements(employeeId));
+
+  handle(IPC.PICK_ATTACHMENT_FILE, () => pickAttachmentFile());
+  handleWithArg(IPC.UPLOAD_DOCUMENT, (input: UploadDocumentInput) => uploadDocument(input));
+  handleWithArg(IPC.LIST_DOCUMENTS_FOR_ENTITY, ({ entityType, entityId }: ListDocumentsForEntityInput) => listDocumentsForEntity(entityType, entityId));
+  handleWithArg(IPC.DOWNLOAD_DOCUMENT, (documentId: string) => downloadDocument(documentId));
+  handleWithArg(IPC.DELETE_DOCUMENT, (documentId: string) => deleteDocument(documentId));
+  handleWithArg(IPC.SEARCH_DOCUMENTS, (input: SearchDocumentsInput) => searchDocuments(input));
 
   createWindow();
 }

@@ -11,6 +11,8 @@
   "dependencies": {
     "@mhts/core-accounting": "*",
     "@mhts/core-banking": "*",
+    "@mhts/core-documents": "*",
+    "@mhts/core-expense": "*",
     "@mhts/core-gst-engine": "*",
     "@mhts/core-identity": "*",
     "@mhts/core-inventory": "*",

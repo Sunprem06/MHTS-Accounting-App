@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import type { PartySummary, PartyType, SessionInfo } from '../../../shared/ipc';
+import { AttachmentsPanel } from './AttachmentsPanel';
 
 interface Props {
   session: SessionInfo;
@@ -9,6 +10,7 @@ interface Props {
 export function PartiesScreen({ session, onBack }: Props) {
   const [parties, setParties] = useState<PartySummary[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   const [partyType, setPartyType] = useState<PartyType>('CUSTOMER');
   const [name, setName] = useState('');
@@ -77,17 +79,32 @@ export function PartiesScreen({ session, onBack }: Props) {
               <th style={{ textAlign: 'left' }}>GSTIN</th>
               <th style={{ textAlign: 'left' }}>MSME</th>
               <th style={{ textAlign: 'left' }}>Credit period</th>
+              <th />
             </tr>
           </thead>
           <tbody>
             {parties.map((party) => (
-              <tr key={party.id}>
-                <td>{party.name}</td>
-                <td>{party.partyType}</td>
-                <td>{party.gstin ?? '—'}</td>
-                <td>{party.isMsmeUdyamRegistered ? `Yes (${party.udyamRegistrationNumber ?? 'no number'})` : 'No'}</td>
-                <td>{party.creditPeriodDays ? `${party.creditPeriodDays} days` : '—'}</td>
-              </tr>
+              <Fragment key={party.id}>
+                <tr>
+                  <td>{party.name}</td>
+                  <td>{party.partyType}</td>
+                  <td>{party.gstin ?? '—'}</td>
+                  <td>{party.isMsmeUdyamRegistered ? `Yes (${party.udyamRegistrationNumber ?? 'no number'})` : 'No'}</td>
+                  <td>{party.creditPeriodDays ? `${party.creditPeriodDays} days` : '—'}</td>
+                  <td>
+                    <button type="button" onClick={() => setExpandedId(expandedId === party.id ? null : party.id)}>
+                      {expandedId === party.id ? 'Hide' : 'Attachments'}
+                    </button>
+                  </td>
+                </tr>
+                {expandedId === party.id && (
+                  <tr>
+                    <td colSpan={6}>
+                      <AttachmentsPanel session={session} entityType="BusinessParty" entityId={party.id} />
+                    </td>
+                  </tr>
+                )}
+              </Fragment>
             ))}
           </tbody>
         </table>

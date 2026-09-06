@@ -113,7 +113,7 @@ export interface InviteUserResult {
 
 export type AccountNature = 'ASSET' | 'LIABILITY' | 'EQUITY' | 'INCOME' | 'EXPENSE';
 export type BalanceSide = 'DEBIT' | 'CREDIT';
-export type VoucherType = 'JOURNAL' | 'PAYMENT' | 'RECEIPT' | 'CONTRA' | 'SALES_INVOICE' | 'PURCHASE_INVOICE' | 'STOCK_ADJUSTMENT';
+export type VoucherType = 'JOURNAL' | 'PAYMENT' | 'RECEIPT' | 'CONTRA' | 'SALES_INVOICE' | 'PURCHASE_INVOICE' | 'STOCK_ADJUSTMENT' | 'EXPENSE_CLAIM';
 
 export interface AccountGroupSummary {
   id: string;
@@ -952,6 +952,135 @@ export interface GetReconciliationStatementInput {
   asOfDate: string;
 }
 
+// --- Phase 6: Expenses, Travel, Documents ---
+
+export type ExpenseClaimStatus = 'DRAFT' | 'SUBMITTED' | 'APPROVED' | 'REJECTED' | 'REIMBURSED' | 'CANCELLED';
+
+export interface EmployeeSummary {
+  id: string;
+  employeeCode: string;
+  name: string;
+  department: string | null;
+  ledgerAccountId: string;
+  isActive: boolean;
+  /** Rupees, for display. */
+  outstandingBalance: number;
+}
+
+export interface CreateEmployeeInput {
+  employeeCode: string;
+  name: string;
+  department?: string;
+}
+
+export interface ExpenseClaimLineFormInput {
+  expenseLedgerId: string;
+  description: string;
+  expenseDate: string;
+  /** Rupees, as typed by the user — converted to paise at the IPC boundary. */
+  amountRupees: number;
+  lineNarration?: string;
+}
+
+export interface CreateExpenseClaimInput {
+  employeeId: string;
+  claimDate: string;
+  purpose?: string;
+  lines: ExpenseClaimLineFormInput[];
+}
+
+export interface ExpenseClaimLineSummary {
+  id: string;
+  expenseLedgerId: string;
+  expenseLedgerName: string;
+  description: string;
+  expenseDate: string;
+  /** Rupees, for display. */
+  amount: number;
+  lineNarration: string | null;
+}
+
+export interface ExpenseClaimSummary {
+  id: string;
+  employeeId: string;
+  employeeName: string;
+  financialYear: string;
+  claimNumber: number;
+  claimDate: string;
+  purpose: string | null;
+  status: ExpenseClaimStatus;
+  voucherId: string | null;
+  rejectedReason: string | null;
+  /** Rupees, for display. */
+  totalAmount: number;
+  lines: ExpenseClaimLineSummary[];
+}
+
+export interface RejectExpenseClaimInput {
+  expenseClaimId: string;
+  reason: string;
+}
+
+export interface OutstandingReimbursementRow {
+  expenseClaimId: string;
+  voucherId: string;
+  voucherNumber: number;
+  claimDate: string;
+  employeeId: string;
+  employeeName: string;
+  /** Rupees, for display. */
+  netAmount: number;
+  settledAmount: number;
+  outstandingAmount: number;
+}
+
+export interface ReimburseExpenseClaimInput {
+  expenseClaimId: string;
+  paymentLedgerId: string;
+  paymentDate: string;
+  narration?: string;
+  /** Rupees, as typed by the user — converted to paise at the IPC boundary. */
+  amountRupees: number;
+  instrument?: PaymentInstrumentInput;
+}
+
+export interface DocumentSummary {
+  id: string;
+  entityType: string;
+  entityId: string;
+  fileName: string;
+  mimeType: string;
+  fileSizeBytes: number;
+  description: string | null;
+  uploadedBy: string | null;
+  uploadedAt: string;
+}
+
+export interface UploadDocumentInput {
+  entityType: string;
+  entityId: string;
+  fileName: string;
+  mimeType: string;
+  /** Base64-encoded file content — crosses the IPC boundary as a string, decoded to a Buffer in the main-process handler. */
+  fileDataBase64: string;
+  description?: string;
+}
+
+export interface ListDocumentsForEntityInput {
+  entityType: string;
+  entityId: string;
+}
+
+export interface DownloadDocumentResult {
+  fileName: string;
+  saved: boolean;
+}
+
+export interface SearchDocumentsInput {
+  query: string;
+  entityType?: string;
+}
+
 export interface IpcResult<T> {
   ok: boolean;
   data?: T;
@@ -1054,4 +1183,23 @@ export const IPC = {
   LIST_STATEMENT_IMPORTS: 'banking:listStatementImports',
   GET_STATEMENT_IMPORT_LINES: 'banking:getStatementImportLines',
   RESOLVE_STATEMENT_LINE_MATCH: 'banking:resolveStatementLineMatch',
+
+  // Phase 6: Expenses, Travel, Documents
+  LIST_EMPLOYEES: 'expense:listEmployees',
+  CREATE_EMPLOYEE: 'expense:createEmployee',
+  LIST_EXPENSE_CLAIMS: 'expense:listExpenseClaims',
+  CREATE_EXPENSE_CLAIM: 'expense:createExpenseClaim',
+  SUBMIT_EXPENSE_CLAIM: 'expense:submitExpenseClaim',
+  APPROVE_EXPENSE_CLAIM: 'expense:approveExpenseClaim',
+  REJECT_EXPENSE_CLAIM: 'expense:rejectExpenseClaim',
+  REIMBURSE_EXPENSE_CLAIM: 'expense:reimburseExpenseClaim',
+  CANCEL_EXPENSE_CLAIM: 'expense:cancelExpenseClaim',
+  LIST_OUTSTANDING_REIMBURSEMENTS: 'expense:listOutstandingReimbursements',
+
+  PICK_ATTACHMENT_FILE: 'documents:pickAttachmentFile',
+  UPLOAD_DOCUMENT: 'documents:uploadDocument',
+  LIST_DOCUMENTS_FOR_ENTITY: 'documents:listDocumentsForEntity',
+  DOWNLOAD_DOCUMENT: 'documents:downloadDocument',
+  DELETE_DOCUMENT: 'documents:deleteDocument',
+  SEARCH_DOCUMENTS: 'documents:searchDocuments',
 } as const;

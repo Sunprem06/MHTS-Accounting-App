@@ -1,0 +1,14 @@
+{
+  "name": "@mhts/core-expense",
+  "version": "0.0.0",
+  "private": true,
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "dependencies": {
+    "@mhts/core-accounting": "*",
+    "@mhts/core-banking": "*",
+    "@mhts/core-audit": "*",
+    "@mhts/db-schema": "*",
+    "@mhts/shared-types": "*"
+  }
+}

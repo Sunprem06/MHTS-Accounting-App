@@ -90,6 +90,18 @@ import {
   type StatementLineSummary,
   type StatementPreview,
   type UpdateInstrumentStatusInput,
+  type EmployeeSummary,
+  type CreateEmployeeInput,
+  type ExpenseClaimSummary,
+  type CreateExpenseClaimInput,
+  type RejectExpenseClaimInput,
+  type ReimburseExpenseClaimInput,
+  type OutstandingReimbursementRow,
+  type DocumentSummary,
+  type UploadDocumentInput,
+  type ListDocumentsForEntityInput,
+  type DownloadDocumentResult,
+  type SearchDocumentsInput,
 } from '../shared/ipc';
 
 const api = {
@@ -192,6 +204,22 @@ const api = {
   listStatementImports: (bankAccountId: string): Promise<IpcResult<StatementImportSummary[]>> => ipcRenderer.invoke(IPC.LIST_STATEMENT_IMPORTS, bankAccountId),
   getStatementImportLines: (importId: string): Promise<IpcResult<StatementLineSummary[]>> => ipcRenderer.invoke(IPC.GET_STATEMENT_IMPORT_LINES, importId),
   resolveStatementLineMatch: (input: ResolveStatementLineMatchInput): Promise<IpcResult<void>> => ipcRenderer.invoke(IPC.RESOLVE_STATEMENT_LINE_MATCH, input),
+  listEmployees: (): Promise<IpcResult<EmployeeSummary[]>> => ipcRenderer.invoke(IPC.LIST_EMPLOYEES),
+  createEmployee: (input: CreateEmployeeInput): Promise<IpcResult<string>> => ipcRenderer.invoke(IPC.CREATE_EMPLOYEE, input),
+  listExpenseClaims: (): Promise<IpcResult<ExpenseClaimSummary[]>> => ipcRenderer.invoke(IPC.LIST_EXPENSE_CLAIMS),
+  createExpenseClaim: (input: CreateExpenseClaimInput): Promise<IpcResult<string>> => ipcRenderer.invoke(IPC.CREATE_EXPENSE_CLAIM, input),
+  submitExpenseClaim: (expenseClaimId: string): Promise<IpcResult<void>> => ipcRenderer.invoke(IPC.SUBMIT_EXPENSE_CLAIM, expenseClaimId),
+  approveExpenseClaim: (expenseClaimId: string): Promise<IpcResult<string>> => ipcRenderer.invoke(IPC.APPROVE_EXPENSE_CLAIM, expenseClaimId),
+  rejectExpenseClaim: (input: RejectExpenseClaimInput): Promise<IpcResult<void>> => ipcRenderer.invoke(IPC.REJECT_EXPENSE_CLAIM, input),
+  cancelExpenseClaim: (expenseClaimId: string): Promise<IpcResult<void>> => ipcRenderer.invoke(IPC.CANCEL_EXPENSE_CLAIM, expenseClaimId),
+  reimburseExpenseClaim: (input: ReimburseExpenseClaimInput): Promise<IpcResult<string>> => ipcRenderer.invoke(IPC.REIMBURSE_EXPENSE_CLAIM, input),
+  listOutstandingReimbursements: (employeeId?: string): Promise<IpcResult<OutstandingReimbursementRow[]>> => ipcRenderer.invoke(IPC.LIST_OUTSTANDING_REIMBURSEMENTS, employeeId),
+  pickAttachmentFile: (): Promise<IpcResult<{ fileName: string; mimeType: string; fileDataBase64: string } | null>> => ipcRenderer.invoke(IPC.PICK_ATTACHMENT_FILE),
+  uploadDocument: (input: UploadDocumentInput): Promise<IpcResult<string>> => ipcRenderer.invoke(IPC.UPLOAD_DOCUMENT, input),
+  listDocumentsForEntity: (input: ListDocumentsForEntityInput): Promise<IpcResult<DocumentSummary[]>> => ipcRenderer.invoke(IPC.LIST_DOCUMENTS_FOR_ENTITY, input),
+  downloadDocument: (documentId: string): Promise<IpcResult<DownloadDocumentResult>> => ipcRenderer.invoke(IPC.DOWNLOAD_DOCUMENT, documentId),
+  deleteDocument: (documentId: string): Promise<IpcResult<void>> => ipcRenderer.invoke(IPC.DELETE_DOCUMENT, documentId),
+  searchDocuments: (input: SearchDocumentsInput): Promise<IpcResult<DocumentSummary[]>> => ipcRenderer.invoke(IPC.SEARCH_DOCUMENTS, input),
 };
 
 export type MhtsApi = typeof api;

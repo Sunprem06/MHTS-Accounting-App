@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import type { AccountType, BankAccountSummary, SessionInfo } from '../../../shared/ipc';
+import { AttachmentsPanel } from './AttachmentsPanel';
 
 interface Props {
   session: SessionInfo;
@@ -11,6 +12,7 @@ const ACCOUNT_TYPES: AccountType[] = ['SAVINGS', 'CURRENT', 'CC', 'OD'];
 export function BankAccountsScreen({ session, onBack }: Props) {
   const [accounts, setAccounts] = useState<BankAccountSummary[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   const [name, setName] = useState('');
   const [accountNumber, setAccountNumber] = useState('');
@@ -81,18 +83,33 @@ export function BankAccountsScreen({ session, onBack }: Props) {
               <th style={{ textAlign: 'left' }}>IFSC</th>
               <th style={{ textAlign: 'left' }}>Type</th>
               <th style={{ textAlign: 'right' }}>Balance (₹)</th>
+              <th />
             </tr>
           </thead>
           <tbody>
             {accounts.map((account) => (
-              <tr key={account.id} style={{ opacity: account.isActive ? 1 : 0.6 }}>
-                <td>{account.ledgerName}</td>
-                <td>{account.bankName}</td>
-                <td>{account.accountNumber}</td>
-                <td>{account.ifscCode}</td>
-                <td>{account.accountType}</td>
-                <td style={{ textAlign: 'right' }}>{account.currentBalance.toFixed(2)}</td>
-              </tr>
+              <Fragment key={account.id}>
+                <tr style={{ opacity: account.isActive ? 1 : 0.6 }}>
+                  <td>{account.ledgerName}</td>
+                  <td>{account.bankName}</td>
+                  <td>{account.accountNumber}</td>
+                  <td>{account.ifscCode}</td>
+                  <td>{account.accountType}</td>
+                  <td style={{ textAlign: 'right' }}>{account.currentBalance.toFixed(2)}</td>
+                  <td>
+                    <button type="button" onClick={() => setExpandedId(expandedId === account.id ? null : account.id)}>
+                      {expandedId === account.id ? 'Hide' : 'Attachments'}
+                    </button>
+                  </td>
+                </tr>
+                {expandedId === account.id && (
+                  <tr>
+                    <td colSpan={7}>
+                      <AttachmentsPanel session={session} entityType="BankAccount" entityId={account.id} />
+                    </td>
+                  </tr>
+                )}
+              </Fragment>
             ))}
           </tbody>
         </table>
