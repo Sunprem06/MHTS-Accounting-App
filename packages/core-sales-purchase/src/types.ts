@@ -1,3 +1,5 @@
+import type { GstRegistrationType } from '@mhts/core-gst-engine';
+
 /** A counterparty is often both — one table, distinguished by type, rather than forcing a business to pick. */
 export const PARTY_TYPES = ['CUSTOMER', 'SUPPLIER', 'BOTH'] as const;
 export type PartyType = (typeof PARTY_TYPES)[number];
@@ -80,6 +82,27 @@ export interface DocumentLineInput {
    * inventory item.
    */
   hsnSacCode?: string;
+  /**
+   * Phase 4 increment 2 (ITC) — purchase lines only, ignored on a sales
+   * line. Defaults to true. False (a Section 17(5) blocked credit) folds
+   * this line's GST into its own ledgerId debit (cost) instead of an Input
+   * GST ledger — see purchaseInvoices.ts's buildPurchaseVoucherLines. Also
+   * forced false company-wide when the company is on the composition
+   * scheme (which can never claim ITC), regardless of this flag.
+   */
+  itcEligible?: boolean;
+  /** Free-text, shown alongside itcEligible === false for audit clarity — e.g. "motor vehicle, personal use". */
+  itcIneligibilityReason?: string;
+  /**
+   * Phase 4 increment 2 (reverse charge) — meaningful on either side. On a
+   * SALES line: the seller collects zero tax (the recipient self-assesses),
+   * but the line still carries its hsnSacCode for HSN-summary/GSTR-1
+   * reporting. On a PURCHASE line: WE self-assess — the resolved GST amount
+   * is excluded from what's owed to the supplier (they never charged it)
+   * and instead posts a self-balancing Dr Input (or cost, if ineligible) /
+   * Cr RCM Liability pair.
+   */
+  isReverseCharge?: boolean;
   lineNarration?: string;
   /** @mhts/core-inventory item id — set only for a stockable item line. */
   itemId?: string;
@@ -103,6 +126,8 @@ export interface CreateSalesInvoiceInput {
   narration?: string;
   /** Phase 4 (GST) — the company's own state_code (system DB), resolved by the caller (same pattern as financialYear), used to decide intra- vs inter-state place of supply. Null if the company has no state code on file (treated as intra-state, the conservative default). */
   companyStateCode?: string | null;
+  /** Phase 4 increment 2 (composition scheme) — resolved by the caller from the company record. Defaults to 'REGULAR' (unset) if omitted, so existing callers/tests are unaffected. A COMPOSITION company never collects GST from customers — see salesInvoices.ts. */
+  companyGstRegistrationType?: GstRegistrationType;
   lines: DocumentLineInput[];
 }
 
@@ -114,6 +139,8 @@ export interface CreatePurchaseInvoiceInput {
   tdsSection?: TdsSectionCode;
   /** Phase 4 (GST) — see CreateSalesInvoiceInput's identical field. */
   companyStateCode?: string | null;
+  /** Phase 4 increment 2 (composition scheme) — see CreateSalesInvoiceInput's identical field. A COMPOSITION company can never claim ITC, regardless of any line's own itcEligible flag. */
+  companyGstRegistrationType?: GstRegistrationType;
   lines: DocumentLineInput[];
 }
 

@@ -12,11 +12,15 @@ export interface CompanySummary {
   isActive: boolean;
 }
 
+export type GstRegistrationType = 'REGULAR' | 'COMPOSITION';
+
 export interface CreateCompanyInput {
   legalName: string;
   tradeName: string;
   entityType: string;
   stateCode: string;
+  /** Phase 4 increment 2 — set once at company creation, not editable afterward in this pass (see Phase Tracker Open Questions). */
+  gstRegistrationType: GstRegistrationType;
   financialYearStartMonth: number;
   baseCurrency: string;
   adminName: string;
@@ -261,6 +265,11 @@ export interface DocumentLineInput {
   taxAmountRupees?: number;
   /** Phase 4 (GST) — mutually exclusive with taxLedgerId/taxAmountRupees. See core-sales-purchase's DocumentLineInput. */
   hsnSacCode?: string;
+  /** Phase 4 increment 2 (ITC) — purchase lines only. Defaults to true when omitted. */
+  itcEligible?: boolean;
+  itcIneligibilityReason?: string;
+  /** Phase 4 increment 2 (reverse charge) — either side. See core-sales-purchase's DocumentLineInput. */
+  isReverseCharge?: boolean;
   lineNarration?: string;
   /** Phase 3 (Inventory) — set only for a stockable item line, all four required together. Quantity/rate are decimal units here, converted to thousandths-of-a-unit/paise at the IPC boundary. */
   itemId?: string;
@@ -462,6 +471,135 @@ export interface GstSummaryResult {
   inputSgst: number;
   inputIgst: number;
   inputCess: number;
+  /** Rupees. Table 6.1-style net payable after set-off — see core-gst-engine's computeGstSetOff. */
+  netCgstPayable: number;
+  netSgstPayable: number;
+  netIgstPayable: number;
+  netCessPayable: number;
+  carryForwardCgst: number;
+  carryForwardSgst: number;
+  carryForwardIgst: number;
+  carryForwardCess: number;
+  /** Rupees. GST that couldn't be claimed as credit (Section 17(5), or the company is on the composition scheme) — folded into cost instead. */
+  blockedItcCgst: number;
+  blockedItcSgst: number;
+  blockedItcIgst: number;
+  blockedItcCess: number;
+  /** Rupees. Reverse-charge tax WE self-assessed on purchases — must be paid in cash, not eligible for set-off this period. */
+  rcmInwardCgst: number;
+  rcmInwardSgst: number;
+  rcmInwardIgst: number;
+  rcmInwardCess: number;
+}
+
+// --- Phase 4 increment 2: GST returns prep (GSTR-1/3B/9/9C) ---
+
+export interface GstReturnPeriodInput {
+  fromDate: string;
+  toDate: string;
+}
+
+export interface GstFinancialYearInput {
+  financialYear: string;
+}
+
+export interface Gstr1B2bInvoiceRow {
+  invoiceId: string;
+  voucherNumber: number;
+  invoiceDate: string;
+  partyName: string;
+  partyGstin: string;
+  partyStateCode: string | null;
+  isReverseCharge: boolean;
+  /** Rupees. */
+  taxableAmount: number;
+  cgstAmount: number;
+  sgstAmount: number;
+  igstAmount: number;
+  cessAmount: number;
+}
+
+export interface Gstr1B2cSummaryRow {
+  stateCode: string | null;
+  ratePercent: number;
+  /** Rupees. */
+  taxableAmount: number;
+  cgstAmount: number;
+  sgstAmount: number;
+  igstAmount: number;
+  cessAmount: number;
+}
+
+export interface Gstr1HsnSummaryRow {
+  hsnSacCode: string;
+  /** Rupees. */
+  taxableAmount: number;
+  cgstAmount: number;
+  sgstAmount: number;
+  igstAmount: number;
+  cessAmount: number;
+}
+
+export interface Gstr1Result {
+  b2bInvoices: Gstr1B2bInvoiceRow[];
+  b2cSummary: Gstr1B2cSummaryRow[];
+  hsnSummary: Gstr1HsnSummaryRow[];
+}
+
+export interface GstSetOffResult {
+  /** Rupees. */
+  netCgstPayable: number;
+  netSgstPayable: number;
+  netIgstPayable: number;
+  netCessPayable: number;
+  carryForwardCgst: number;
+  carryForwardSgst: number;
+  carryForwardIgst: number;
+  carryForwardCess: number;
+}
+
+export interface Gstr3bResult {
+  /** Rupees. */
+  outwardTaxableValue: number;
+  outwardCgst: number;
+  outwardSgst: number;
+  outwardIgst: number;
+  outwardCess: number;
+  rcmInwardTaxableValue: number;
+  rcmInwardCgst: number;
+  rcmInwardSgst: number;
+  rcmInwardIgst: number;
+  rcmInwardCess: number;
+  itcEligibleCgst: number;
+  itcEligibleSgst: number;
+  itcEligibleIgst: number;
+  itcEligibleCess: number;
+  itcIneligibleCgst: number;
+  itcIneligibleSgst: number;
+  itcIneligibleIgst: number;
+  itcIneligibleCess: number;
+  netPayable: GstSetOffResult;
+}
+
+export interface Gstr9Result extends Gstr3bResult {
+  financialYear: string;
+  fromDate: string;
+  toDate: string;
+  hsnSummary: Gstr1HsnSummaryRow[];
+}
+
+export interface ExportCsvInput {
+  defaultFileName: string;
+  csvContent: string;
+}
+
+export interface Gstr9cResult {
+  financialYear: string;
+  /** Rupees. */
+  turnoverPerBooks: number;
+  turnoverPerGstReturns: number;
+  turnoverReconciliationGap: number;
+  totalTaxDeclaredForYear: number;
 }
 
 // --- Phase 3: Inventory ---
@@ -724,4 +862,9 @@ export const IPC = {
   LIST_ACTIVE_GST_RATES: 'gst:listActiveRates',
   PREVIEW_GST: 'gst:preview',
   GET_GST_SUMMARY: 'gst:getSummary',
+  GET_GSTR1: 'gst:getGstr1',
+  GET_GSTR3B: 'gst:getGstr3b',
+  GET_GSTR9: 'gst:getGstr9',
+  GET_GSTR9C: 'gst:getGstr9c',
+  EXPORT_CSV: 'export:csv',
 } as const;

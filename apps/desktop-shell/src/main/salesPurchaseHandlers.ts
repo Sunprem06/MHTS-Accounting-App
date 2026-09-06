@@ -29,6 +29,7 @@ import {
   recordPurchasePayment as coreRecordPurchasePayment,
 } from '@mhts/core-sales-purchase';
 import type { DocumentLineInput as CoreDocumentLineInput } from '@mhts/core-sales-purchase';
+import type { GstRegistrationType } from '@mhts/core-gst-engine';
 import { session } from './session';
 import type {
   CreatePartyInput,
@@ -77,6 +78,12 @@ async function companyStateCodeFor(systemDb: Kysely<SystemDatabase>, companyId: 
   return company.state_code;
 }
 
+/** Phase 4 increment 2 (composition scheme) — see companyStateCodeFor's identical reasoning. */
+async function companyGstRegistrationTypeFor(systemDb: Kysely<SystemDatabase>, companyId: string): Promise<GstRegistrationType> {
+  const company = await systemDb.selectFrom('company').select('gst_registration_type').where('id', '=', companyId).executeTakeFirstOrThrow();
+  return company.gst_registration_type as GstRegistrationType;
+}
+
 function toCoreLines(lines: DocumentLineInput[]): CoreDocumentLineInput[] {
   return lines.map((line) => ({
     description: line.description,
@@ -85,6 +92,9 @@ function toCoreLines(lines: DocumentLineInput[]): CoreDocumentLineInput[] {
     taxLedgerId: line.taxLedgerId,
     taxAmount: line.taxAmountRupees !== undefined ? rupeesToPaise(line.taxAmountRupees) : undefined,
     hsnSacCode: line.hsnSacCode,
+    itcEligible: line.itcEligible,
+    itcIneligibilityReason: line.itcIneligibilityReason,
+    isReverseCharge: line.isReverseCharge,
     lineNarration: line.lineNarration,
     itemId: line.itemId,
     warehouseId: line.warehouseId,
@@ -127,10 +137,11 @@ export async function createSalesInvoice(systemDb: Kysely<SystemDatabase>, input
   const { info, companyDb } = requireSessionWithCompanyDb('SALES.CREATE_INVOICE');
   const financialYear = await financialYearFor(systemDb, info.companyId, input.invoiceDate);
   const companyStateCode = await companyStateCodeFor(systemDb, info.companyId);
+  const companyGstRegistrationType = await companyGstRegistrationTypeFor(systemDb, info.companyId);
   return coreCreateSalesInvoice(
     companyDb,
     systemDb,
-    { partyId: input.partyId, financialYear, invoiceDate: input.invoiceDate, narration: input.narration, companyStateCode, lines: toCoreLines(input.lines) },
+    { partyId: input.partyId, financialYear, invoiceDate: input.invoiceDate, narration: input.narration, companyStateCode, companyGstRegistrationType, lines: toCoreLines(input.lines) },
     info.userId,
   );
 }
@@ -152,10 +163,11 @@ export async function createPurchaseInvoice(systemDb: Kysely<SystemDatabase>, in
   const { info, companyDb } = requireSessionWithCompanyDb('PURCHASE.CREATE_INVOICE');
   const financialYear = await financialYearFor(systemDb, info.companyId, input.invoiceDate);
   const companyStateCode = await companyStateCodeFor(systemDb, info.companyId);
+  const companyGstRegistrationType = await companyGstRegistrationTypeFor(systemDb, info.companyId);
   return coreCreatePurchaseInvoice(
     companyDb,
     systemDb,
-    { partyId: input.partyId, financialYear, invoiceDate: input.invoiceDate, narration: input.narration, tdsSection: input.tdsSection, companyStateCode, lines: toCoreLines(input.lines) },
+    { partyId: input.partyId, financialYear, invoiceDate: input.invoiceDate, narration: input.narration, tdsSection: input.tdsSection, companyStateCode, companyGstRegistrationType, lines: toCoreLines(input.lines) },
     info.userId,
   );
 }
@@ -204,7 +216,8 @@ export async function convertSalesOrder(systemDb: Kysely<SystemDatabase>, orderI
   const invoiceDate = new Date().toISOString().slice(0, 10);
   const financialYear = await financialYearFor(systemDb, info.companyId, invoiceDate);
   const companyStateCode = await companyStateCodeFor(systemDb, info.companyId);
-  return coreConvertSalesOrderToInvoice(companyDb, systemDb, orderId, invoiceDate, financialYear, companyStateCode, info.userId);
+  const companyGstRegistrationType = await companyGstRegistrationTypeFor(systemDb, info.companyId);
+  return coreConvertSalesOrderToInvoice(companyDb, systemDb, orderId, invoiceDate, financialYear, companyStateCode, companyGstRegistrationType, info.userId);
 }
 
 export async function createPurchaseOrder(systemDb: Kysely<SystemDatabase>, input: CreatePurchaseOrderInput): Promise<string> {
@@ -238,7 +251,8 @@ export async function convertPurchaseOrder(systemDb: Kysely<SystemDatabase>, ord
   const invoiceDate = new Date().toISOString().slice(0, 10);
   const financialYear = await financialYearFor(systemDb, info.companyId, invoiceDate);
   const companyStateCode = await companyStateCodeFor(systemDb, info.companyId);
-  return coreConvertPurchaseOrderToInvoice(companyDb, systemDb, orderId, invoiceDate, financialYear, companyStateCode, info.userId);
+  const companyGstRegistrationType = await companyGstRegistrationTypeFor(systemDb, info.companyId);
+  return coreConvertPurchaseOrderToInvoice(companyDb, systemDb, orderId, invoiceDate, financialYear, companyStateCode, companyGstRegistrationType, info.userId);
 }
 
 export async function listReceivables(): Promise<PartyOutstandingRow[]> {

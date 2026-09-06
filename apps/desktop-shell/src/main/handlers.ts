@@ -139,6 +139,7 @@ export async function createCompany(
       trade_name: input.tradeName || null,
       entity_type: input.entityType,
       state_code: input.stateCode || null,
+      gst_registration_type: input.gstRegistrationType,
       financial_year_start_month: input.financialYearStartMonth,
       base_currency: input.baseCurrency,
       db_file_path: filePath,

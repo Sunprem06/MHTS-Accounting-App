@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { Kysely } from 'kysely';
 import type { CompanyDatabase, SystemDatabase } from '@mhts/db-schema';
+import type { GstRegistrationType } from '@mhts/core-gst-engine';
 import { writeAuditLog } from '@mhts/core-audit';
 import { validateDocumentLines } from './lineValidation';
 import { createSalesInvoiceInTransaction } from './salesInvoices';
@@ -152,6 +153,7 @@ export async function convertSalesOrderToInvoice(
   invoiceDate: string,
   financialYear: string,
   companyStateCode: string | null,
+  companyGstRegistrationType: GstRegistrationType | undefined,
   actorUserId: string | null,
 ): Promise<string> {
   const order = await companyDb.selectFrom('sales_order').selectAll().where('id', '=', orderId).executeTakeFirst();
@@ -169,6 +171,7 @@ export async function convertSalesOrderToInvoice(
     invoiceDate,
     narration: order.narration ?? undefined,
     companyStateCode,
+    companyGstRegistrationType,
     // Every field the order line carries must be forwarded explicitly — this
     // mapper does NOT pass through unknown fields, so a new item/quantity
     // column added to sales_order_line has to be added here too, or a

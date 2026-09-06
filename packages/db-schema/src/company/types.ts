@@ -143,6 +143,8 @@ export interface SalesInvoiceLineTable {
   sgst_amount: number;
   igst_amount: number;
   cess_amount: number;
+  /** Phase 4 increment 2 (RCM) — true means the buyer self-assesses; this line collects zero tax from the customer. */
+  is_reverse_charge: ColumnType<boolean, boolean | number, boolean | number>;
 }
 
 export interface PurchaseInvoiceTable {
@@ -179,6 +181,11 @@ export interface PurchaseInvoiceLineTable {
   sgst_amount: number;
   igst_amount: number;
   cess_amount: number;
+  /** Phase 4 increment 2 (ITC). Default true. False (Section 17(5) blocked credit, or the company itself is on the composition scheme) folds this line's GST into its own expense/stock ledger debit (cost) instead of an Input GST ledger. */
+  itc_eligible: ColumnType<boolean, boolean | number, boolean | number>;
+  itc_ineligibility_reason: string | null;
+  /** Phase 4 increment 2 (RCM) — true means WE self-assess this purchase's GST; see core-sales-purchase's buildPurchaseVoucherLines. */
+  is_reverse_charge: ColumnType<boolean, boolean | number, boolean | number>;
 }
 
 export interface SalesOrderTable {

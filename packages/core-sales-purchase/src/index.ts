@@ -37,3 +37,6 @@ export { listReceivables, listPayables, listMsmeAgeing } from './receivablesPaya
 
 export { listOutstandingSalesInvoices, listOutstandingPurchaseInvoices, recordSalesReceipt, recordPurchasePayment } from './settlements';
 export type { OutstandingInvoiceRow, SettlementLineInput, RecordSalesReceiptInput, RecordPurchasePaymentInput } from './settlements';
+
+export { computeGstr1Data, computeGstr3bData, computeGstr9Data, computeGstr9cData } from './gstReturns';
+export type { DateRange, Gstr1B2bInvoiceRow, Gstr1B2cSummaryRow, Gstr1HsnSummaryRow, Gstr1Data, Gstr3bData, Gstr9Data, Gstr9cData } from './gstReturns';

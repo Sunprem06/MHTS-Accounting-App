@@ -108,8 +108,65 @@ export function GstSummaryScreen({ onBack }: Props) {
             </tbody>
           </table>
 
+          <h2>Net GST payable (after set-off)</h2>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr>
+                <th style={{ textAlign: 'left' }}></th>
+                <th style={{ textAlign: 'right' }}>Net payable (₹)</th>
+                <th style={{ textAlign: 'right' }}>Carried forward (₹)</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>CGST</td>
+                <td style={{ textAlign: 'right' }}>{summary.netCgstPayable.toFixed(2)}</td>
+                <td style={{ textAlign: 'right' }}>{summary.carryForwardCgst.toFixed(2)}</td>
+              </tr>
+              <tr>
+                <td>SGST</td>
+                <td style={{ textAlign: 'right' }}>{summary.netSgstPayable.toFixed(2)}</td>
+                <td style={{ textAlign: 'right' }}>{summary.carryForwardSgst.toFixed(2)}</td>
+              </tr>
+              <tr>
+                <td>IGST</td>
+                <td style={{ textAlign: 'right' }}>{summary.netIgstPayable.toFixed(2)}</td>
+                <td style={{ textAlign: 'right' }}>{summary.carryForwardIgst.toFixed(2)}</td>
+              </tr>
+              <tr>
+                <td>Cess</td>
+                <td style={{ textAlign: 'right' }}>{summary.netCessPayable.toFixed(2)}</td>
+                <td style={{ textAlign: 'right' }}>{summary.carryForwardCess.toFixed(2)}</td>
+              </tr>
+            </tbody>
+          </table>
           <p style={{ fontSize: 12, color: '#666' }}>
-            This is a ledger reconciliation view, not a GSTR-1/3B return — ITC eligibility, reverse charge and filing-format prep are a follow-up pass.
+            Standard set-off order (IGST credit first, then CGST, then SGST) — not a cash-minimizing optimizer. Excludes reverse-charge
+            liability below, which must be paid in cash and isn't eligible for set-off this period.
+          </p>
+
+          {(summary.blockedItcCgst || summary.blockedItcSgst || summary.blockedItcIgst || summary.blockedItcCess) > 0 && (
+            <>
+              <h2>Blocked ITC (added to cost, not claimed)</h2>
+              <p>
+                CGST ₹{summary.blockedItcCgst.toFixed(2)} · SGST ₹{summary.blockedItcSgst.toFixed(2)} · IGST ₹{summary.blockedItcIgst.toFixed(2)} · Cess ₹
+                {summary.blockedItcCess.toFixed(2)}
+              </p>
+            </>
+          )}
+
+          {(summary.rcmInwardCgst || summary.rcmInwardSgst || summary.rcmInwardIgst || summary.rcmInwardCess) > 0 && (
+            <>
+              <h2>Reverse charge self-assessed (must pay in cash)</h2>
+              <p>
+                CGST ₹{summary.rcmInwardCgst.toFixed(2)} · SGST ₹{summary.rcmInwardSgst.toFixed(2)} · IGST ₹{summary.rcmInwardIgst.toFixed(2)} · Cess ₹
+                {summary.rcmInwardCess.toFixed(2)}
+              </p>
+            </>
+          )}
+
+          <p style={{ fontSize: 12, color: '#666' }}>
+            This is a ledger reconciliation view, not a GSTR-1/3B return itself — see the GST Returns screen for GSTR-1/3B/9/9C prep data.
           </p>
         </>
       )}

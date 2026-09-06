@@ -13,6 +13,7 @@ const initialForm: CreateCompanyInput = {
   tradeName: '',
   entityType: 'PRIVATE_LTD',
   stateCode: '',
+  gstRegistrationType: 'REGULAR',
   financialYearStartMonth: 4,
   baseCurrency: 'INR',
   adminName: '',
@@ -88,6 +89,20 @@ export function CreateCompanyScreen({ onCreated, onCancel }: Props) {
             State code
             <input value={form.stateCode} onChange={(e) => set('stateCode', e.target.value)} placeholder="e.g. IN-TN" />
           </label>
+          <br />
+          <label>
+            GST registration
+            <select value={form.gstRegistrationType} onChange={(e) => set('gstRegistrationType', e.target.value as CreateCompanyInput['gstRegistrationType'])}>
+              <option value="REGULAR">Regular</option>
+              <option value="COMPOSITION">Composition scheme</option>
+            </select>
+          </label>
+          {form.gstRegistrationType === 'COMPOSITION' && (
+            <p style={{ fontSize: 12, color: '#8a6d00' }}>
+              A composition dealer cannot collect GST from customers or claim input tax credit — sales invoices will always post at zero
+              tax. This can't be changed after the company is created in this version.
+            </p>
+          )}
           <br />
           <label>
             Financial year start month

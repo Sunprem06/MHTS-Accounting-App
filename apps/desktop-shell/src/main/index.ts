@@ -71,7 +71,8 @@ import {
   listStockMovements,
   getStockPosition,
 } from './inventoryHandlers';
-import { createOrUpdateGstRate, listGstRates, listActiveGstRates, previewGst, getGstSummary } from './gstHandlers';
+import { createOrUpdateGstRate, listGstRates, listActiveGstRates, previewGst, getGstSummary, getGstr1, getGstr3b, getGstr9, getGstr9c } from './gstHandlers';
+import { exportCsv } from './csvExport';
 import { session } from './session';
 import {
   IPC,
@@ -105,6 +106,9 @@ import {
   type CreateOrUpdateGstRateInput,
   type GstRatePreviewInput,
   type GstSummaryInput,
+  type GstReturnPeriodInput,
+  type GstFinancialYearInput,
+  type ExportCsvInput,
 } from '../shared/ipc';
 
 function handle<T>(channel: string, fn: () => Promise<T>): void {
@@ -221,6 +225,11 @@ async function bootstrap(): Promise<void> {
   handle(IPC.LIST_ACTIVE_GST_RATES, () => listActiveGstRates(systemDb));
   handleWithArg(IPC.PREVIEW_GST, (input: GstRatePreviewInput) => previewGst(systemDb, input));
   handleWithArg(IPC.GET_GST_SUMMARY, (input: GstSummaryInput) => getGstSummary(input));
+  handleWithArg(IPC.GET_GSTR1, (input: GstReturnPeriodInput) => getGstr1(input));
+  handleWithArg(IPC.GET_GSTR3B, (input: GstReturnPeriodInput) => getGstr3b(input));
+  handleWithArg(IPC.GET_GSTR9, (input: GstFinancialYearInput) => getGstr9(systemDb, input));
+  handleWithArg(IPC.GET_GSTR9C, (input: GstFinancialYearInput) => getGstr9c(systemDb, input));
+  handleWithArg(IPC.EXPORT_CSV, (input: ExportCsvInput) => exportCsv(input));
 
   createWindow();
 }

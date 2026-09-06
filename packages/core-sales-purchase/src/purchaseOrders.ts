@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { Kysely } from 'kysely';
 import type { CompanyDatabase, SystemDatabase } from '@mhts/db-schema';
+import type { GstRegistrationType } from '@mhts/core-gst-engine';
 import { writeAuditLog } from '@mhts/core-audit';
 import { validateDocumentLines } from './lineValidation';
 import { createPurchaseInvoiceInTransaction } from './purchaseInvoices';
@@ -144,6 +145,7 @@ export async function convertPurchaseOrderToInvoice(
   invoiceDate: string,
   financialYear: string,
   companyStateCode: string | null,
+  companyGstRegistrationType: GstRegistrationType | undefined,
   actorUserId: string | null,
 ): Promise<string> {
   const order = await companyDb.selectFrom('purchase_order').selectAll().where('id', '=', orderId).executeTakeFirst();
@@ -162,6 +164,7 @@ export async function convertPurchaseOrderToInvoice(
     narration: order.narration ?? undefined,
     tdsSection: (order.tds_section as CreatePurchaseInvoiceInput['tdsSection']) ?? undefined,
     companyStateCode,
+    companyGstRegistrationType,
     // See salesOrders.ts's convertSalesOrderToInvoice for why every field
     // must be listed explicitly here — this mapper does not forward unknown
     // fields, so a new column on purchase_order_line silently disappears on

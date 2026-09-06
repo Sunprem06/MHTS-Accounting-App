@@ -66,6 +66,13 @@ import {
   type GstRateVersion,
   type GstSummaryInput,
   type GstSummaryResult,
+  type GstReturnPeriodInput,
+  type GstFinancialYearInput,
+  type Gstr1Result,
+  type Gstr3bResult,
+  type Gstr9Result,
+  type Gstr9cResult,
+  type ExportCsvInput,
 } from '../shared/ipc';
 
 const api = {
@@ -148,6 +155,11 @@ const api = {
   listActiveGstRates: (): Promise<IpcResult<GstRateSummary[]>> => ipcRenderer.invoke(IPC.LIST_ACTIVE_GST_RATES),
   previewGst: (input: GstRatePreviewInput): Promise<IpcResult<GstRatePreviewResult>> => ipcRenderer.invoke(IPC.PREVIEW_GST, input),
   getGstSummary: (input: GstSummaryInput): Promise<IpcResult<GstSummaryResult>> => ipcRenderer.invoke(IPC.GET_GST_SUMMARY, input),
+  getGstr1: (input: GstReturnPeriodInput): Promise<IpcResult<Gstr1Result>> => ipcRenderer.invoke(IPC.GET_GSTR1, input),
+  getGstr3b: (input: GstReturnPeriodInput): Promise<IpcResult<Gstr3bResult>> => ipcRenderer.invoke(IPC.GET_GSTR3B, input),
+  getGstr9: (input: GstFinancialYearInput): Promise<IpcResult<Gstr9Result>> => ipcRenderer.invoke(IPC.GET_GSTR9, input),
+  getGstr9c: (input: GstFinancialYearInput): Promise<IpcResult<Gstr9cResult>> => ipcRenderer.invoke(IPC.GET_GSTR9C, input),
+  exportCsv: (input: ExportCsvInput): Promise<IpcResult<boolean>> => ipcRenderer.invoke(IPC.EXPORT_CSV, input),
 };
 
 export type MhtsApi = typeof api;

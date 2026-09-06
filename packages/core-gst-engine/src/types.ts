@@ -71,3 +71,32 @@ export interface GstSummaryRow {
   inputIgst: number;
   inputCess: number;
 }
+
+/** A composition dealer cannot collect GST from customers or claim ITC — see core-sales-purchase's posting logic. Set once at company creation (@mhts/db-schema's CompanyTable), not editable afterward in this pass. */
+export const GST_REGISTRATION_TYPES = ['REGULAR', 'COMPOSITION'] as const;
+export type GstRegistrationType = (typeof GST_REGISTRATION_TYPES)[number];
+
+export interface GstSetOffInput {
+  /** Paise. Output tax liability by head, and input tax credit available by head — typically GstSummaryRow's own fields, but kept as a plain flat input so this stays a pure, independently-testable function. */
+  outputCgst: number;
+  outputSgst: number;
+  outputIgst: number;
+  outputCess: number;
+  inputCgst: number;
+  inputSgst: number;
+  inputIgst: number;
+  inputCess: number;
+}
+
+export interface GstSetOffResult {
+  /** Paise. Cash payable per head after utilizing available credit — never negative (a surplus becomes carryForward instead). */
+  netCgstPayable: number;
+  netSgstPayable: number;
+  netIgstPayable: number;
+  netCessPayable: number;
+  /** Paise. Credit left over after fully discharging every head's liability it's allowed to offset — carried forward to the next period. */
+  carryForwardCgst: number;
+  carryForwardSgst: number;
+  carryForwardIgst: number;
+  carryForwardCess: number;
+}

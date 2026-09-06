@@ -121,6 +121,8 @@ export function DocumentLinesEditor({ lines, ledgers, ledgerLabel, onChange, ite
 
   const taxableTotal = lines.reduce((sum, l) => sum + (Number(l.amountRupees) || 0), 0);
   const taxTotal = lines.reduce((sum, l, index) => sum + (Number(l.taxAmountRupees) || 0) + (gstPreviews[index]?.totalTaxRupees ?? 0), 0);
+  // ITC column only exists for purchase lines; RCM always does — used to keep the footer's colSpan correct regardless of mode.
+  const itcRcmColumnCount = (mode === 'purchase' ? 1 : 0) + 1;
 
   return (
     <div>
@@ -134,6 +136,8 @@ export function DocumentLinesEditor({ lines, ledgers, ledgerLabel, onChange, ite
             <th style={{ textAlign: 'left' }}>HSN/SAC</th>
             <th style={{ textAlign: 'left' }}>Tax ledger</th>
             <th style={{ textAlign: 'right' }}>Tax (₹)</th>
+            {mode === 'purchase' && <th style={{ textAlign: 'left' }}>ITC</th>}
+            <th style={{ textAlign: 'left' }}>RCM</th>
             <th />
           </tr>
         </thead>
@@ -271,6 +275,37 @@ export function DocumentLinesEditor({ lines, ledgers, ledgerLabel, onChange, ite
                     />
                   )}
                 </td>
+                {mode === 'purchase' && (
+                  <td>
+                    {line.hsnSacCode && (
+                      <>
+                        <label style={{ fontSize: 11, whiteSpace: 'nowrap' }}>
+                          <input
+                            type="checkbox"
+                            checked={line.itcEligible ?? true}
+                            onChange={(e) => update(index, { itcEligible: e.target.checked, itcIneligibilityReason: e.target.checked ? undefined : line.itcIneligibilityReason })}
+                          />{' '}
+                          Eligible
+                        </label>
+                        {line.itcEligible === false && (
+                          <input
+                            value={line.itcIneligibilityReason ?? ''}
+                            onChange={(e) => update(index, { itcIneligibilityReason: e.target.value || undefined })}
+                            placeholder="Reason (e.g. Sec 17(5))"
+                            style={{ width: 100, fontSize: 11, display: 'block', marginTop: 2 }}
+                          />
+                        )}
+                      </>
+                    )}
+                  </td>
+                )}
+                <td>
+                  {line.hsnSacCode && (
+                    <label style={{ fontSize: 11, whiteSpace: 'nowrap' }}>
+                      <input type="checkbox" checked={line.isReverseCharge ?? false} onChange={(e) => update(index, { isReverseCharge: e.target.checked })} /> RCM
+                    </label>
+                  )}
+                </td>
                 <td>
                   {lines.length > 1 && (
                     <button type="button" onClick={() => removeLine(index)}>
@@ -293,10 +328,13 @@ export function DocumentLinesEditor({ lines, ledgers, ledgerLabel, onChange, ite
             <td />
             <td />
             <td style={{ textAlign: 'right', fontWeight: 'bold' }}>₹{taxTotal.toFixed(2)}</td>
+            {Array.from({ length: itcRcmColumnCount }).map((_, i) => (
+              <td key={i} />
+            ))}
             <td />
           </tr>
           <tr>
-            <td colSpan={supportsStockItems ? 8 : 7} style={{ textAlign: 'right', fontWeight: 'bold', paddingTop: 8 }}>
+            <td colSpan={(supportsStockItems ? 8 : 7) + itcRcmColumnCount} style={{ textAlign: 'right', fontWeight: 'bold', paddingTop: 8 }}>
               Total: ₹{(taxableTotal + taxTotal).toFixed(2)}
             </td>
           </tr>

@@ -31,6 +31,6 @@ export { computeTrialBalance } from './trialBalance';
 export { computeProfitAndLoss } from './profitAndLoss';
 export type { ProfitAndLossOptions } from './profitAndLoss';
 export { computeBalanceSheet } from './balanceSheet';
-export { computeFinancialYearLabel } from './financialYear';
+export { computeFinancialYearLabel, computeFinancialYearDateBounds } from './financialYear';
 export { computeLedgerBalances } from './ledgerBalances';
 export type { LedgerBalanceRow, LedgerBalanceOptions } from './ledgerBalances';

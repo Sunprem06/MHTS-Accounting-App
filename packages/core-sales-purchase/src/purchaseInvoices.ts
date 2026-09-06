@@ -32,6 +32,25 @@ export function computeDueDate(invoiceDate: string, isMsmeVendor: boolean, credi
   return date.toISOString().slice(0, 10);
 }
 
+/**
+ * Purchase-side GST posting is the most involved of the four combinations
+ * this function handles per line, since ITC eligibility and reverse charge
+ * each change WHERE an amount lands without changing whether it's owed to
+ * the supplier:
+ *
+ * - Normal (non-RCM) purchase: the supplier DID charge this GST, so it's
+ *   always added to taxAmount (owed to them) — eligibility only decides
+ *   whether the debit lands on an Input GST ledger (recoverable asset) or
+ *   folds into the line's own ledger (cost, blocked credit).
+ * - Reverse charge: the supplier never charged this GST at all, so it's
+ *   EXCLUDED from taxAmount/what's owed to them — instead it posts a self-
+ *   balancing Dr Input-or-cost / Cr RCM-Liability pair that never touches
+ *   the party's own ledger.
+ *
+ * `forceItcIneligible` is true company-wide when the company itself is on
+ * the composition scheme, which can never claim ITC regardless of what any
+ * individual line's own itcEligible flag says.
+ */
 function buildPurchaseVoucherLines(
   partyLedgerId: string,
   tdsPayableLedgerId: string | null,
@@ -39,33 +58,79 @@ function buildPurchaseVoucherLines(
   lines: DocumentLineInput[],
   lineGst: (ResolvedLineGst | null)[],
   gstLedgerIds: GstLedgerIds | null,
-): { voucherLines: VoucherLineInput[]; taxableAmount: number; taxAmount: number } {
-  const taxByLedger = new Map<string, number>();
+  forceItcIneligible: boolean,
+): { voucherLines: VoucherLineInput[]; taxableAmount: number; taxAmount: number; lineEligibility: boolean[] } {
+  const debitTaxByLedger = new Map<string, number>();
+  const rcmLiabilityByLedger = new Map<string, number>();
+  const lineEligibility: boolean[] = [];
   let taxableAmount = 0;
   let taxAmount = 0;
 
+  function addDebit(ledgerId: string, amount: number): void {
+    debitTaxByLedger.set(ledgerId, (debitTaxByLedger.get(ledgerId) ?? 0) + amount);
+  }
+  function addRcmCredit(ledgerId: string, amount: number): void {
+    rcmLiabilityByLedger.set(ledgerId, (rcmLiabilityByLedger.get(ledgerId) ?? 0) + amount);
+  }
+
   const voucherLines: VoucherLineInput[] = [];
   lines.forEach((line, index) => {
-    voucherLines.push({ ledgerId: line.ledgerId, debitAmount: line.amount, creditAmount: 0, lineNarration: line.lineNarration });
-    taxableAmount += line.amount;
+    let ownLedgerExtraDebit = 0;
+    // Recorded on every line (not just ones with a GST split) so the stored
+    // itc_eligible column always reflects the EFFECTIVE eligibility a future
+    // GSTR-3B/9 aggregation can trust — true by default for a line with no
+    // GST at all (there's nothing to be ineligible about).
+    let eligible = true;
+
     if (line.taxLedgerId && line.taxAmount) {
-      taxByLedger.set(line.taxLedgerId, (taxByLedger.get(line.taxLedgerId) ?? 0) + line.taxAmount);
+      addDebit(line.taxLedgerId, line.taxAmount);
       taxAmount += line.taxAmount;
     }
+
     const gst = lineGst[index];
     if (gst) {
       if (!gstLedgerIds) {
         throw new Error('GST ledgers not found — seedGstLedgers must run at company creation');
       }
-      if (gst.cgstAmount > 0) taxByLedger.set(gstLedgerIds.cgstInputLedgerId, (taxByLedger.get(gstLedgerIds.cgstInputLedgerId) ?? 0) + gst.cgstAmount);
-      if (gst.sgstAmount > 0) taxByLedger.set(gstLedgerIds.sgstInputLedgerId, (taxByLedger.get(gstLedgerIds.sgstInputLedgerId) ?? 0) + gst.sgstAmount);
-      if (gst.igstAmount > 0) taxByLedger.set(gstLedgerIds.igstInputLedgerId, (taxByLedger.get(gstLedgerIds.igstInputLedgerId) ?? 0) + gst.igstAmount);
-      if (gst.cessAmount > 0) taxByLedger.set(gstLedgerIds.cessInputLedgerId, (taxByLedger.get(gstLedgerIds.cessInputLedgerId) ?? 0) + gst.cessAmount);
-      taxAmount += gst.totalTaxAmount;
+      eligible = !forceItcIneligible && (line.itcEligible ?? true);
+
+      if (line.isReverseCharge) {
+        if (eligible) {
+          if (gst.cgstAmount > 0) addDebit(gstLedgerIds.cgstInputLedgerId, gst.cgstAmount);
+          if (gst.sgstAmount > 0) addDebit(gstLedgerIds.sgstInputLedgerId, gst.sgstAmount);
+          if (gst.igstAmount > 0) addDebit(gstLedgerIds.igstInputLedgerId, gst.igstAmount);
+          if (gst.cessAmount > 0) addDebit(gstLedgerIds.cessInputLedgerId, gst.cessAmount);
+        } else {
+          ownLedgerExtraDebit += gst.totalTaxAmount;
+        }
+        if (gst.cgstAmount > 0) addRcmCredit(gstLedgerIds.cgstRcmPayableLedgerId, gst.cgstAmount);
+        if (gst.sgstAmount > 0) addRcmCredit(gstLedgerIds.sgstRcmPayableLedgerId, gst.sgstAmount);
+        if (gst.igstAmount > 0) addRcmCredit(gstLedgerIds.igstRcmPayableLedgerId, gst.igstAmount);
+        if (gst.cessAmount > 0) addRcmCredit(gstLedgerIds.cessRcmPayableLedgerId, gst.cessAmount);
+        // taxAmount deliberately NOT incremented — the supplier never charged this.
+      } else {
+        taxAmount += gst.totalTaxAmount;
+        if (eligible) {
+          if (gst.cgstAmount > 0) addDebit(gstLedgerIds.cgstInputLedgerId, gst.cgstAmount);
+          if (gst.sgstAmount > 0) addDebit(gstLedgerIds.sgstInputLedgerId, gst.sgstAmount);
+          if (gst.igstAmount > 0) addDebit(gstLedgerIds.igstInputLedgerId, gst.igstAmount);
+          if (gst.cessAmount > 0) addDebit(gstLedgerIds.cessInputLedgerId, gst.cessAmount);
+        } else {
+          ownLedgerExtraDebit += gst.totalTaxAmount;
+        }
+      }
     }
+
+    voucherLines.push({ ledgerId: line.ledgerId, debitAmount: line.amount + ownLedgerExtraDebit, creditAmount: 0, lineNarration: line.lineNarration });
+    taxableAmount += line.amount;
+    lineEligibility.push(eligible);
   });
-  for (const [taxLedgerId, amount] of taxByLedger) {
-    voucherLines.push({ ledgerId: taxLedgerId, debitAmount: amount, creditAmount: 0 });
+
+  for (const [ledgerId, amount] of debitTaxByLedger) {
+    voucherLines.push({ ledgerId, debitAmount: amount, creditAmount: 0 });
+  }
+  for (const [ledgerId, amount] of rcmLiabilityByLedger) {
+    voucherLines.push({ ledgerId, debitAmount: 0, creditAmount: amount });
   }
 
   const grossTotal = taxableAmount + taxAmount;
@@ -77,7 +142,7 @@ function buildPurchaseVoucherLines(
   }
   voucherLines.push({ ledgerId: partyLedgerId, debitAmount: 0, creditAmount: grossTotal - tdsAmount });
 
-  return { voucherLines, taxableAmount, taxAmount };
+  return { voucherLines, taxableAmount, taxAmount, lineEligibility };
 }
 
 /**
@@ -123,7 +188,9 @@ export async function createPurchaseInvoiceInTransaction(
   const tdsPayableLedger = await trx.selectFrom('ledger_account').select('id').where('name', '=', 'TDS Payable').executeTakeFirst();
   const lineGst = await resolveLineGstList(systemDb, input.companyStateCode ?? null, party.state_code, input.invoiceDate, input.lines);
   const gstLedgerIds = lineGst.some((g) => g !== null) ? await getGstLedgerIds(trx) : null;
-  const { voucherLines, taxAmount } = buildPurchaseVoucherLines(party.ledger_account_id, tdsPayableLedger?.id ?? null, tdsAmount, input.lines, lineGst, gstLedgerIds);
+  // A composition-scheme company can never claim ITC — see buildPurchaseVoucherLines's own doc comment.
+  const forceItcIneligible = input.companyGstRegistrationType === 'COMPOSITION';
+  const { voucherLines, taxAmount, lineEligibility } = buildPurchaseVoucherLines(party.ledger_account_id, tdsPayableLedger?.id ?? null, tdsAmount, input.lines, lineGst, gstLedgerIds, forceItcIneligible);
 
   const invoiceId = randomUUID();
 
@@ -212,6 +279,9 @@ export async function createPurchaseInvoiceInTransaction(
         sgst_amount: gst?.sgstAmount ?? 0,
         igst_amount: gst?.igstAmount ?? 0,
         cess_amount: gst?.cessAmount ?? 0,
+        itc_eligible: lineEligibility[index] ? 1 : 0,
+        itc_ineligibility_reason: lineEligibility[index] ? null : (line.itcIneligibilityReason ?? null),
+        is_reverse_charge: line.isReverseCharge ? 1 : 0,
       })
       .execute();
   }

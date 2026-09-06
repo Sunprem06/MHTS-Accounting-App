@@ -40,6 +40,7 @@ interface Props {
   onStockValuationVsLedger: () => void;
   onManageGstRates: () => void;
   onGstSummary: () => void;
+  onGstReturns: () => void;
 }
 
 export function DashboardScreen({
@@ -82,6 +83,7 @@ export function DashboardScreen({
   onStockValuationVsLedger,
   onManageGstRates,
   onGstSummary,
+  onGstReturns,
 }: Props) {
   return (
     <div style={{ padding: 24, fontFamily: 'sans-serif', maxWidth: 480 }}>
@@ -183,7 +185,8 @@ export function DashboardScreen({
       {(session.permissions.includes('GST.MANAGE_RATES') || session.permissions.includes('GST.VIEW_REPORTS')) && (
         <p>
           {session.permissions.includes('GST.MANAGE_RATES') && <button onClick={onManageGstRates}>Manage GST rates</button>}{' '}
-          {session.permissions.includes('GST.VIEW_REPORTS') && <button onClick={onGstSummary}>GST summary</button>}
+          {session.permissions.includes('GST.VIEW_REPORTS') && <button onClick={onGstSummary}>GST summary</button>}{' '}
+          {session.permissions.includes('GST.VIEW_REPORTS') && <button onClick={onGstReturns}>GST returns (GSTR-1/3B/9/9C)</button>}
         </p>
       )}
       <p>
