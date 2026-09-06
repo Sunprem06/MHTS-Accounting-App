@@ -10,6 +10,8 @@ import {
   resetPassword,
   adminResetPassword,
   listCompanyUsers,
+  inviteUser,
+  listRoles,
 } from './handlers';
 import {
   listAccountGroups,
@@ -42,7 +44,14 @@ import {
   listReceivables,
   listPayables,
   listMsmeAgeing,
+  listOutstandingSalesInvoices,
+  listOutstandingPurchaseInvoices,
+  recordSalesReceipt,
+  recordPurchasePayment,
 } from './salesPurchaseHandlers';
+import { getThemePreference, setThemePreference } from './preferenceHandlers';
+import { backupCompany, restoreCompany } from './backupHandlers';
+import { checkLicenseStatus, activateLicense } from './licenseHandlers';
 import { session } from './session';
 import {
   IPC,
@@ -52,6 +61,7 @@ import {
   type CreateCompanyInput,
   type CreateLedgerInput,
   type CreatePartyInput,
+  type InviteUserInput,
   type CreatePurchaseInvoiceInput,
   type CreatePurchaseOrderInput,
   type CreateSalesInvoiceInput,
@@ -59,7 +69,10 @@ import {
   type CreateVoucherInput,
   type LoginInput,
   type ProfitAndLossInput,
+  type RecordPurchasePaymentInput,
+  type RecordSalesReceiptInput,
   type ResetPasswordInput,
+  type ThemePreference,
 } from '../shared/ipc';
 
 function handle<T>(channel: string, fn: () => Promise<T>): void {
@@ -99,6 +112,8 @@ async function bootstrap(): Promise<void> {
   handleWithArg(IPC.RESET_PASSWORD, (input: ResetPasswordInput) => resetPassword(systemDb, input));
   handleWithArg(IPC.ADMIN_RESET_PASSWORD, (input: AdminResetPasswordInput) => adminResetPassword(systemDb, input));
   handle(IPC.LIST_COMPANY_USERS, () => listCompanyUsers(systemDb));
+  handleWithArg(IPC.INVITE_USER, (input: InviteUserInput) => inviteUser(systemDb, input));
+  handle(IPC.LIST_ROLES, () => listRoles());
   handle(IPC.LOGOUT, async () => {
     await session.clear();
   });
@@ -133,6 +148,19 @@ async function bootstrap(): Promise<void> {
   handle(IPC.LIST_RECEIVABLES, () => listReceivables());
   handle(IPC.LIST_PAYABLES, () => listPayables());
   handleWithArg(IPC.LIST_MSME_AGEING, (asOfDate: string) => listMsmeAgeing(asOfDate));
+  handleWithArg(IPC.LIST_OUTSTANDING_SALES_INVOICES, (partyId: string) => listOutstandingSalesInvoices(partyId));
+  handleWithArg(IPC.LIST_OUTSTANDING_PURCHASE_INVOICES, (partyId: string) => listOutstandingPurchaseInvoices(partyId));
+  handleWithArg(IPC.RECORD_SALES_RECEIPT, (input: RecordSalesReceiptInput) => recordSalesReceipt(systemDb, input));
+  handleWithArg(IPC.RECORD_PURCHASE_PAYMENT, (input: RecordPurchasePaymentInput) => recordPurchasePayment(systemDb, input));
+
+  handle(IPC.GET_THEME_PREFERENCE, () => getThemePreference(systemDb));
+  handleWithArg(IPC.SET_THEME_PREFERENCE, (theme: ThemePreference) => setThemePreference(systemDb, theme));
+
+  handle(IPC.BACKUP_COMPANY, () => backupCompany(systemDb));
+  handle(IPC.RESTORE_COMPANY, () => restoreCompany(systemDb));
+
+  handle(IPC.GET_LICENSE_STATUS, () => checkLicenseStatus(systemDb, paths));
+  handle(IPC.ACTIVATE_LICENSE, () => activateLicense(systemDb, paths));
 
   createWindow();
 }

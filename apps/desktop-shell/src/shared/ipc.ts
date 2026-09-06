@@ -69,6 +69,22 @@ export interface CompanyUserSummary {
   roleName: string;
 }
 
+export interface RoleSummary {
+  id: string;
+  name: string;
+}
+
+/** name is only used when this email doesn't already have an AppUser identity — an existing identity keeps its own name. */
+export interface InviteUserInput {
+  email: string;
+  name: string;
+  roleId: string;
+}
+
+export interface InviteUserResult {
+  temporaryPassword: string;
+}
+
 export type AccountNature = 'ASSET' | 'LIABILITY' | 'EQUITY' | 'INCOME' | 'EXPENSE';
 export type BalanceSide = 'DEBIT' | 'CREDIT';
 export type VoucherType = 'JOURNAL' | 'PAYMENT' | 'RECEIPT' | 'CONTRA' | 'SALES_INVOICE' | 'PURCHASE_INVOICE';
@@ -301,6 +317,41 @@ export interface PartyOutstandingRow {
   outstandingAmount: number;
 }
 
+export interface OutstandingInvoiceRow {
+  invoiceId: string;
+  voucherId: string;
+  voucherNumber: number;
+  invoiceDate: string;
+  dueDate: string | null;
+  partyId: string;
+  partyName: string;
+  /** Rupees. */
+  netAmount: number;
+  settledAmount: number;
+  outstandingAmount: number;
+}
+
+export interface SettlementLineInput {
+  invoiceId: string;
+  amountRupees: number;
+}
+
+export interface RecordSalesReceiptInput {
+  partyId: string;
+  depositLedgerId: string;
+  receiptDate: string;
+  narration?: string;
+  settlements: SettlementLineInput[];
+}
+
+export interface RecordPurchasePaymentInput {
+  partyId: string;
+  paymentLedgerId: string;
+  paymentDate: string;
+  narration?: string;
+  settlements: SettlementLineInput[];
+}
+
 export interface MsmeAgeingRow {
   partyId: string;
   partyName: string;
@@ -311,6 +362,28 @@ export interface MsmeAgeingRow {
   daysOverdue: number;
   /** Rupees. Estimated via a FIFO settlement assumption — see core-sales-purchase. */
   estimatedOutstanding: number;
+}
+
+export type ThemePreference = 'LIGHT' | 'DARK' | 'SYSTEM';
+
+export interface RestoreResult {
+  restored: boolean;
+}
+
+export interface LicensePayload {
+  licenseId: string;
+  issuedTo: string;
+  brand: string;
+  edition: string;
+  maxCompanies: number | null;
+  issuedAt: string;
+  expiresAt: string | null;
+}
+
+export interface LicenseStatus {
+  valid: boolean;
+  payload?: LicensePayload;
+  reason?: string;
 }
 
 export interface SessionInfo {
@@ -334,6 +407,8 @@ export const IPC = {
   LIST_COMPANIES: 'system:listCompanies',
   CREATE_COMPANY: 'system:createCompany',
   LIST_COMPANY_USERS: 'system:listCompanyUsers',
+  INVITE_USER: 'system:inviteUser',
+  LIST_ROLES: 'system:listRoles',
   LOGIN: 'auth:login',
   LOGOUT: 'auth:logout',
   GET_SESSION: 'auth:getSession',
@@ -368,4 +443,14 @@ export const IPC = {
   LIST_RECEIVABLES: 'salesPurchase:listReceivables',
   LIST_PAYABLES: 'salesPurchase:listPayables',
   LIST_MSME_AGEING: 'salesPurchase:listMsmeAgeing',
+  LIST_OUTSTANDING_SALES_INVOICES: 'salesPurchase:listOutstandingSalesInvoices',
+  LIST_OUTSTANDING_PURCHASE_INVOICES: 'salesPurchase:listOutstandingPurchaseInvoices',
+  RECORD_SALES_RECEIPT: 'salesPurchase:recordSalesReceipt',
+  RECORD_PURCHASE_PAYMENT: 'salesPurchase:recordPurchasePayment',
+  GET_THEME_PREFERENCE: 'preference:getTheme',
+  SET_THEME_PREFERENCE: 'preference:setTheme',
+  BACKUP_COMPANY: 'backup:createBackup',
+  RESTORE_COMPANY: 'backup:restore',
+  GET_LICENSE_STATUS: 'license:getStatus',
+  ACTIVATE_LICENSE: 'license:activate',
 } as const;

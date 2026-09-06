@@ -1,0 +1,46 @@
+/*
+ * Theme engine (Phase 0). Every screen in this app uses plain inline styles
+ * with no explicit background/text color, so they all inherit these
+ * body-level tokens automatically — theming/white-labeling here needed no
+ * per-screen changes. --accent's default below is overridden at runtime from
+ * brand.config.json (see main.tsx) so a reseller build only needs to edit
+ * that JSON file, never this stylesheet or any component, to re-brand.
+ */
+:root {
+  --bg: #ffffff;
+  --bg-secondary: #f0f0f0;
+  --fg: #1a1a1a;
+  --border: #cccccc;
+  --accent: #2563eb;
+  --danger: crimson;
+}
+
+:root[data-theme='dark'] {
+  --bg: #1a1a1a;
+  --bg-secondary: #2a2a2a;
+  --fg: #e8e8e8;
+  --border: #444444;
+  --accent: #5b8def;
+  --danger: #ff6b6b;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']):not([data-theme='dark']) {
+    --bg: #1a1a1a;
+    --bg-secondary: #2a2a2a;
+    --fg: #e8e8e8;
+    --border: #444444;
+    --accent: #5b8def;
+    --danger: #ff6b6b;
+  }
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+}
+
+a {
+  color: var(--accent);
+}

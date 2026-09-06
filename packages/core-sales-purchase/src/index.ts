@@ -34,3 +34,6 @@ export { createSalesOrder, listSalesOrders, confirmSalesOrder, cancelSalesOrder,
 export { createPurchaseOrder, listPurchaseOrders, confirmPurchaseOrder, cancelPurchaseOrder, convertPurchaseOrderToInvoice } from './purchaseOrders';
 
 export { listReceivables, listPayables, listMsmeAgeing } from './receivablesPayables';
+
+export { listOutstandingSalesInvoices, listOutstandingPurchaseInvoices, recordSalesReceipt, recordPurchasePayment } from './settlements';
+export type { OutstandingInvoiceRow, SettlementLineInput, RecordSalesReceiptInput, RecordPurchasePaymentInput } from './settlements';

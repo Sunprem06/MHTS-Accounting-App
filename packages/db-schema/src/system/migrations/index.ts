@@ -4,6 +4,8 @@ import * as m002CompanyAccessKeyWrap from './002_company_access_key_wrap';
 import * as m003CompanyRecoveryKey from './003_company_recovery_key';
 import * as m004PerCompanyCredentialsAndLockout from './004_per_company_credentials_and_lockout';
 import * as m005SecurityPolicy from './005_security_policy';
+import * as m006AppPreference from './006_app_preference';
+import * as m007LicenseActivation from './007_license_activation';
 
 export const migrations: Record<string, Migration> = {
   '001_init': m001Init,
@@ -11,4 +13,6 @@ export const migrations: Record<string, Migration> = {
   '003_company_recovery_key': m003CompanyRecoveryKey,
   '004_per_company_credentials_and_lockout': m004PerCompanyCredentialsAndLockout,
   '005_security_policy': m005SecurityPolicy,
+  '006_app_preference': m006AppPreference,
+  '007_license_activation': m007LicenseActivation,
 };

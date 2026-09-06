@@ -106,6 +106,22 @@ export interface RuleSetTable {
   created_at: ColumnType<string, string | undefined, never>;
 }
 
+export interface AppPreferenceTable {
+  /** Singleton row, fixed id 'default'. Installation-wide (not per-company), same reasoning as SecurityPolicyTable. */
+  id: string;
+  /** 'LIGHT' | 'DARK' | 'SYSTEM' — validated in application code. */
+  theme: string;
+  updated_at: ColumnType<string, string | undefined, string>;
+}
+
+export interface LicenseActivationTable {
+  /** Singleton row, fixed id 'default'. */
+  id: string;
+  license_id: string;
+  machine_id: string;
+  activated_at: ColumnType<string, string | undefined, never>;
+}
+
 export interface SystemDatabase {
   company: CompanyTable;
   app_user: AppUserTable;
@@ -113,4 +129,6 @@ export interface SystemDatabase {
   company_recovery_key: CompanyRecoveryKeyTable;
   security_policy: SecurityPolicyTable;
   rule_set: RuleSetTable;
+  app_preference: AppPreferenceTable;
+  license_activation: LicenseActivationTable;
 }

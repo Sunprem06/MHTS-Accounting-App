@@ -6,6 +6,8 @@ export type {
   CompanyRecoveryKeyTable,
   SecurityPolicyTable,
   RuleSetTable,
+  AppPreferenceTable,
+  LicenseActivationTable,
 } from './system/types';
 export type {
   CompanyDatabase,
@@ -26,6 +28,8 @@ export type {
   SalesOrderLineTable,
   PurchaseOrderTable,
   PurchaseOrderLineTable,
+  SalesInvoiceSettlementTable,
+  PurchaseInvoiceSettlementTable,
 } from './company/types';
 export { openSystemDb, openCompanyDb } from './connection';
 export type { OpenEncryptedDbOptions } from './connection';

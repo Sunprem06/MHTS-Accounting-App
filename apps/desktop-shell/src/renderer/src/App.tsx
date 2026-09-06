@@ -30,6 +30,10 @@ import { PurchaseOrderRegisterScreen } from './screens/PurchaseOrderRegisterScre
 import { ReceivablesScreen } from './screens/ReceivablesScreen';
 import { PayablesScreen } from './screens/PayablesScreen';
 import { MsmeAgeingScreen } from './screens/MsmeAgeingScreen';
+import { CustomerReceiptScreen } from './screens/CustomerReceiptScreen';
+import { SupplierPaymentScreen } from './screens/SupplierPaymentScreen';
+import { ThemeToggle } from './ThemeToggle';
+import { BackupScreen } from './screens/BackupScreen';
 
 type View =
   | { name: 'loading' }
@@ -62,9 +66,22 @@ type View =
   | { name: 'purchaseOrderRegister' }
   | { name: 'receivables' }
   | { name: 'payables' }
-  | { name: 'msmeAgeing' };
+  | { name: 'msmeAgeing' }
+  | { name: 'customerReceipt' }
+  | { name: 'supplierPayment' }
+  | { name: 'backup' };
 
 export function App() {
+  return (
+    <>
+      <ThemeToggle />
+      <AppRoutes />
+    </>
+  );
+}
+
+/** The routing logic itself, unchanged below — split out only so ThemeToggle can be rendered once, above every screen, without threading it through each one individually. */
+function AppRoutes() {
   const [view, setView] = useState<View>({ name: 'loading' });
   const [companies, setCompanies] = useState<CompanySummary[]>([]);
   const [session, setSession] = useState<SessionInfo | null>(null);
@@ -271,6 +288,27 @@ export function App() {
     return <MsmeAgeingScreen onBack={() => setView({ name: 'dashboard' })} />;
   }
 
+  if (view.name === 'customerReceipt') {
+    return <CustomerReceiptScreen onCreated={() => setView({ name: 'dashboard' })} onBack={() => setView({ name: 'dashboard' })} />;
+  }
+
+  if (view.name === 'supplierPayment') {
+    return <SupplierPaymentScreen onCreated={() => setView({ name: 'dashboard' })} onBack={() => setView({ name: 'dashboard' })} />;
+  }
+
+  if (view.name === 'backup') {
+    return (
+      <BackupScreen
+        onBack={() => setView({ name: 'dashboard' })}
+        onRestored={async () => {
+          setSession(null);
+          await refreshCompanies();
+          setView({ name: 'companyList' });
+        }}
+      />
+    );
+  }
+
   return (
     <DashboardScreen
       session={session!}
@@ -296,6 +334,9 @@ export function App() {
       onReceivables={() => setView({ name: 'receivables' })}
       onPayables={() => setView({ name: 'payables' })}
       onMsmeAgeing={() => setView({ name: 'msmeAgeing' })}
+      onCustomerReceipt={() => setView({ name: 'customerReceipt' })}
+      onSupplierPayment={() => setView({ name: 'supplierPayment' })}
+      onBackup={() => setView({ name: 'backup' })}
       onLogout={async () => {
         await window.mhts.logout();
         setSession(null);
