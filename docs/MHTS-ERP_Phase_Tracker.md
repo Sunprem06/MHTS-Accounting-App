@@ -18,9 +18,9 @@ Then paste the latest entry from the **Session Handoff Log** (Section 4 of this 
 
 | # | Phase | Scope | Status | Owner | Notes |
 |---|---|---|---|---|---|
-| 0 | Foundation | Shell, DB, auth, RBAC, audit trail, backup framework, theme, license/white-label plumbing | 🟨 In progress | | Electron+React shell (real packaged app relaunch-verified, not just build-verified) with a real IPC boundary; multi-company creation, per-company login credentials, offline account lockout, offline Super Admin password reset, and recovery-key-based recovery, all verified end-to-end against real encrypted files. Backup framework, theme engine, and license/white-label plumbing still pending. |
+| 0 | Foundation | Shell, DB, auth, RBAC, audit trail, backup framework, theme, license/white-label plumbing | 🟨 In progress | | Electron+React shell (real packaged app relaunch-verified, not just build-verified) with a real IPC boundary; multi-company creation, per-company login credentials, offline account lockout, offline Super Admin password reset, recovery-key-based recovery, and an invite-a-new-user flow, all verified end-to-end against real encrypted files. Backup/restore (raw encrypted file export + a verify-and-rollback restore), a theme engine (light/dark + white-label brand.config.json), and Ed25519-signed offline licensing with local machine-binding (soft-gated: only new company creation is blocked without one) are now built and verified too. Still open: a real manual click-through of the GUI on a normal dev machine — this sandboxed environment has no interactive desktop session, so every session including this one has only verified via real handler calls against real encrypted files, never an actual mouse click. |
 | 1 | Accounting Core | Chart of accounts, ledgers, vouchers, double-entry, TB/P&L/BS | ✅ Done | | Every item in the Blueprint's Phase 1 line is built, verified end-to-end, and has a real working UI: Chart of Accounts, ledgers, double-entry vouchers (unbalanced/malformed entries impossible — the exit criterion is a real tested code path), Trial Balance, Profit & Loss, and Balance Sheet (Assets = Liabilities + Equity proven to balance, incl. a Current Earnings roll-up). The two items previously deferred beyond the Blueprint's literal scope are now also done: voucher cancellation (via an auto-generated reversal voucher, not a destructive edit, with a new Voucher Register screen to find and cancel one) and dedicated Payment/Receipt/Contra voucher forms (auto-balancing, alongside the generic Journal form). Still open, not oversights (see Open Questions): opening-balance netting across ledgers. |
-| 2 | Sales + Purchase | Customers, suppliers, invoices, receivables/payables, vendor TDS, 43B(h) flag | ✅ Done | | Customer/supplier master (unified `business_party`, own dedicated ledger under the existing Sundry Debtors/Creditors groups); Sales/Purchase Invoices AND Orders (order→invoice conversion), all posting through the unchanged Phase 1 double-entry engine; vendor TDS (194C/194J/194Q/194I) with threshold-aware deduction, rate resolved from a new versioned rule_set mechanism (never hardcoded); Section 43B(h) MSME due-date stamping + an ageing report. Verified end-to-end against real encrypted files. Deferred, tracked in Open Questions: bill-wise (invoice-level) payment allocation, TDS Form 26Q/16A generation, a rate-editing admin UI, 194Q's buyer-turnover eligibility gate. |
+| 2 | Sales + Purchase | Customers, suppliers, invoices, receivables/payables, vendor TDS, 43B(h) flag | ✅ Done | | Customer/supplier master (unified `business_party`, own dedicated ledger under the existing Sundry Debtors/Creditors groups); Sales/Purchase Invoices AND Orders (order→invoice conversion), all posting through the unchanged Phase 1 double-entry engine; vendor TDS (194C/194J/194Q/194I) with threshold-aware deduction, rate resolved from a new versioned rule_set mechanism (never hardcoded); Section 43B(h) MSME due-date stamping + an ageing report. Bill-wise (invoice-level) payment allocation added in a follow-up session: Customer Receipt/Supplier Payment screens link a Receipt/Payment voucher to the specific invoice(s) it settles, so MSME ageing is now exact (not FIFO-estimated) for any invoice paid through them — the generic Payment/Receipt screens still work unchanged for anything not tied to an invoice. Verified end-to-end against real encrypted files. Deferred, tracked in Open Questions: TDS Form 26Q/16A generation, a rate-editing admin UI, 194Q's buyer-turnover eligibility gate. |
 | 3 | Inventory | Items, units, warehouses, batches, valuation | ⬜ Not started | | |
 | 4 | GST Engine | Rules engine, HSN/SAC, ITC, GSTR-1/3B/9/9C prep | ⬜ Not started | | ⚠️ Re-verify current GST slab rules before starting |
 | 5 | Banking | Accounts, reconciliation, cheque/UTR | ⬜ Not started | | |
@@ -76,6 +76,15 @@ Record every architectural or business decision here the moment it's made, so it
 
 ---
 
+| 2026-09-06 | **Invite-a-new-user flow** (resolves the Phase 0 gap flagged since session 4): new `inviteUser` reuses the exact same DEK-rewrap mechanics as the existing offline admin password reset (the acting session's already-unwrapped DEK re-wraps under a fresh server-generated temp password), and a new minimal `listRoles` lets the invite form pick a role. | Deliberately did NOT build role creation/editing in the same pass — today's only role is the seeded "Admin," and building a full custom-roles UI wasn't asked for; the invite form just lists whatever roles already exist, so it generalizes for free once role management exists later (tracked in Open Questions, not silently worked around). | 0 |
+| 2026-09-06 | **Theme engine**: every screen already used plain inline styles with no explicit background/text color, so a single global stylesheet (`styles.css`, CSS custom properties for light/dark, toggled via a `data-theme` attribute on `<html>`) themes the whole app with ZERO per-screen changes. Preference persists in a new singleton `app_preference` system-DB table (same pattern as `security_policy`), not per-viewer browser storage, so it survives across app restarts. White-labeling is a separate, build-time mechanism: `brand.config.json` (app name, accent color) is read once at renderer startup — a reseller build only needs to edit that JSON and rebuild, no component or stylesheet touched. | Checked before building anything: since no screen sets its own background/text color, they all inherit from `<body>`, so theming the DOCUMENT root was sufficient — a large per-screen retrofit (the kind of mechanical, error-prone change usually needed to retrofit theming onto ad hoc inline styles) turned out unnecessary. A dedicated typed preference table (not a generic key-value settings blob) matches this codebase's existing convention (`security_policy`) rather than introducing a new pattern for one setting. | 0 |
+| 2026-09-06 | **Backup/restore**: backup copies the company's encrypted DB file byte-for-byte (never decrypted to disk) to a user-chosen location via the native save dialog. Restore is deliberately cautious given how hard-to-reverse a bad one would be: it captures the session's already-unwrapped DEK and closes the live connection BEFORE touching the file, makes its own pre-restore safety copy, copies the chosen backup into place, and immediately tries to open-and-query it with the captured DEK — any failure rolls the safety copy back over the file so the user's real data is never left broken. Restore is scoped to the SAME company (its system-DB entry/DEK-wrap is untouched) — a same-company rollback to an earlier snapshot, not a cross-install migration (which would also need the system DB backed up, out of scope here). | This is exactly the kind of action CLAUDE.md's safety guidance calls hard-to-reverse — worth the extra rollback-on-failure engineering rather than a bare `copyFileSync`. Verified end-to-end (since the native file-picker dialogs can't be driven headlessly, this exercised the same copy-verify-rollback steps directly): a snapshot taken earlier really does restore the company back to that point, and a corrupt/wrong backup file is correctly rejected with the pre-attempt data restored intact, never partially overwritten. | 0 |
+| 2026-09-06 | **Licensing/white-label plumbing**: Ed25519 keypair generated for real; the PRIVATE key is deliberately NOT in this repo (see the user's own secure storage — handed off outside version control) and a new standalone `scripts/generate-license.mjs` (never imported by the shipped app) is the only thing that can sign a license file. The shipped app only embeds the PUBLIC key (`@mhts/core-licensing`) to verify. Hardware binding doesn't live inside the signed license payload (the app never holds the private key to re-sign one with a machine id baked in) — instead a local-only `license_activation` system-DB row records the first machine a given `licenseId` verified on; a later check for the SAME licenseId on a DIFFERENT machine id is rejected, while loading a genuinely different (still-valid) license overwrites the record (a real upgrade path, not a bypass). **Soft-gated, per explicit user choice**: only NEW company creation requires a valid license — opening/using an already-existing company is never blocked by a missing/expired license, so a lapsed license can't lock a customer out of their own data. A real signed dev/test license was generated and handed to the user so this could never lock out their own testing. | The alternative (hard-gating the whole app) was explicitly offered and declined — soft-gating matches the Blueprint's stated Phase 0 exit criterion ("license gating works") without the risk of a licensing bug bricking the app for existing customers, which fully-fledged enforcement UX is Phase 10's job anyway. Verified end-to-end: company creation is blocked with zero license activated, a real Ed25519-signed license verifies and activates (binding to this machine), the SAME license reports invalid once its bound machine id is tampered with (simulating a copy to a second machine), and company creation succeeds again once restored to the correct machine id. | 0 |
+| 2026-09-06 | **Bill-wise (invoice-level) payment allocation** — closes the gap flagged at the end of the last Phase 2 session. New `sales_invoice_settlement`/`purchase_invoice_settlement` tables link a Receipt/Payment voucher to the specific invoice(s) it settles (partial settlement allowed); a settlement's amount is validated against that invoice's CURRENT remaining outstanding, and a settlement's contribution automatically stops counting if its voucher is later cancelled (a plain `WHERE voucher.cancelled_at IS NULL` filter at query time — no special-case cancellation logic needed). New Customer Receipt/Supplier Payment screens are additive alongside the existing generic Receipt/Payment screens (which still work, for anything not tied to a specific invoice, e.g. an advance). | This directly upgrades MSME ageing from FIFO-estimated to exact wherever a supplier's invoices were paid through the new bill-wise flow: each invoice's own settlement-reduced remaining balance is now the FIFO unit consumed against the party's (always-exact) ledger balance, instead of each invoice's full original amount — identical to the old behavior when no settlement data exists yet (a pure improvement, not a behavior change for existing data), exact once it does. A real bug was caught and fixed while verifying this: `listOutstandingSalesInvoices`'s query originally LEFT JOINed both `sales_invoice_line` AND `sales_invoice_settlement` in the same query, which fans out (each line row duplicated once per settlement row) and silently inflated the computed taxable amount — caught only by the end-to-end assertion that a fully-settled invoice actually disappears from the outstanding list, not by `tsc`/lint. Fixed by computing settled amounts via a separate, correctly-grouped query (which the code already had) instead of joining it into the same one. | 2 |
+
+| 2026-09-06 | **Custom role creation/editing** lives in `@mhts/core-identity` (not a new package) — `listAllPermissions` just reads the company DB's shared `permission` table (already populated by every module's own `grant*Permissions` at company creation, so it's always complete with zero extra bookkeeping), and `createRole`/`updateRolePermissions` are plain transactional inserts/replaces into `role`/`role_permission`. The built-in Admin role (`is_system_role = 1`) is hard-blocked from having its permissions edited through this path. | Kept in `core-identity` rather than a new package since it's the existing home of `Role`/`Permission` logic (`seedAdminRole`, `resolvePermissions`) — a new package would just be an arbitrary split of the same concern. Blocking edits to the system Admin role is a deliberate safety rail: accidentally stripping `SYSTEM.MANAGE_USERS`/`SYSTEM.MANAGE_ROLES` from the only role that has them would lock every user in a company out of managing it, with no recovery path short of restoring a backup. Role DELETION was deliberately not built in this pass — a role's id is referenced from `company_access` in the SYSTEM DB, invisible to a company-DB-only safety check, so deleting one safely needs cross-database validation not built yet (flagged in Open Questions, not silently worked around). Verified end-to-end: a custom "Accountant" role with a narrow permission set is created correctly, duplicate names and non-existent permission codes are rejected, editing replaces (not merges) the permission set, and editing the built-in Admin role is rejected. | 0 |
+| 2026-09-06 | **License expiry reminder**: `LicenseStatus` gained `expiresInDays` (null for a perpetual license), computed purely for the UI's "renew soon" banner (≤30 days) — it plays no role in the actual pass/fail validity check, which `checkLicenseStatus` already enforces correctly via `expiresAt` regardless of this field. | A separate, additive field rather than folding the reminder logic into validity checking, so a bug in the reminder threshold could never accidentally affect whether a license is treated as valid. Verified end-to-end: a perpetual (no-expiry) license correctly reports `expiresInDays: null` with no false warning, and a second license signed 10 days from expiry correctly reports `expiresInDays: 10`. | 0 |
+
 ## 3. Open Questions / Blockers
 
 Track anything unresolved so it surfaces automatically in the next session instead of being forgotten.
@@ -88,12 +97,17 @@ Track anything unresolved so it surfaces automatically in the next session inste
 - [ ] `safeStorage.isEncryptionAvailable()` was only exercised on this Windows dev machine (DPAPI). Linux without a keyring daemon (headless/CI, some minimal desktop environments) will make it return false, and the shell currently just refuses to start rather than offering a fallback — revisit before targeting Linux.
 - [x] Password-reset / recovery gap — **done 2026-09-05, resolved in two parts: (1) company-wide recovery key at company creation, (2) offline Super Admin reset via a new `SYSTEM.RESET_USER_PASSWORD` permission** (see Key Decisions Log). Both paths now exist and are routed to from the login screen with no dead end either way.
 - [ ] Email/SMS OTP-based password reset — **deliberately deferred to a later phase, not abandoned** (see Key Decisions Log for the offline-first / cost / DLT-lead-time reasoning). Any Resend/Cloudflare/MSG91 accounts already created are on hold, unused.
-- [ ] There is no "invite a new user" flow yet — `listCompanyUsers`/`adminResetPassword` assume a `company_access` row already exists for the target (currently only created by `createCompany`'s admin bootstrap). Needed before Manage Users is actually usable for onboarding a second real person, not just resetting one.
+- [x] "Invite a new user" flow — **done 2026-09-06**, new `inviteUser` + `listRoles` (see Key Decisions Log). Manage Users can now onboard a second real person, not just reset an existing one.
+- [x] Custom-role creation/editing UI — **done 2026-09-06**, new ManageRolesScreen + `listAllPermissions`/`listRolesWithPermissions`/`createRole`/`updateRolePermissions` (see Key Decisions Log). The built-in Admin role is protected from being edited.
+- [ ] No role DELETION — a role's id is referenced from `company_access` in the SYSTEM DB (cross-database, invisible to a company-DB-only check), so safely deleting one (without silently orphaning a user's access) needs a cross-database check not built yet. A business that creates a role by mistake today has no way to remove it, only to edit its permissions down to nothing.
+- [ ] Backup/restore is same-company-same-install only — there's no disaster-recovery path for "the whole install/machine is gone" (which would need the system DB, not just one company DB, backed up and restorable elsewhere). Worth a future pass once real customers exist.
+- [x] License renewal/expiry in-app reminder — **done 2026-09-06**, `LicenseStatus` now carries `expiresInDays`; the Company List screen shows a "renew soon" warning once a license is within 30 days of expiry.
+- [ ] The Ed25519 PRIVATE signing key exists only in the hands of whoever ran this session's key generation — it needs to move to real secured, backed-up storage (a password manager or hardware key), and a process for who at MHTSdigiXR is authorized to run `scripts/generate-license.mjs` needs to be decided. Losing this key means no new licenses can ever be issued; leaking it means anyone could forge one.
 - [x] Phase 1: P&L and Balance Sheet reports — **done 2026-09-05**, built on a new shared `computeLedgerBalances` helper alongside a refactored Trial Balance (see Key Decisions Log). Turned out not to need a recursive group-hierarchy rollup after all — every `account_group` row (including sub-groups) already carries its own `nature` directly, so a flat `WHERE nature IN (...)` join was sufficient; the anticipated complexity wasn't actually there.
 - [x] Phase 1: voucher cancellation and Payment/Receipt/Contra-specific UX — **done 2026-09-05** (see Key Decisions Log). Cancellation posts an automatic, cross-linked reversal voucher (never a destructive edit); a new Voucher Register screen lists vouchers and is where cancellation is triggered from. Payment/Receipt/Contra now have dedicated auto-balancing forms; Journal (renamed `JournalVoucherScreen`) remains the generic multi-line form for anything else. Direct in-place voucher *editing* (as opposed to cancellation) is still not offered — intentionally: real accounting practice favors correction-by-reversal over rewriting posted history, so this isn't tracked as a gap.
 - [ ] Phase 1: `computeTrialBalance` does not require opening balances to net to zero across ledgers (only vouchers are forced to balance, via `createVoucher`). A business entering ad hoc opening balances that don't net out will see a Trial Balance that doesn't balance either — real accounting software absorbs this via an opening "Suspense"/equity adjustment ledger, which this pass doesn't build.
 - [x] Phase 2: Sales + Purchase — **done 2026-09-05**, including vendor TDS and Sales/Purchase Orders (user chose to include all three in one pass rather than defer any). See Key Decisions Log for the full design (unified `business_party`, invoices posting through the unchanged voucher engine, threshold-aware TDS resolved from a new real `core-rules-engine`, 43B(h) due-date snapshotting). The items below are genuine simplifications within that delivered scope, not oversights.
-- [ ] Phase 2: **No bill-wise (invoice-level) payment allocation.** A generic Payment/Receipt voucher has no link to a specific invoice — Receivables/Payables (party-level totals) are exact, but MSME ageing estimates which invoices are still open via a FIFO settlement assumption (oldest invoices assumed paid first). Real bill-wise allocation — letting a payment be applied against one or more specific invoices — would make ageing exact instead of estimated; worth building whenever Banking (Phase 5) or a UAT pass calls for precise invoice-level settlement tracking.
+- [x] Phase 2: **Bill-wise (invoice-level) payment allocation** — **done 2026-09-06** (see Key Decisions Log). New Customer Receipt/Supplier Payment screens link a settlement to specific invoices; MSME ageing is now exact for any invoice paid through them, still FIFO-estimated only for the remainder paid through the older generic Payment/Receipt screens.
 - [ ] Phase 2: **TDS rates have no admin/editing UI yet** — `@mhts/core-rules-engine`'s `createRuleSetVersion`/`resolveEffectiveRule` are real and used (seeded defaults for 194C/194J/194Q/194I), but there's no screen for a user or CA to add a new dated rate version when the Finance Act changes one. Same gap will apply to GST (Phase 4) and payroll (Phase 7) rule sets, which share this same mechanism — probably worth solving once, generically, rather than three times per-module.
 - [ ] Phase 2: **194Q's buyer-turnover eligibility gate is not enforced** — the section only actually applies when the buyer's own preceding-year turnover exceeds Rs 10 crore, which isn't tracked anywhere on the Company record. Today the app will let a company apply 194Q regardless; the user must know not to select it if ineligible.
 - [ ] Phase 2: **Section 43B(h) MSME due date always assumes a 45-day cap**, never the 15-day fallback that applies when no written supplier agreement exists (this pass has no "agreement exists" flag on a party). A business without agreements in place will be under-flagged by the ageing report for invoices between day 16 and day 45.
@@ -117,6 +131,195 @@ Next concrete step:
 ```
 
 ### Entries:
+```
+Date: 2026-09-06 (session 10)
+Phase: 0 (Foundation follow-ups)
+What was completed:
+  - User asked to "complete your recommendations" after session 9; since
+    that phrase had more than one plausible referent (the two small
+    follow-ups I'd flagged, Phase 3 Inventory, or both), confirmed scope
+    before writing code rather than guessing — user chose the two small
+    follow-ups: custom role creation/editing, and a license expiry-reminder
+    banner. Both built on the still-open session 9 branch
+    (phase0/foundation-leftovers-and-bill-wise-allocation), since they're
+    small and directly related.
+  - Custom role creation/editing: new listAllPermissions (reads the company
+    DB's existing shared permission table — already complete since every
+    module inserts its own rows there at company creation, so no new
+    bookkeeping needed), listRolesWithPermissions, createRole, and
+    updateRolePermissions, all added to @mhts/core-identity (existing home
+    of Role/Permission logic). New ManageRolesScreen: create a role with a
+    checked subset of permissions (grouped by module prefix), edit an
+    existing custom role's permissions (replaces the set, not merges).
+    Deliberately did NOT build role deletion — a role id is referenced from
+    company_access in the SYSTEM DB, invisible to a company-DB-only check,
+    so safe deletion needs cross-database validation not built yet
+    (flagged in Open Questions). The built-in Admin role is hard-blocked
+    from being edited through this path (accidentally stripping its own
+    management permissions would lock a company out of managing itself).
+  - License expiry reminder: LicenseStatus gained expiresInDays (null for a
+    perpetual license), computed purely for a UI "renew soon" banner
+    (<=30 days) on the Company List screen — kept fully separate from the
+    actual pass/fail validity check, which already handles real expiry
+    correctly regardless of this field.
+  - Verified end-to-end against real encrypted files (same throwaway-script
+    precedent as every session, calling the actual handler functions, run
+    in a real Electron process): listAllPermissions returns the full
+    cross-module list; a custom "Accountant" role is created with exactly
+    the granted permissions; duplicate role names and non-existent
+    permission codes are both rejected; editing a custom role's permissions
+    correctly replaces (not merges) the set; editing the built-in Admin
+    role is correctly rejected; a perpetual license reports
+    expiresInDays: null; a second license signed 10 days from expiry
+    (using the same real Ed25519 dev key from session 9) correctly reports
+    expiresInDays: 10. Then relaunched the real packaged app fresh (cleared
+    node_modules/.vite + out/, isolated --user-data-dir) — confirmed no
+    bundled require("@mhts/...")/require("kysely") remained and the app
+    created a real encrypted system.db and stayed running with no crash.
+What's still pending: nothing blocking. Genuine open items (all flagged,
+  not oversights, all carried over or newly added to Open Questions): role
+  deletion still isn't possible (only permission-editing); backup/restore
+  has no cross-install disaster-recovery path; the private signing key
+  still needs to move to real secured storage (unchanged from session 9);
+  Form 26Q/16A generation, a TDS-rate admin UI, and 194Q's turnover-
+  eligibility gate (carried over from Phase 2); the manual GUI click-through
+  STILL hasn't happened (unchanged — this sandboxed environment has no
+  interactive desktop session).
+Any decisions made (also add to Section 2): role management added to
+  core-identity rather than a new package; Admin (system) role hard-blocked
+  from permission edits; role deletion deliberately deferred pending a
+  cross-database safety check; expiresInDays kept fully separate from the
+  actual validity check. All logged above with full reasoning.
+Any blockers (also add to Section 3): unchanged from session 9 — team
+  allocation, white-label/reseller legal agreement, CA/compliance advisor
+  retention, and moving the license private key to real secured storage.
+Next concrete step: this session's changes are additional commits on the
+  still-open phase0/foundation-leftovers-and-bill-wise-allocation branch —
+  get that PR opened/reviewed/merged before starting anything new. After
+  that: Phase 3 (Inventory) is the Blueprint's next phase in sequence;
+  role deletion and a disaster-recovery backup path are the two most
+  concrete Phase-0-adjacent gaps left if more foundation work is wanted
+  instead.
+```
+
+```
+Date: 2026-09-06 (session 9)
+Phase: 0 (Foundation leftovers) + 2 (bill-wise payment allocation follow-up)
+What was completed:
+  - Phase 2 PR (session 8, phase2/sales-purchase-core) was reviewed and
+    merged into main by the user. Verified after merge: main's tree matched
+    the tested branch exactly (empty diff), and a fresh
+    `nx run-many -t build,lint` from main passed clean across all 12
+    projects.
+  - User chose "Phase 0 leftovers" + "bill-wise payment allocation" as this
+    session's scope (declined Phase 3 Inventory for now). Two design
+    questions were put to the user before writing code per the plan-first
+    rule: license-gating strictness (soft gate chosen, with a real dev
+    license generated so testing is never blocked) and the bill-wise
+    allocation design (approved as proposed).
+  - Invite-a-new-user flow: new inviteUser (core-identity's DEK-rewrap
+    pattern, reused from the existing admin password reset) + listRoles;
+    ManageUsersScreen gained a real invite form. Custom role creation itself
+    is still not built (only the seeded Admin role exists to invite into) —
+    flagged in Open Questions, not silently worked around.
+  - Theme engine: a single global stylesheet (styles.css, CSS custom
+    properties, data-theme toggle) themes every screen with zero per-screen
+    changes, since none of them set their own background/text color to
+    begin with. Preference persists in a new app_preference system-DB
+    table. White-labeling is separate and build-time: brand.config.json
+    (app name, accent color) — a reseller build only edits that file.
+  - Backup/restore: backup copies the company's encrypted DB file
+    byte-for-byte to a user-chosen location (native save dialog). Restore
+    is deliberately careful given how hard-to-reverse a mistake would be —
+    captures the session DEK and closes the live connection first, makes
+    its own pre-restore safety copy, copies the chosen backup in, verifies
+    by opening-and-querying with the captured DEK, and rolls the safety copy
+    back on ANY failure. Scoped to same-company/same-install only (not a
+    full disaster-recovery migration path — flagged, not built).
+  - Licensing/white-label plumbing: generated a REAL Ed25519 keypair. The
+    private key is NOT in this repo — handed to the user to move into their
+    own secure storage; a new scripts/generate-license.mjs (standalone,
+    never imported by the shipped app) is the only thing that can sign a
+    license. New @mhts/core-licensing package embeds only the PUBLIC key
+    and verifies signature + expiry; hardware binding is enforced locally
+    (a new license_activation system-DB table records the first machine a
+    licenseId activated on; a later check from a different machine for the
+    same licenseId is rejected — loading a different, still-valid license
+    legitimately overwrites the record). Soft-gated per the user's explicit
+    choice: only NEW company creation requires a valid license, so a
+    lapsed/missing one can never lock a customer out of an existing
+    company's data. A real signed dev/test license was generated and its
+    path handed to the user so this could never block their own testing.
+  - Bill-wise (invoice-level) payment allocation: new
+    sales_invoice_settlement/purchase_invoice_settlement tables link a
+    Receipt/Payment voucher to the specific invoice(s) it settles (partial
+    settlement allowed, validated against the CURRENT remaining outstanding).
+    New CustomerReceiptScreen/SupplierPaymentScreen are additive alongside
+    the existing generic Payment/Receipt screens. This directly upgrades
+    listMsmeAgeing from FIFO-estimated to exact wherever settlement data
+    exists (falls back to the same FIFO assumption only for whatever isn't
+    covered by real settlements yet — a pure improvement, not a behavior
+    change for existing data).
+  - A real bug was caught during end-to-end verification (not by tsc/lint):
+    listOutstandingSalesInvoices's query originally LEFT JOINed both
+    sales_invoice_line AND sales_invoice_settlement in the same query,
+    fanning out (each line duplicated once per settlement row) and silently
+    inflating the computed taxable amount, so a fully-settled invoice never
+    actually disappeared from the outstanding list. Fixed by computing
+    settled amounts via the separate, correctly-grouped query the code
+    already had, instead of joining it into the same one. This is exactly
+    why the project's verify-with-real-handler-calls discipline matters —
+    this would have shipped silently wrong otherwise.
+  - Verified end-to-end against real encrypted files (same throwaway-script
+    precedent as every session, calling the actual handler functions, run
+    in a real Electron process): company creation correctly blocked with no
+    license; the real signed dev license verifies and machine-binds; a
+    tampered machine-id binding is correctly rejected and correctly
+    re-accepted once restored; invite-user's full temp-password ->
+    forced-change -> real-session flow works and duplicate invites are
+    rejected; theme preference reads/writes correctly; partial bill-wise
+    settlement reduces outstanding correctly, over-settlement is rejected,
+    full settlement clears the invoice from the outstanding list; an
+    MSME invoice correctly drops out of ageing once fully bill-wise-settled
+    even though it's past due; backup produces a real independently-
+    openable encrypted file, a corrupt/wrong restore attempt correctly rolls
+    back leaving real data untouched, and a valid restore correctly rolls
+    the company back to an earlier snapshot. Then relaunched the real
+    packaged app fresh (cleared node_modules/.vite + out/, isolated
+    --user-data-dir) — confirmed no bundled require("@mhts/...")/
+    require("kysely") remained and the app created a real encrypted
+    system.db and stayed running with no crash.
+What's still pending: nothing blocking. Genuine open items (all flagged, not
+  oversights): no custom-role creation UI (only the seeded Admin role
+  exists); backup/restore has no cross-install disaster-recovery path; no
+  license expiry-reminder UI; the private signing key needs to move to real
+  secured storage and an authorization process decided; Form 26Q/16A
+  generation, a TDS-rate admin UI, and 194Q's turnover-eligibility gate
+  (carried over from Phase 2); the manual GUI click-through STILL hasn't
+  happened (this sandboxed environment has no interactive desktop session —
+  true in every session so far, not new this time).
+Any decisions made (also add to Section 2): soft license gating (user's
+  explicit choice over hard-gating); Ed25519 keypair generated for real,
+  private key kept out of the repo entirely, signing tool kept standalone;
+  local (not license-file-embedded) hardware binding; dedicated
+  app_preference table over generic key-value settings; theme via a single
+  global stylesheet since no screen sets its own colors; bill-wise
+  settlement schema and its cancellation-aware query pattern. All logged
+  above with full reasoning.
+Any blockers (also add to Section 3): Team allocation, white-label/reseller
+  legal agreement, CA/compliance advisor retention — all still pending,
+  unchanged. New: the license private key needs to move to real secured
+  storage (currently only in this session's ephemeral scratchpad) before
+  anyone relies on it — see Open Questions.
+Next concrete step: Phase 3 (Inventory) is the Blueprint's next phase in
+  sequence and would let Sales/Purchase invoice lines reference real stock
+  items. Alternatively: build custom-role creation/editing (the invite-user
+  flow's most obvious next gap), or a license expiry-reminder UI. This
+  session's changes are uncommitted on main as of this entry — commit,
+  branch, and PR them before starting anything new (see CLAUDE.md's git
+  workflow).
+```
+
 ```
 Date: 2026-09-05 (session 8)
 Phase: 2 — Sales + Purchase — kicked off AND completed in this session, all

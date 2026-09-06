@@ -20,6 +20,7 @@ import { seedChartOfAccounts, grantAccountingPermissions } from '@mhts/core-acco
 import { seedSalesPurchaseLedgers, grantSalesPurchasePermissions } from '@mhts/core-sales-purchase';
 import type { AppPaths } from './db';
 import { companyDbFilePath, createAndMigrateCompanyDb, openExistingCompanyDb } from './db';
+import { checkLicenseStatus } from './licenseHandlers';
 import { session } from './session';
 import { loadSecurityPolicy, assertNotLocked, recordFailedAttempt, clearedLockoutColumns } from './lockout';
 import type {
@@ -30,9 +31,12 @@ import type {
   CompanyUserSummary,
   CreateCompanyInput,
   CreateCompanyResult,
+  InviteUserInput,
+  InviteUserResult,
   LoginInput,
   LoginResult,
   ResetPasswordInput,
+  RoleSummary,
   SessionInfo,
 } from '../shared/ipc';
 
@@ -85,11 +89,30 @@ export async function listCompanies(systemDb: Kysely<SystemDatabase>): Promise<C
   }));
 }
 
+/**
+ * Soft license gate (Blueprint §2, Phase 0): only company creation is
+ * blocked without a valid, activated license — an already-open company keeps
+ * working regardless, so a lapsed/missing license can never lock a customer
+ * out of their own existing data (only stops NEW company creation until
+ * re-activated). See Phase Tracker Key Decisions Log for why "soft" was
+ * chosen over refusing to start the app at all.
+ */
 export async function createCompany(
   systemDb: Kysely<SystemDatabase>,
   paths: AppPaths,
   input: CreateCompanyInput,
 ): Promise<CreateCompanyResult> {
+  const licenseStatus = await checkLicenseStatus(systemDb, paths);
+  if (!licenseStatus.valid) {
+    throw new Error(`A valid license is required to create a company. ${licenseStatus.reason ?? ''} Activate one from the Company List screen.`);
+  }
+  if (licenseStatus.payload?.maxCompanies !== null && licenseStatus.payload?.maxCompanies !== undefined) {
+    const existingCount = await systemDb.selectFrom('company').select(({ fn }) => fn.countAll<number>().as('count')).executeTakeFirstOrThrow();
+    if (Number(existingCount.count) >= licenseStatus.payload.maxCompanies) {
+      throw new Error(`This license allows at most ${licenseStatus.payload.maxCompanies} companies. Upgrade the license to create more.`);
+    }
+  }
+
   const companyId = randomUUID();
   const filePath = companyDbFilePath(paths, companyId);
   const dek = generateDataKey();
@@ -434,6 +457,85 @@ export async function adminResetPassword(
     .execute();
 
   return { temporaryPassword };
+}
+
+/**
+ * The gap flagged since Phase 0 session 4: until now, only createCompany's
+ * admin bootstrap could ever create a company_access row — ManageUsersScreen
+ * could list/reset existing access but not grant new access to a second real
+ * person. Same wrapping mechanics as adminResetPassword (the acting user's
+ * already-unwrapped session DEK re-wraps under a fresh temp password), so a
+ * new user reaches the same forced-password-change first login as an
+ * admin-reset one does.
+ */
+export async function inviteUser(systemDb: Kysely<SystemDatabase>, input: InviteUserInput): Promise<InviteUserResult> {
+  const actingSession = session.get();
+  const actingDek = session.getDek();
+  const companyDb = session.getCompanyDb();
+  if (!actingSession || !actingDek || !companyDb) {
+    throw new Error('Not logged in');
+  }
+  if (!actingSession.permissions.includes('SYSTEM.MANAGE_USERS')) {
+    throw new Error('You do not have permission to invite users for this company');
+  }
+
+  const role = await companyDb.selectFrom('role').select('id').where('id', '=', input.roleId).executeTakeFirst();
+  if (!role) {
+    throw new Error('Role not found');
+  }
+
+  const existingUser = await systemDb.selectFrom('app_user').selectAll().where('email', '=', input.email).executeTakeFirst();
+  if (existingUser && !existingUser.is_active) {
+    throw new Error('This email belongs to a deactivated user');
+  }
+
+  const userId = existingUser?.id ?? randomUUID();
+  if (!existingUser) {
+    await systemDb.insertInto('app_user').values({ id: userId, name: input.name, email: input.email, is_active: 1 }).execute();
+  }
+
+  const existingAccess = await systemDb
+    .selectFrom('company_access')
+    .select('id')
+    .where('app_user_id', '=', userId)
+    .where('company_id', '=', actingSession.companyId)
+    .where('revoked_at', 'is', null)
+    .executeTakeFirst();
+  if (existingAccess) {
+    throw new Error('This user already has access to this company');
+  }
+
+  const temporaryPassword = generateTemporaryPassword();
+  const wrapped = wrapDataKey(actingDek, temporaryPassword);
+  await systemDb
+    .insertInto('company_access')
+    .values({
+      id: randomUUID(),
+      app_user_id: userId,
+      company_id: actingSession.companyId,
+      role_id: input.roleId,
+      password_hash: hashPassword(temporaryPassword),
+      must_change_password: 1,
+      wrapped_dek: wrapped.wrappedKeyHex,
+      wrap_iv: wrapped.ivHex,
+      wrap_auth_tag: wrapped.authTagHex,
+      wrap_kek_salt: wrapped.kekSaltHex,
+    })
+    .execute();
+
+  return { temporaryPassword };
+}
+
+export async function listRoles(): Promise<RoleSummary[]> {
+  const actingSession = session.get();
+  const companyDb = session.getCompanyDb();
+  if (!actingSession || !companyDb) {
+    throw new Error('Not logged in');
+  }
+  if (!actingSession.permissions.includes('SYSTEM.MANAGE_USERS')) {
+    throw new Error('You do not have permission to view roles for this company');
+  }
+  return companyDb.selectFrom('role').select(['id', 'name']).orderBy('name').execute();
 }
 
 export async function listCompanyUsers(systemDb: Kysely<SystemDatabase>): Promise<CompanyUserSummary[]> {

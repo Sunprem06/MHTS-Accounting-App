@@ -1,4 +1,6 @@
-import type { CompanySummary } from '../../../shared/ipc';
+import { useEffect, useState } from 'react';
+import type { CompanySummary, LicenseStatus } from '../../../shared/ipc';
+import brandConfig from '../brand.config.json';
 
 interface Props {
   companies: CompanySummary[];
@@ -8,10 +10,58 @@ interface Props {
 }
 
 export function CompanyListScreen({ companies, error, onSelectCompany, onCreateNew }: Props) {
+  const [license, setLicense] = useState<LicenseStatus | null>(null);
+  const [activating, setActivating] = useState(false);
+
+  async function refreshLicense() {
+    const result = await window.mhts.getLicenseStatus();
+    if (result.ok && result.data) {
+      setLicense(result.data);
+    }
+  }
+
+  useEffect(() => {
+    refreshLicense();
+  }, []);
+
+  async function handleActivate() {
+    setActivating(true);
+    const result = await window.mhts.activateLicense();
+    setActivating(false);
+    if (result.ok && result.data) {
+      setLicense(result.data);
+    }
+  }
+
   return (
     <div style={{ padding: 24, fontFamily: 'sans-serif', maxWidth: 480 }}>
-      <h1>MHTS ERP</h1>
-      {error && <p style={{ color: 'crimson' }}>{error}</p>}
+      <h1>{brandConfig.appName}</h1>
+      {error && <p style={{ color: 'var(--danger)' }}>{error}</p>}
+
+      {license && (
+        <div style={{ padding: 12, marginBottom: 16, background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: 4, fontSize: 13 }}>
+          {license.valid && license.payload ? (
+            <span>
+              Licensed to <strong>{license.payload.issuedTo}</strong> ({license.payload.edition}
+              {license.payload.expiresAt ? `, expires ${license.payload.expiresAt}` : ', perpetual'})
+            </span>
+          ) : (
+            <span>
+              No valid license activated{license.reason ? ` — ${license.reason}` : ''}. Existing companies still open normally; a license is only needed to create a new one.
+            </span>
+          )}{' '}
+          <button type="button" onClick={handleActivate} disabled={activating}>
+            {activating ? 'Activating…' : license.valid ? 'Activate a different license' : 'Activate license'}
+          </button>
+          {license.valid && license.expiresInDays != null && license.expiresInDays <= 30 && (
+            <p style={{ color: 'var(--danger)', margin: '8px 0 0' }}>
+              {license.expiresInDays <= 0 ? 'This license expires today.' : `This license expires in ${license.expiresInDays} day${license.expiresInDays === 1 ? '' : 's'}.`} Renew soon to
+              keep creating new companies without interruption.
+            </p>
+          )}
+        </div>
+      )}
+
       {companies.length === 0 ? (
         <p>No companies yet.</p>
       ) : (
@@ -27,7 +77,9 @@ export function CompanyListScreen({ companies, error, onSelectCompany, onCreateN
           ))}
         </ul>
       )}
-      <button onClick={onCreateNew}>+ New Company</button>
+      <button onClick={onCreateNew} disabled={license !== null && !license.valid} title={license && !license.valid ? 'Activate a license first' : undefined}>
+        + New Company
+      </button>
     </div>
   );
 }

@@ -25,6 +25,10 @@ interface Props {
   onReceivables: () => void;
   onPayables: () => void;
   onMsmeAgeing: () => void;
+  onCustomerReceipt: () => void;
+  onSupplierPayment: () => void;
+  onBackup: () => void;
+  onManageRoles: () => void;
 }
 
 export function DashboardScreen({
@@ -52,6 +56,10 @@ export function DashboardScreen({
   onReceivables,
   onPayables,
   onMsmeAgeing,
+  onCustomerReceipt,
+  onSupplierPayment,
+  onBackup,
+  onManageRoles,
 }: Props) {
   return (
     <div style={{ padding: 24, fontFamily: 'sans-serif', maxWidth: 480 }}>
@@ -93,7 +101,8 @@ export function DashboardScreen({
       {session.permissions.includes('SALES.CREATE_INVOICE') && (
         <p>
           <button onClick={onNewSalesInvoice}>New sales invoice</button>{' '}
-          <button onClick={onSalesInvoiceRegister}>Sales invoice register</button>
+          <button onClick={onSalesInvoiceRegister}>Sales invoice register</button>{' '}
+          <button onClick={onCustomerReceipt}>Customer receipt</button>
         </p>
       )}
       {session.permissions.includes('SALES.CREATE_ORDER') && (
@@ -105,7 +114,8 @@ export function DashboardScreen({
       {session.permissions.includes('PURCHASE.CREATE_INVOICE') && (
         <p>
           <button onClick={onNewPurchaseInvoice}>New purchase invoice</button>{' '}
-          <button onClick={onPurchaseInvoiceRegister}>Purchase invoice register</button>
+          <button onClick={onPurchaseInvoiceRegister}>Purchase invoice register</button>{' '}
+          <button onClick={onSupplierPayment}>Supplier payment</button>
         </p>
       )}
       {session.permissions.includes('PURCHASE.CREATE_ORDER') && (
@@ -127,6 +137,8 @@ export function DashboardScreen({
       )}
       <p>
         {session.permissions.includes('SYSTEM.MANAGE_USERS') && <button onClick={onManageUsers}>Manage users</button>}{' '}
+        {session.permissions.includes('SYSTEM.MANAGE_ROLES') && <button onClick={onManageRoles}>Manage roles</button>}{' '}
+        {session.permissions.includes('SYSTEM.MANAGE_COMPANY') && <button onClick={onBackup}>Backup &amp; restore</button>}{' '}
         <button onClick={onLogout}>Sign out</button>
       </p>
     </div>

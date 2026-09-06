@@ -213,6 +213,25 @@ export interface PurchaseOrderLineTable {
   line_narration: string | null;
 }
 
+export interface SalesInvoiceSettlementTable {
+  id: string;
+  sales_invoice_id: string;
+  /** The Receipt voucher that applies this amount against the invoice. */
+  voucher_id: string;
+  /** Paise. Always > 0. */
+  amount_applied: number;
+  created_at: ColumnType<string, string | undefined, never>;
+}
+
+export interface PurchaseInvoiceSettlementTable {
+  id: string;
+  purchase_invoice_id: string;
+  /** The Payment voucher that applies this amount against the invoice. */
+  voucher_id: string;
+  amount_applied: number;
+  created_at: ColumnType<string, string | undefined, never>;
+}
+
 export interface CompanyDatabase {
   role: RoleTable;
   permission: PermissionTable;
@@ -231,4 +250,6 @@ export interface CompanyDatabase {
   sales_order_line: SalesOrderLineTable;
   purchase_order: PurchaseOrderTable;
   purchase_order_line: PurchaseOrderLineTable;
+  sales_invoice_settlement: SalesInvoiceSettlementTable;
+  purchase_invoice_settlement: PurchaseInvoiceSettlementTable;
 }

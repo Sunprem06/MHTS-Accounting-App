@@ -21,6 +21,10 @@ import {
   listReceivables as coreListReceivables,
   listPayables as coreListPayables,
   listMsmeAgeing as coreListMsmeAgeing,
+  listOutstandingSalesInvoices as coreListOutstandingSalesInvoices,
+  listOutstandingPurchaseInvoices as coreListOutstandingPurchaseInvoices,
+  recordSalesReceipt as coreRecordSalesReceipt,
+  recordPurchasePayment as coreRecordPurchasePayment,
 } from '@mhts/core-sales-purchase';
 import type { DocumentLineInput as CoreDocumentLineInput } from '@mhts/core-sales-purchase';
 import { session } from './session';
@@ -34,9 +38,12 @@ import type {
   InvoiceSummary,
   MsmeAgeingRow,
   OrderSummary,
+  OutstandingInvoiceRow,
   PartyOutstandingRow,
   PartySummary,
   PurchaseInvoiceSummary,
+  RecordPurchasePaymentInput,
+  RecordSalesReceiptInput,
 } from '../shared/ipc';
 
 const PAISE_PER_RUPEE = 100;
@@ -208,4 +215,54 @@ export async function listMsmeAgeing(asOfDate: string): Promise<MsmeAgeingRow[]>
   const { companyDb } = requireSessionWithCompanyDb('PURCHASE.VIEW_REPORTS');
   const rows = await coreListMsmeAgeing(companyDb, asOfDate);
   return rows.map((row) => ({ ...row, estimatedOutstanding: paiseToRupees(row.estimatedOutstanding) }));
+}
+
+function outstandingInvoiceToRupees(row: OutstandingInvoiceRow): OutstandingInvoiceRow {
+  return { ...row, netAmount: paiseToRupees(row.netAmount), settledAmount: paiseToRupees(row.settledAmount), outstandingAmount: paiseToRupees(row.outstandingAmount) };
+}
+
+export async function listOutstandingSalesInvoices(partyId: string): Promise<OutstandingInvoiceRow[]> {
+  const { companyDb } = requireSessionWithCompanyDb('SALES.CREATE_INVOICE');
+  const rows = await coreListOutstandingSalesInvoices(companyDb, partyId);
+  return rows.map(outstandingInvoiceToRupees);
+}
+
+export async function listOutstandingPurchaseInvoices(partyId: string): Promise<OutstandingInvoiceRow[]> {
+  const { companyDb } = requireSessionWithCompanyDb('PURCHASE.CREATE_INVOICE');
+  const rows = await coreListOutstandingPurchaseInvoices(companyDb, partyId);
+  return rows.map(outstandingInvoiceToRupees);
+}
+
+export async function recordSalesReceipt(systemDb: Kysely<SystemDatabase>, input: RecordSalesReceiptInput): Promise<string> {
+  const { info, companyDb } = requireSessionWithCompanyDb('SALES.CREATE_INVOICE');
+  const financialYear = await financialYearFor(systemDb, info.companyId, input.receiptDate);
+  return coreRecordSalesReceipt(
+    companyDb,
+    {
+      partyId: input.partyId,
+      depositLedgerId: input.depositLedgerId,
+      receiptDate: input.receiptDate,
+      financialYear,
+      narration: input.narration,
+      settlements: input.settlements.map((s) => ({ invoiceId: s.invoiceId, amount: rupeesToPaise(s.amountRupees) })),
+    },
+    info.userId,
+  );
+}
+
+export async function recordPurchasePayment(systemDb: Kysely<SystemDatabase>, input: RecordPurchasePaymentInput): Promise<string> {
+  const { info, companyDb } = requireSessionWithCompanyDb('PURCHASE.CREATE_INVOICE');
+  const financialYear = await financialYearFor(systemDb, info.companyId, input.paymentDate);
+  return coreRecordPurchasePayment(
+    companyDb,
+    {
+      partyId: input.partyId,
+      paymentLedgerId: input.paymentLedgerId,
+      paymentDate: input.paymentDate,
+      financialYear,
+      narration: input.narration,
+      settlements: input.settlements.map((s) => ({ invoiceId: s.invoiceId, amount: rupeesToPaise(s.amountRupees) })),
+    },
+    info.userId,
+  );
 }

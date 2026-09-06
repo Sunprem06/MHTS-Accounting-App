@@ -1,6 +1,7 @@
 import type { Kysely } from 'kysely';
 import type { CompanyDatabase } from '@mhts/db-schema';
 import { computeLedgerBalances } from '@mhts/core-accounting';
+import { listOutstandingPurchaseInvoices } from './settlements';
 import type { MsmeAgeingRow, PartyOutstandingRow } from './types';
 
 // better-sqlite3 only binds numbers/strings/bigints/buffers/null, not JS booleans — same convention as apps/desktop-shell's handlers.ts.
@@ -45,16 +46,19 @@ export async function listPayables(companyDb: Kysely<CompanyDatabase>): Promise<
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
 /**
- * Section 43B(h) ageing for MSME suppliers. This pass has no bill-wise
- * (invoice-level) payment allocation — payments just credit whichever ledger
- * the user picks on a generic Payment voucher, with no link back to a
- * specific invoice. So "which invoices are still unpaid" is estimated with a
- * standard FIFO assumption: a supplier's current outstanding ledger balance
- * is assumed to cover their most RECENT invoices, oldest-first up to that
- * balance are assumed settled. This is a real, defensible approximation used
- * by simpler accounting tools without bill-wise tracking — but it is an
- * approximation, not a certainty; true bill-wise allocation is tracked as a
- * fast-follow (Phase Tracker Open Questions).
+ * Section 43B(h) ageing for MSME suppliers. Each invoice's OWN remaining
+ * balance (netAmount - real settlements recorded against it via
+ * recordPurchasePayment) is exact wherever bill-wise settlement rows exist.
+ * But a business can still pay a supplier through the plain, non-invoice-
+ * aware Payment voucher (no settlement row created) — so per-invoice numbers
+ * alone can't be trusted to sum to the party's real ledger balance. To
+ * reconcile: the party's ledger balance (computeLedgerBalances, always
+ * exact) is the ground truth for the TOTAL owed; it's allocated across
+ * invoices newest-first, capped at each invoice's own (settlement-reduced)
+ * remaining balance — a FIFO assumption only for whatever isn't already
+ * accounted for by real settlement rows, not the invoice's full original
+ * amount as before. When every invoice has been paid through
+ * recordPurchasePayment, this is exact, not estimated.
  */
 export async function listMsmeAgeing(companyDb: Kysely<CompanyDatabase>, asOfDate: string): Promise<MsmeAgeingRow[]> {
   const msmeParties = await companyDb
@@ -67,6 +71,14 @@ export async function listMsmeAgeing(companyDb: Kysely<CompanyDatabase>, asOfDat
   const balances = await computeLedgerBalances(companyDb, { natures: ['LIABILITY'] });
   const outstandingByLedger = new Map(balances.map((b) => [b.ledgerId, -b.netSigned]));
 
+  const allOutstandingInvoices = await listOutstandingPurchaseInvoices(companyDb);
+  const invoicesByParty = new Map<string, typeof allOutstandingInvoices>();
+  for (const invoice of allOutstandingInvoices) {
+    const list = invoicesByParty.get(invoice.partyId) ?? [];
+    list.push(invoice);
+    invoicesByParty.set(invoice.partyId, list);
+  }
+
   const rows: MsmeAgeingRow[] = [];
   const asOfMs = new Date(`${asOfDate}T00:00:00Z`).getTime();
 
@@ -76,34 +88,11 @@ export async function listMsmeAgeing(companyDb: Kysely<CompanyDatabase>, asOfDat
       continue;
     }
 
-    const invoices = await companyDb
-      .selectFrom('purchase_invoice')
-      .innerJoin('voucher', 'voucher.id', 'purchase_invoice.voucher_id')
-      .leftJoin('purchase_invoice_line', 'purchase_invoice_line.purchase_invoice_id', 'purchase_invoice.id')
-      .select(({ fn }) => [
-        'purchase_invoice.id as id',
-        'voucher.voucher_number as voucherNumber',
-        'purchase_invoice.invoice_date as invoiceDate',
-        'purchase_invoice.due_date as dueDate',
-        'purchase_invoice.tds_amount as tdsAmount',
-        fn.sum<number>('purchase_invoice_line.amount').as('taxableAmount'),
-        fn.sum<number>('purchase_invoice_line.tax_amount').as('taxAmount'),
-      ])
-      .where('purchase_invoice.party_id', '=', party.id)
-      .where('voucher.cancelled_at', 'is', null)
-      .groupBy('purchase_invoice.id')
-      .orderBy('purchase_invoice.invoice_date', 'asc')
-      .orderBy('voucher.voucher_number', 'asc')
-      .execute();
-
-    // Oldest-first FIFO settlement assumption: the newest invoices, from the
-    // end of this list backwards, are the ones still open up to
-    // remainingOutstanding. Walk from the newest invoice back to the oldest,
-    // consuming remainingOutstanding as we go.
+    // listOutstandingPurchaseInvoices already sorts oldest-first; walk from the newest backwards.
+    const invoices = invoicesByParty.get(party.id) ?? [];
     for (let i = invoices.length - 1; i >= 0 && remainingOutstanding > 0; i--) {
       const invoice = invoices[i];
-      const netAmount = Number(invoice.taxableAmount ?? 0) + Number(invoice.taxAmount ?? 0) - invoice.tdsAmount;
-      const estimatedOutstanding = Math.min(netAmount, remainingOutstanding);
+      const estimatedOutstanding = Math.min(invoice.outstandingAmount, remainingOutstanding);
       remainingOutstanding -= estimatedOutstanding;
 
       const dueMs = new Date(`${invoice.dueDate}T00:00:00Z`).getTime();
@@ -112,10 +101,10 @@ export async function listMsmeAgeing(companyDb: Kysely<CompanyDatabase>, asOfDat
         rows.push({
           partyId: party.id,
           partyName: party.name,
-          invoiceId: invoice.id,
+          invoiceId: invoice.invoiceId,
           voucherNumber: invoice.voucherNumber,
           invoiceDate: invoice.invoiceDate,
-          dueDate: invoice.dueDate,
+          dueDate: invoice.dueDate!,
           daysOverdue,
           estimatedOutstanding,
         });

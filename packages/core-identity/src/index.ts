@@ -10,5 +10,6 @@ export {
   parseRecoveryKey,
 } from './keyWrap';
 export type { WrappedKey, RawWrappedKey } from './keyWrap';
-export { seedAdminRole, resolvePermissions, FOUNDATION_PERMISSIONS } from './rbac';
+export { seedAdminRole, resolvePermissions, FOUNDATION_PERMISSIONS, listAllPermissions, listRolesWithPermissions, createRole, updateRolePermissions } from './rbac';
+export type { PermissionSummary, RoleWithPermissionsSummary } from './rbac';
 export { generateTemporaryPassword } from './tempPassword';

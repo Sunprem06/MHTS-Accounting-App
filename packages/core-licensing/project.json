@@ -1,0 +1,17 @@
+{
+  "name": "core-licensing",
+  "sourceRoot": "packages/core-licensing/src",
+  "projectType": "library",
+  "tags": ["type:core"],
+  "targets": {
+    "build": {
+      "executor": "@nx/js:tsc",
+      "outputs": ["{options.outputPath}"],
+      "options": {
+        "outputPath": "dist/packages/core-licensing",
+        "main": "packages/core-licensing/src/index.ts",
+        "tsConfig": "packages/core-licensing/tsconfig.json"
+      }
+    }
+  }
+}

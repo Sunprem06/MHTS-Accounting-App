@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { CompanyUserSummary, SessionInfo } from '../../../shared/ipc';
+import type { CompanyUserSummary, RoleSummary, SessionInfo } from '../../../shared/ipc';
 
 interface Props {
   session: SessionInfo;
@@ -8,22 +8,58 @@ interface Props {
 
 export function ManageUsersScreen({ session, onBack }: Props) {
   const [users, setUsers] = useState<CompanyUserSummary[] | null>(null);
+  const [roles, setRoles] = useState<RoleSummary[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [issuedFor, setIssuedFor] = useState<{ email: string; temporaryPassword: string } | null>(null);
   const [resettingEmail, setResettingEmail] = useState<string | null>(null);
 
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteName, setInviteName] = useState('');
+  const [inviteRoleId, setInviteRoleId] = useState('');
+  const [inviting, setInviting] = useState(false);
+
   const canReset = session.permissions.includes('SYSTEM.RESET_USER_PASSWORD');
+  const canManage = session.permissions.includes('SYSTEM.MANAGE_USERS');
+
+  async function refreshUsers() {
+    const result = await window.mhts.listCompanyUsers();
+    if (result.ok && result.data) {
+      setUsers(result.data);
+    } else {
+      setError(result.error ?? 'Failed to load users');
+    }
+  }
 
   useEffect(() => {
-    (async () => {
-      const result = await window.mhts.listCompanyUsers();
-      if (result.ok && result.data) {
-        setUsers(result.data);
-      } else {
-        setError(result.error ?? 'Failed to load users');
-      }
-    })();
+    refreshUsers();
+    if (canManage) {
+      (async () => {
+        const result = await window.mhts.listRoles();
+        if (result.ok && result.data) {
+          setRoles(result.data);
+          setInviteRoleId(result.data[0]?.id ?? '');
+        }
+      })();
+    }
+    // Deliberately runs once on mount only.
   }, []);
+
+  async function handleInvite(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setIssuedFor(null);
+    setInviting(true);
+    const result = await window.mhts.inviteUser({ email: inviteEmail, name: inviteName, roleId: inviteRoleId });
+    setInviting(false);
+    if (result.ok && result.data) {
+      setIssuedFor({ email: inviteEmail, temporaryPassword: result.data.temporaryPassword });
+      setInviteEmail('');
+      setInviteName('');
+      await refreshUsers();
+    } else {
+      setError(result.error ?? 'Failed to invite user');
+    }
+  }
 
   async function handleReset(email: string) {
     setError(null);
@@ -83,6 +119,36 @@ export function ManageUsersScreen({ session, onBack }: Props) {
           </tbody>
         </table>
       )}
+
+      {canManage && (
+        <form onSubmit={handleInvite} style={{ marginTop: 24 }}>
+          <h2>Invite a user</h2>
+          <label>
+            Email
+            <input type="email" value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)} required />
+          </label>{' '}
+          <label>
+            Name (only used if this email is new)
+            <input value={inviteName} onChange={(e) => setInviteName(e.target.value)} />
+          </label>
+          <br />
+          <label>
+            Role
+            <select value={inviteRoleId} onChange={(e) => setInviteRoleId(e.target.value)} required>
+              {roles.map((role) => (
+                <option key={role.id} value={role.id}>
+                  {role.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <br />
+          <button type="submit" disabled={inviting || !inviteRoleId}>
+            {inviting ? 'Inviting…' : 'Invite user'}
+          </button>
+        </form>
+      )}
+
       <p>
         <button type="button" onClick={onBack}>
           Back to dashboard
