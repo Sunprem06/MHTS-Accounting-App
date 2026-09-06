@@ -1,7 +1,16 @@
-/** Shape of the rule_payload JSON stored in rule_set for rule_type `GST_RATE_<hsnSacCode>`. */
+/**
+ * Shape of the rule_payload JSON stored in rule_set for rule_type
+ * `GST_RATE_<hsnSacCode>`. `category`/`description` are pure browsing
+ * metadata (e.g. "Electrical & Electronics" / "LED lighting") — they carry
+ * no compliance meaning of their own; the HSN/SAC code + rate are still the
+ * only things ever posted to an invoice. Both optional so a rate added ad
+ * hoc (not picked from the starter catalog) doesn't need them.
+ */
 export interface GstRatePayload {
   ratePercent: number;
   cessPercent: number;
+  category?: string;
+  description?: string;
 }
 
 export interface GstRateSummary {
@@ -10,6 +19,8 @@ export interface GstRateSummary {
   cessPercent: number;
   effectiveFrom: string;
   sourceReference: string | null;
+  category: string | null;
+  description: string | null;
 }
 
 export interface GstRateVersion extends GstRateSummary {
@@ -24,6 +35,8 @@ export interface CreateOrUpdateGstRateInput {
   cessPercent?: number;
   effectiveFrom: string;
   sourceReference?: string;
+  category?: string;
+  description?: string;
 }
 
 export interface GstSplitInput {
