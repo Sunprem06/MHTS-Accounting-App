@@ -19,6 +19,8 @@ export interface CompanyTable {
   tan: string | null;
   cin: string | null;
   state_code: string | null;
+  /** 'REGULAR' | 'COMPOSITION' — see @mhts/core-gst-engine. Set once at company creation, not editable afterward in this pass. */
+  gst_registration_type: string;
   financial_year_start_month: number;
   base_currency: string;
   /** Path to this company's own encrypted SQLite file. */

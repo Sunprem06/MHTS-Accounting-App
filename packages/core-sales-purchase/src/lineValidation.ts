@@ -24,6 +24,13 @@ export function validateDocumentLines(lines: DocumentLineInput[]): void {
     if (line.hsnSacCode !== undefined && line.hsnSacCode.trim() && ((line.taxAmount ?? 0) > 0 || line.taxLedgerId)) {
       throw new Error('A line cannot have both a manual tax amount/ledger and an HSN/SAC code — pick one');
     }
+    const hasHsnSacCode = Boolean(line.hsnSacCode?.trim());
+    if (!hasHsnSacCode && (line.itcEligible === false || line.isReverseCharge)) {
+      throw new Error('ITC eligibility and reverse charge only apply to a line with an HSN/SAC code');
+    }
+    if (line.itcIneligibilityReason !== undefined && line.itcEligible !== false) {
+      throw new Error('An ITC ineligibility reason only makes sense when the line is marked ITC-ineligible');
+    }
 
     const itemFields = [line.itemId, line.warehouseId, line.quantityThousandths, line.ratePaise];
     const itemFieldsPresent = itemFields.filter((f) => f !== undefined).length;

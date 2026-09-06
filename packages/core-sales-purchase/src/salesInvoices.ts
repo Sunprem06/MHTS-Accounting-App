@@ -39,7 +39,12 @@ function buildSalesVoucherLines(
       taxAmount += line.taxAmount;
     }
     const gst = lineGst[index];
-    if (gst) {
+    // A reverse-charge sales line: the recipient self-assesses this GST, so
+    // it's never collected from them (excluded from taxAmount/what they owe
+    // us) and never posted to a Payable ledger by us — but it's still
+    // resolved and stored on the invoice line (see the insert below) for
+    // HSN-summary/GSTR-1 "supplies attracting reverse charge" reporting.
+    if (gst && !line.isReverseCharge) {
       if (!gstLedgerIds) {
         throw new Error('GST ledgers not found — seedGstLedgers must run at company creation');
       }
@@ -84,7 +89,15 @@ export async function createSalesInvoiceInTransaction(
     throw new Error('This party is inactive');
   }
 
-  const lineGst = await resolveLineGstList(systemDb, input.companyStateCode ?? null, party.state_code, input.invoiceDate, input.lines);
+  const resolvedLineGst = await resolveLineGstList(systemDb, input.companyStateCode ?? null, party.state_code, input.invoiceDate, input.lines);
+  // A composition dealer can never collect GST from customers (CLAUDE.md's
+  // compliance notes) — the rate/HSN is still resolved and stored (real
+  // composition returns are HSN-wise too) but every tax amount is zeroed,
+  // rather than skipping resolution entirely and losing the HSN record.
+  const lineGst =
+    input.companyGstRegistrationType === 'COMPOSITION'
+      ? resolvedLineGst.map((gst) => (gst ? { ...gst, cgstAmount: 0, sgstAmount: 0, igstAmount: 0, cessAmount: 0, totalTaxAmount: 0 } : null))
+      : resolvedLineGst;
   const gstLedgerIds = lineGst.some((g) => g !== null) ? await getGstLedgerIds(trx) : null;
   const { voucherLines, taxableAmount, taxAmount } = buildSalesVoucherLines(party.ledger_account_id, input.lines, lineGst, gstLedgerIds);
   const invoiceId = randomUUID();
@@ -163,6 +176,7 @@ export async function createSalesInvoiceInTransaction(
         sgst_amount: gst?.sgstAmount ?? 0,
         igst_amount: gst?.igstAmount ?? 0,
         cess_amount: gst?.cessAmount ?? 0,
+        is_reverse_charge: line.isReverseCharge ? 1 : 0,
       })
       .execute();
   }

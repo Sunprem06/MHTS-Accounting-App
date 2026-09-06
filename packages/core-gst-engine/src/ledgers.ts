@@ -10,6 +10,10 @@ const CGST_INPUT_LEDGER = 'CGST Input';
 const SGST_INPUT_LEDGER = 'SGST Input';
 const IGST_INPUT_LEDGER = 'IGST Input';
 const CESS_INPUT_LEDGER = 'Cess Input';
+const CGST_RCM_PAYABLE_LEDGER = 'CGST RCM Payable';
+const SGST_RCM_PAYABLE_LEDGER = 'SGST RCM Payable';
+const IGST_RCM_PAYABLE_LEDGER = 'IGST RCM Payable';
+const CESS_RCM_PAYABLE_LEDGER = 'Cess RCM Payable';
 
 const INPUT_TAX_CREDIT_GROUP = 'Input Tax Credit';
 
@@ -52,6 +56,13 @@ export async function seedGstLedgers(companyDb: Kysely<CompanyDatabase>): Promis
       { id: randomUUID(), name: SGST_INPUT_LEDGER, group_id: inputTaxCreditGroupId, opening_balance: 0, opening_balance_side: 'DEBIT', is_system_ledger: 1 },
       { id: randomUUID(), name: IGST_INPUT_LEDGER, group_id: inputTaxCreditGroupId, opening_balance: 0, opening_balance_side: 'DEBIT', is_system_ledger: 1 },
       { id: randomUUID(), name: CESS_INPUT_LEDGER, group_id: inputTaxCreditGroupId, opening_balance: 0, opening_balance_side: 'DEBIT', is_system_ledger: 1 },
+      // Reverse charge liability is kept separate from the normal output Payable ledgers above —
+      // it's tax WE self-assess on a purchase (never collected from a customer), and GSTR-3B
+      // reports it in a different table row, so conflating the two would misreport both.
+      { id: randomUUID(), name: CGST_RCM_PAYABLE_LEDGER, group_id: dutiesAndTaxesGroup.id, opening_balance: 0, opening_balance_side: 'CREDIT', is_system_ledger: 1 },
+      { id: randomUUID(), name: SGST_RCM_PAYABLE_LEDGER, group_id: dutiesAndTaxesGroup.id, opening_balance: 0, opening_balance_side: 'CREDIT', is_system_ledger: 1 },
+      { id: randomUUID(), name: IGST_RCM_PAYABLE_LEDGER, group_id: dutiesAndTaxesGroup.id, opening_balance: 0, opening_balance_side: 'CREDIT', is_system_ledger: 1 },
+      { id: randomUUID(), name: CESS_RCM_PAYABLE_LEDGER, group_id: dutiesAndTaxesGroup.id, opening_balance: 0, opening_balance_side: 'CREDIT', is_system_ledger: 1 },
     ])
     .execute();
 }
@@ -65,6 +76,10 @@ export interface GstLedgerIds {
   sgstInputLedgerId: string;
   igstInputLedgerId: string;
   cessInputLedgerId: string;
+  cgstRcmPayableLedgerId: string;
+  sgstRcmPayableLedgerId: string;
+  igstRcmPayableLedgerId: string;
+  cessRcmPayableLedgerId: string;
 }
 
 async function ledgerIdByName(companyDb: Kysely<CompanyDatabase>, name: string): Promise<string> {
@@ -86,5 +101,9 @@ export async function getGstLedgerIds(companyDb: Kysely<CompanyDatabase>): Promi
     sgstInputLedgerId: await ledgerIdByName(companyDb, SGST_INPUT_LEDGER),
     igstInputLedgerId: await ledgerIdByName(companyDb, IGST_INPUT_LEDGER),
     cessInputLedgerId: await ledgerIdByName(companyDb, CESS_INPUT_LEDGER),
+    cgstRcmPayableLedgerId: await ledgerIdByName(companyDb, CGST_RCM_PAYABLE_LEDGER),
+    sgstRcmPayableLedgerId: await ledgerIdByName(companyDb, SGST_RCM_PAYABLE_LEDGER),
+    igstRcmPayableLedgerId: await ledgerIdByName(companyDb, IGST_RCM_PAYABLE_LEDGER),
+    cessRcmPayableLedgerId: await ledgerIdByName(companyDb, CESS_RCM_PAYABLE_LEDGER),
   };
 }
