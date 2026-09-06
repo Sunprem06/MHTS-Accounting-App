@@ -28,6 +28,7 @@ interface Props {
   onCustomerReceipt: () => void;
   onSupplierPayment: () => void;
   onBackup: () => void;
+  onManageRoles: () => void;
 }
 
 export function DashboardScreen({
@@ -58,6 +59,7 @@ export function DashboardScreen({
   onCustomerReceipt,
   onSupplierPayment,
   onBackup,
+  onManageRoles,
 }: Props) {
   return (
     <div style={{ padding: 24, fontFamily: 'sans-serif', maxWidth: 480 }}>
@@ -135,6 +137,7 @@ export function DashboardScreen({
       )}
       <p>
         {session.permissions.includes('SYSTEM.MANAGE_USERS') && <button onClick={onManageUsers}>Manage users</button>}{' '}
+        {session.permissions.includes('SYSTEM.MANAGE_ROLES') && <button onClick={onManageRoles}>Manage roles</button>}{' '}
         {session.permissions.includes('SYSTEM.MANAGE_COMPANY') && <button onClick={onBackup}>Backup &amp; restore</button>}{' '}
         <button onClick={onLogout}>Sign out</button>
       </p>

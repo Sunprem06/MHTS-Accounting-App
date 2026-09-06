@@ -74,6 +74,28 @@ export interface RoleSummary {
   name: string;
 }
 
+export interface PermissionSummary {
+  code: string;
+  description: string | null;
+}
+
+export interface RoleWithPermissionsSummary {
+  id: string;
+  name: string;
+  isSystemRole: boolean;
+  permissionCodes: string[];
+}
+
+export interface CreateRoleInput {
+  name: string;
+  permissionCodes: string[];
+}
+
+export interface UpdateRolePermissionsInput {
+  roleId: string;
+  permissionCodes: string[];
+}
+
 /** name is only used when this email doesn't already have an AppUser identity — an existing identity keeps its own name. */
 export interface InviteUserInput {
   email: string;
@@ -384,6 +406,8 @@ export interface LicenseStatus {
   valid: boolean;
   payload?: LicensePayload;
   reason?: string;
+  /** Null if perpetual (no expiresAt) or invalid. Can be negative — callers should treat <= 0 as already past its own grace, though checkLicenseStatus already fails `valid` once actually expired. */
+  expiresInDays?: number | null;
 }
 
 export interface SessionInfo {
@@ -453,4 +477,8 @@ export const IPC = {
   RESTORE_COMPANY: 'backup:restore',
   GET_LICENSE_STATUS: 'license:getStatus',
   ACTIVATE_LICENSE: 'license:activate',
+  LIST_ALL_PERMISSIONS: 'roles:listAllPermissions',
+  LIST_ROLES_WITH_PERMISSIONS: 'roles:listWithPermissions',
+  CREATE_ROLE: 'roles:create',
+  UPDATE_ROLE_PERMISSIONS: 'roles:updatePermissions',
 } as const;

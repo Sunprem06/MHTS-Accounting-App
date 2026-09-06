@@ -52,6 +52,7 @@ import {
 import { getThemePreference, setThemePreference } from './preferenceHandlers';
 import { backupCompany, restoreCompany } from './backupHandlers';
 import { checkLicenseStatus, activateLicense } from './licenseHandlers';
+import { listAllPermissions, listRolesWithPermissions, createRole, updateRolePermissions } from './roleHandlers';
 import { session } from './session';
 import {
   IPC,
@@ -65,6 +66,7 @@ import {
   type CreatePurchaseInvoiceInput,
   type CreatePurchaseOrderInput,
   type CreateSalesInvoiceInput,
+  type CreateRoleInput,
   type CreateSalesOrderInput,
   type CreateVoucherInput,
   type LoginInput,
@@ -73,6 +75,7 @@ import {
   type RecordSalesReceiptInput,
   type ResetPasswordInput,
   type ThemePreference,
+  type UpdateRolePermissionsInput,
 } from '../shared/ipc';
 
 function handle<T>(channel: string, fn: () => Promise<T>): void {
@@ -161,6 +164,11 @@ async function bootstrap(): Promise<void> {
 
   handle(IPC.GET_LICENSE_STATUS, () => checkLicenseStatus(systemDb, paths));
   handle(IPC.ACTIVATE_LICENSE, () => activateLicense(systemDb, paths));
+
+  handle(IPC.LIST_ALL_PERMISSIONS, () => listAllPermissions());
+  handle(IPC.LIST_ROLES_WITH_PERMISSIONS, () => listRolesWithPermissions());
+  handleWithArg(IPC.CREATE_ROLE, (input: CreateRoleInput) => createRole(input));
+  handleWithArg(IPC.UPDATE_ROLE_PERMISSIONS, (input: UpdateRolePermissionsInput) => updateRolePermissions(input));
 
   createWindow();
 }

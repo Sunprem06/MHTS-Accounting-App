@@ -13,6 +13,18 @@ function licenseFilePath(paths: AppPaths): string {
   return join(paths.userDataDir, 'license.lic');
 }
 
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+/** Null for a perpetual license (no expiresAt). Not itself a validity check — checkLicenseStatus already fails once actually past expiry; this is purely for the UI's "renew soon" reminder. */
+function daysUntilExpiry(payload: LicensePayload): number | null {
+  if (!payload.expiresAt) {
+    return null;
+  }
+  const today = new Date().toISOString().slice(0, 10);
+  const diffMs = new Date(`${payload.expiresAt}T00:00:00Z`).getTime() - new Date(`${today}T00:00:00Z`).getTime();
+  return Math.round(diffMs / MS_PER_DAY);
+}
+
 /**
  * Verifies the signature/expiry (core-licensing) AND the local machine
  * binding (this file): if a binding record already exists for the SAME
@@ -48,7 +60,7 @@ export async function checkLicenseStatus(systemDb: Kysely<SystemDatabase>, paths
   }
   try {
     const payload = await verifyAndBind(systemDb, readFileSync(filePath, 'utf8'));
-    return { valid: true, payload };
+    return { valid: true, payload, expiresInDays: daysUntilExpiry(payload) };
   } catch (error) {
     return { valid: false, reason: error instanceof Error ? error.message : String(error) };
   }
@@ -68,7 +80,7 @@ export async function activateLicense(systemDb: Kysely<SystemDatabase>, paths: A
   try {
     const payload = await verifyAndBind(systemDb, fileContents);
     writeFileSync(licenseFilePath(paths), fileContents);
-    return { valid: true, payload };
+    return { valid: true, payload, expiresInDays: daysUntilExpiry(payload) };
   } catch (error) {
     return { valid: false, reason: error instanceof Error ? error.message : String(error) };
   }

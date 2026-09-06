@@ -12,6 +12,7 @@ import {
   type CreateCompanyResult,
   type CreateLedgerInput,
   type CreatePartyInput,
+  type CreateRoleInput,
   type CreatePurchaseInvoiceInput,
   type CreatePurchaseOrderInput,
   type CreateSalesInvoiceInput,
@@ -30,6 +31,7 @@ import {
   type OutstandingInvoiceRow,
   type PartyOutstandingRow,
   type PartySummary,
+  type PermissionSummary,
   type ProfitAndLossInput,
   type ProfitAndLossResult,
   type PurchaseInvoiceSummary,
@@ -38,8 +40,10 @@ import {
   type ResetPasswordInput,
   type RestoreResult,
   type RoleSummary,
+  type RoleWithPermissionsSummary,
   type SessionInfo,
   type ThemePreference,
+  type UpdateRolePermissionsInput,
   type TrialBalanceResult,
   type VoucherSummary,
 } from '../shared/ipc';
@@ -100,6 +104,10 @@ const api = {
   restoreCompany: (): Promise<IpcResult<RestoreResult>> => ipcRenderer.invoke(IPC.RESTORE_COMPANY),
   getLicenseStatus: (): Promise<IpcResult<LicenseStatus>> => ipcRenderer.invoke(IPC.GET_LICENSE_STATUS),
   activateLicense: (): Promise<IpcResult<LicenseStatus>> => ipcRenderer.invoke(IPC.ACTIVATE_LICENSE),
+  listAllPermissions: (): Promise<IpcResult<PermissionSummary[]>> => ipcRenderer.invoke(IPC.LIST_ALL_PERMISSIONS),
+  listRolesWithPermissions: (): Promise<IpcResult<RoleWithPermissionsSummary[]>> => ipcRenderer.invoke(IPC.LIST_ROLES_WITH_PERMISSIONS),
+  createRole: (input: CreateRoleInput): Promise<IpcResult<string>> => ipcRenderer.invoke(IPC.CREATE_ROLE, input),
+  updateRolePermissions: (input: UpdateRolePermissionsInput): Promise<IpcResult<void>> => ipcRenderer.invoke(IPC.UPDATE_ROLE_PERMISSIONS, input),
 };
 
 export type MhtsApi = typeof api;

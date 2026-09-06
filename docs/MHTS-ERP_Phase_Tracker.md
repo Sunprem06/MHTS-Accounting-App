@@ -82,6 +82,9 @@ Record every architectural or business decision here the moment it's made, so it
 | 2026-09-06 | **Licensing/white-label plumbing**: Ed25519 keypair generated for real; the PRIVATE key is deliberately NOT in this repo (see the user's own secure storage — handed off outside version control) and a new standalone `scripts/generate-license.mjs` (never imported by the shipped app) is the only thing that can sign a license file. The shipped app only embeds the PUBLIC key (`@mhts/core-licensing`) to verify. Hardware binding doesn't live inside the signed license payload (the app never holds the private key to re-sign one with a machine id baked in) — instead a local-only `license_activation` system-DB row records the first machine a given `licenseId` verified on; a later check for the SAME licenseId on a DIFFERENT machine id is rejected, while loading a genuinely different (still-valid) license overwrites the record (a real upgrade path, not a bypass). **Soft-gated, per explicit user choice**: only NEW company creation requires a valid license — opening/using an already-existing company is never blocked by a missing/expired license, so a lapsed license can't lock a customer out of their own data. A real signed dev/test license was generated and handed to the user so this could never lock out their own testing. | The alternative (hard-gating the whole app) was explicitly offered and declined — soft-gating matches the Blueprint's stated Phase 0 exit criterion ("license gating works") without the risk of a licensing bug bricking the app for existing customers, which fully-fledged enforcement UX is Phase 10's job anyway. Verified end-to-end: company creation is blocked with zero license activated, a real Ed25519-signed license verifies and activates (binding to this machine), the SAME license reports invalid once its bound machine id is tampered with (simulating a copy to a second machine), and company creation succeeds again once restored to the correct machine id. | 0 |
 | 2026-09-06 | **Bill-wise (invoice-level) payment allocation** — closes the gap flagged at the end of the last Phase 2 session. New `sales_invoice_settlement`/`purchase_invoice_settlement` tables link a Receipt/Payment voucher to the specific invoice(s) it settles (partial settlement allowed); a settlement's amount is validated against that invoice's CURRENT remaining outstanding, and a settlement's contribution automatically stops counting if its voucher is later cancelled (a plain `WHERE voucher.cancelled_at IS NULL` filter at query time — no special-case cancellation logic needed). New Customer Receipt/Supplier Payment screens are additive alongside the existing generic Receipt/Payment screens (which still work, for anything not tied to a specific invoice, e.g. an advance). | This directly upgrades MSME ageing from FIFO-estimated to exact wherever a supplier's invoices were paid through the new bill-wise flow: each invoice's own settlement-reduced remaining balance is now the FIFO unit consumed against the party's (always-exact) ledger balance, instead of each invoice's full original amount — identical to the old behavior when no settlement data exists yet (a pure improvement, not a behavior change for existing data), exact once it does. A real bug was caught and fixed while verifying this: `listOutstandingSalesInvoices`'s query originally LEFT JOINed both `sales_invoice_line` AND `sales_invoice_settlement` in the same query, which fans out (each line row duplicated once per settlement row) and silently inflated the computed taxable amount — caught only by the end-to-end assertion that a fully-settled invoice actually disappears from the outstanding list, not by `tsc`/lint. Fixed by computing settled amounts via a separate, correctly-grouped query (which the code already had) instead of joining it into the same one. | 2 |
 
+| 2026-09-06 | **Custom role creation/editing** lives in `@mhts/core-identity` (not a new package) — `listAllPermissions` just reads the company DB's shared `permission` table (already populated by every module's own `grant*Permissions` at company creation, so it's always complete with zero extra bookkeeping), and `createRole`/`updateRolePermissions` are plain transactional inserts/replaces into `role`/`role_permission`. The built-in Admin role (`is_system_role = 1`) is hard-blocked from having its permissions edited through this path. | Kept in `core-identity` rather than a new package since it's the existing home of `Role`/`Permission` logic (`seedAdminRole`, `resolvePermissions`) — a new package would just be an arbitrary split of the same concern. Blocking edits to the system Admin role is a deliberate safety rail: accidentally stripping `SYSTEM.MANAGE_USERS`/`SYSTEM.MANAGE_ROLES` from the only role that has them would lock every user in a company out of managing it, with no recovery path short of restoring a backup. Role DELETION was deliberately not built in this pass — a role's id is referenced from `company_access` in the SYSTEM DB, invisible to a company-DB-only safety check, so deleting one safely needs cross-database validation not built yet (flagged in Open Questions, not silently worked around). Verified end-to-end: a custom "Accountant" role with a narrow permission set is created correctly, duplicate names and non-existent permission codes are rejected, editing replaces (not merges) the permission set, and editing the built-in Admin role is rejected. | 0 |
+| 2026-09-06 | **License expiry reminder**: `LicenseStatus` gained `expiresInDays` (null for a perpetual license), computed purely for the UI's "renew soon" banner (≤30 days) — it plays no role in the actual pass/fail validity check, which `checkLicenseStatus` already enforces correctly via `expiresAt` regardless of this field. | A separate, additive field rather than folding the reminder logic into validity checking, so a bug in the reminder threshold could never accidentally affect whether a license is treated as valid. Verified end-to-end: a perpetual (no-expiry) license correctly reports `expiresInDays: null` with no false warning, and a second license signed 10 days from expiry correctly reports `expiresInDays: 10`. | 0 |
+
 ## 3. Open Questions / Blockers
 
 Track anything unresolved so it surfaces automatically in the next session instead of being forgotten.
@@ -95,9 +98,10 @@ Track anything unresolved so it surfaces automatically in the next session inste
 - [x] Password-reset / recovery gap — **done 2026-09-05, resolved in two parts: (1) company-wide recovery key at company creation, (2) offline Super Admin reset via a new `SYSTEM.RESET_USER_PASSWORD` permission** (see Key Decisions Log). Both paths now exist and are routed to from the login screen with no dead end either way.
 - [ ] Email/SMS OTP-based password reset — **deliberately deferred to a later phase, not abandoned** (see Key Decisions Log for the offline-first / cost / DLT-lead-time reasoning). Any Resend/Cloudflare/MSG91 accounts already created are on hold, unused.
 - [x] "Invite a new user" flow — **done 2026-09-06**, new `inviteUser` + `listRoles` (see Key Decisions Log). Manage Users can now onboard a second real person, not just reset an existing one.
-- [ ] No custom-role creation/editing UI yet — `listRoles` only ever returns the one seeded "Admin" role; a business that wants a lower-privilege role (e.g. an accountant who can't manage users) has nowhere to create one. `SYSTEM.MANAGE_ROLES` permission exists and is granted, but nothing reads it yet.
+- [x] Custom-role creation/editing UI — **done 2026-09-06**, new ManageRolesScreen + `listAllPermissions`/`listRolesWithPermissions`/`createRole`/`updateRolePermissions` (see Key Decisions Log). The built-in Admin role is protected from being edited.
+- [ ] No role DELETION — a role's id is referenced from `company_access` in the SYSTEM DB (cross-database, invisible to a company-DB-only check), so safely deleting one (without silently orphaning a user's access) needs a cross-database check not built yet. A business that creates a role by mistake today has no way to remove it, only to edit its permissions down to nothing.
 - [ ] Backup/restore is same-company-same-install only — there's no disaster-recovery path for "the whole install/machine is gone" (which would need the system DB, not just one company DB, backed up and restorable elsewhere). Worth a future pass once real customers exist.
-- [ ] License renewal/expiry has no in-app reminder — `checkLicenseStatus` reports an expired license correctly (blocking new company creation), but nothing proactively warns the user before that happens. A simple "expires in N days" banner would close this.
+- [x] License renewal/expiry in-app reminder — **done 2026-09-06**, `LicenseStatus` now carries `expiresInDays`; the Company List screen shows a "renew soon" warning once a license is within 30 days of expiry.
 - [ ] The Ed25519 PRIVATE signing key exists only in the hands of whoever ran this session's key generation — it needs to move to real secured, backed-up storage (a password manager or hardware key), and a process for who at MHTSdigiXR is authorized to run `scripts/generate-license.mjs` needs to be decided. Losing this key means no new licenses can ever be issued; leaking it means anyone could forge one.
 - [x] Phase 1: P&L and Balance Sheet reports — **done 2026-09-05**, built on a new shared `computeLedgerBalances` helper alongside a refactored Trial Balance (see Key Decisions Log). Turned out not to need a recursive group-hierarchy rollup after all — every `account_group` row (including sub-groups) already carries its own `nature` directly, so a flat `WHERE nature IN (...)` join was sufficient; the anticipated complexity wasn't actually there.
 - [x] Phase 1: voucher cancellation and Payment/Receipt/Contra-specific UX — **done 2026-09-05** (see Key Decisions Log). Cancellation posts an automatic, cross-linked reversal voucher (never a destructive edit); a new Voucher Register screen lists vouchers and is where cancellation is triggered from. Payment/Receipt/Contra now have dedicated auto-balancing forms; Journal (renamed `JournalVoucherScreen`) remains the generic multi-line form for anything else. Direct in-place voucher *editing* (as opposed to cancellation) is still not offered — intentionally: real accounting practice favors correction-by-reversal over rewriting posted history, so this isn't tracked as a gap.
@@ -127,6 +131,77 @@ Next concrete step:
 ```
 
 ### Entries:
+```
+Date: 2026-09-06 (session 10)
+Phase: 0 (Foundation follow-ups)
+What was completed:
+  - User asked to "complete your recommendations" after session 9; since
+    that phrase had more than one plausible referent (the two small
+    follow-ups I'd flagged, Phase 3 Inventory, or both), confirmed scope
+    before writing code rather than guessing — user chose the two small
+    follow-ups: custom role creation/editing, and a license expiry-reminder
+    banner. Both built on the still-open session 9 branch
+    (phase0/foundation-leftovers-and-bill-wise-allocation), since they're
+    small and directly related.
+  - Custom role creation/editing: new listAllPermissions (reads the company
+    DB's existing shared permission table — already complete since every
+    module inserts its own rows there at company creation, so no new
+    bookkeeping needed), listRolesWithPermissions, createRole, and
+    updateRolePermissions, all added to @mhts/core-identity (existing home
+    of Role/Permission logic). New ManageRolesScreen: create a role with a
+    checked subset of permissions (grouped by module prefix), edit an
+    existing custom role's permissions (replaces the set, not merges).
+    Deliberately did NOT build role deletion — a role id is referenced from
+    company_access in the SYSTEM DB, invisible to a company-DB-only check,
+    so safe deletion needs cross-database validation not built yet
+    (flagged in Open Questions). The built-in Admin role is hard-blocked
+    from being edited through this path (accidentally stripping its own
+    management permissions would lock a company out of managing itself).
+  - License expiry reminder: LicenseStatus gained expiresInDays (null for a
+    perpetual license), computed purely for a UI "renew soon" banner
+    (<=30 days) on the Company List screen — kept fully separate from the
+    actual pass/fail validity check, which already handles real expiry
+    correctly regardless of this field.
+  - Verified end-to-end against real encrypted files (same throwaway-script
+    precedent as every session, calling the actual handler functions, run
+    in a real Electron process): listAllPermissions returns the full
+    cross-module list; a custom "Accountant" role is created with exactly
+    the granted permissions; duplicate role names and non-existent
+    permission codes are both rejected; editing a custom role's permissions
+    correctly replaces (not merges) the set; editing the built-in Admin
+    role is correctly rejected; a perpetual license reports
+    expiresInDays: null; a second license signed 10 days from expiry
+    (using the same real Ed25519 dev key from session 9) correctly reports
+    expiresInDays: 10. Then relaunched the real packaged app fresh (cleared
+    node_modules/.vite + out/, isolated --user-data-dir) — confirmed no
+    bundled require("@mhts/...")/require("kysely") remained and the app
+    created a real encrypted system.db and stayed running with no crash.
+What's still pending: nothing blocking. Genuine open items (all flagged,
+  not oversights, all carried over or newly added to Open Questions): role
+  deletion still isn't possible (only permission-editing); backup/restore
+  has no cross-install disaster-recovery path; the private signing key
+  still needs to move to real secured storage (unchanged from session 9);
+  Form 26Q/16A generation, a TDS-rate admin UI, and 194Q's turnover-
+  eligibility gate (carried over from Phase 2); the manual GUI click-through
+  STILL hasn't happened (unchanged — this sandboxed environment has no
+  interactive desktop session).
+Any decisions made (also add to Section 2): role management added to
+  core-identity rather than a new package; Admin (system) role hard-blocked
+  from permission edits; role deletion deliberately deferred pending a
+  cross-database safety check; expiresInDays kept fully separate from the
+  actual validity check. All logged above with full reasoning.
+Any blockers (also add to Section 3): unchanged from session 9 — team
+  allocation, white-label/reseller legal agreement, CA/compliance advisor
+  retention, and moving the license private key to real secured storage.
+Next concrete step: this session's changes are additional commits on the
+  still-open phase0/foundation-leftovers-and-bill-wise-allocation branch —
+  get that PR opened/reviewed/merged before starting anything new. After
+  that: Phase 3 (Inventory) is the Blueprint's next phase in sequence;
+  role deletion and a disaster-recovery backup path are the two most
+  concrete Phase-0-adjacent gaps left if more foundation work is wanted
+  instead.
+```
+
 ```
 Date: 2026-09-06 (session 9)
 Phase: 0 (Foundation leftovers) + 2 (bill-wise payment allocation follow-up)

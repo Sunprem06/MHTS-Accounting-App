@@ -53,6 +53,12 @@ export function CompanyListScreen({ companies, error, onSelectCompany, onCreateN
           <button type="button" onClick={handleActivate} disabled={activating}>
             {activating ? 'Activating…' : license.valid ? 'Activate a different license' : 'Activate license'}
           </button>
+          {license.valid && license.expiresInDays != null && license.expiresInDays <= 30 && (
+            <p style={{ color: 'var(--danger)', margin: '8px 0 0' }}>
+              {license.expiresInDays <= 0 ? 'This license expires today.' : `This license expires in ${license.expiresInDays} day${license.expiresInDays === 1 ? '' : 's'}.`} Renew soon to
+              keep creating new companies without interruption.
+            </p>
+          )}
         </div>
       )}
 

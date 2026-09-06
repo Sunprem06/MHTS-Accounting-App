@@ -5,6 +5,7 @@
   "main": "src/index.ts",
   "types": "src/index.ts",
   "dependencies": {
+    "@mhts/core-audit": "*",
     "@mhts/db-schema": "*",
     "@mhts/shared-types": "*"
   }

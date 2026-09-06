@@ -34,6 +34,7 @@ import { CustomerReceiptScreen } from './screens/CustomerReceiptScreen';
 import { SupplierPaymentScreen } from './screens/SupplierPaymentScreen';
 import { ThemeToggle } from './ThemeToggle';
 import { BackupScreen } from './screens/BackupScreen';
+import { ManageRolesScreen } from './screens/ManageRolesScreen';
 
 type View =
   | { name: 'loading' }
@@ -69,7 +70,8 @@ type View =
   | { name: 'msmeAgeing' }
   | { name: 'customerReceipt' }
   | { name: 'supplierPayment' }
-  | { name: 'backup' };
+  | { name: 'backup' }
+  | { name: 'manageRoles' };
 
 export function App() {
   return (
@@ -309,6 +311,10 @@ function AppRoutes() {
     );
   }
 
+  if (view.name === 'manageRoles') {
+    return <ManageRolesScreen onBack={() => setView({ name: 'dashboard' })} />;
+  }
+
   return (
     <DashboardScreen
       session={session!}
@@ -337,6 +343,7 @@ function AppRoutes() {
       onCustomerReceipt={() => setView({ name: 'customerReceipt' })}
       onSupplierPayment={() => setView({ name: 'supplierPayment' })}
       onBackup={() => setView({ name: 'backup' })}
+      onManageRoles={() => setView({ name: 'manageRoles' })}
       onLogout={async () => {
         await window.mhts.logout();
         setSession(null);
