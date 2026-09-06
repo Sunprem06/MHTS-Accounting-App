@@ -24,7 +24,7 @@ Then paste the latest entry from the **Session Handoff Log** (Section 4 of this 
 | 3 | Inventory | Items, units, warehouses, batches, valuation | ✅ Done | | Item/Unit/Warehouse/Batch master data; an append-only `stock_movement` ledger with FIFO-layer or weighted-average costing (`core-inventory`); Sales/Purchase invoices wired so a stockable item line moves stock and (on a sale) posts a self-balancing Cost-of-Goods-Sold voucher-line pair on the SAME atomic voucher; Stock Adjustment/Transfer/Opening Stock, Stock Summary, Stock Movement Register, and a Stock Valuation vs Ledger reconciliation view demonstrating the Blueprint's literal exit criterion. Verified end-to-end via real handler calls against a real encrypted company DB (FIFO multi-layer consumption, rounding-remainder absorption, weighted-average costing, batch isolation, insufficient-stock rollback, GL postings, and the invoice/order integration all independently checked). Deliberately deferred, tracked in Open Questions: full stock-aware invoice cancellation (a hard guard blocks it instead), alternate-UOM conversion, auto-batch-selection on issue. |
 | 4 | GST Engine | Rules engine, HSN/SAC, ITC, GSTR-1/3B/9/9C prep | ✅ Done | | Increment 1: versioned GST rate/HSN-SAC rules engine (via `core-rules-engine`, same mechanism as vendor TDS), CGST/SGST/IGST place-of-supply auto-split wired into Sales/Purchase invoices and orders, new `core-gst-engine` package, Manage GST Rates admin screen, and a GST Summary reconciliation report — verified end-to-end (18 checks), including the Blueprint's literal exit criterion (rate-change simulation, zero code changes). Same-day follow-up: expanded the 5-example seed into a ~54-code, 14-category general-purpose starter catalog plus a category-browse HSN/SAC picker (`GstHsnPicker`) — verified (12 more checks). Increment 2 (same session, user asked to "complete Phase 4"): Input Tax Credit eligibility (blocked credit folds into cost, not a recoverable asset), reverse charge (self-assessed Dr Input/Cr RCM-Liability pair excluded from the supplier's payable), composition scheme (company-level, forces zero output tax + zero ITC), a standard GST set-off algorithm (`computeGstSetOff`), and all four GSTR-1/3B/9/9C prep reports (CA-facing reference reports + CSV export, not GSTN-upload-schema-exact — a deliberate, confirmed scope choice) — verified end-to-end (27 more checks) plus a full regression re-run of both earlier suites (30 checks, zero regressions). Phase 4 is now functionally complete against the Blueprint's one-line scope; residual simplifications are tracked explicitly in Open Questions, not silently dropped. |
 | 5 | Banking | Accounts, reconciliation, cheque/UTR | ✅ Done | | New `bank_account` master (own dedicated ledger under the existing "Bank Accounts" group, atomic creation — same pattern as Phase 2's `createParty`), cheque/UTR/instrument tracking on Payment/Receipt/Contra vouchers (`voucher_payment_instrument`, one entry point `recordVoucherWithInstrument` degrading to a plain voucher post when no instrument), manual bank reconciliation (`bank_reconciliation`, a pure metadata/tracking layer that never touches `voucher`/`voucher_line`) with a reconciliation-statement report reusing Phase 1's `computeLedgerBalances`, and — per the user's explicit choice over manual-only — a real CSV bank-statement importer (`bank_statement_import`/`bank_statement_line`) with user-driven column mapping and paisa-exact, direction-aware auto-matching within a 7-day window (ambiguous/unmatched lines always left for manual resolution, never guessed). New pure-TS `core-banking` package, same `type:core` Nx boundary as every other module. Verified end-to-end (23 checks) against a real encrypted company DB, including the Blueprint's literal exit criterion (reconciliation statement ties to `computeLedgerBalances` to the paisa) and the CSV importer's direction-flip correctness (bank-statement CREDIT/DEBIT is the opposite sense of the ledger's own debit/credit on this asset account). Full workspace `lint`+`build` (14 projects, cache bypassed) clean. Not yet merged — on branch `phase5/banking`, pending user review. |
-| 6 | Expenses/Travel/Documents | Claims, reimbursements, attachments | ⬜ Not started | | |
+| 6 | Expenses/Travel/Documents | Claims, reimbursements, attachments | ✅ Done | | New `employee` master (own dedicated liability ledger under a new "Employee Reimbursements Payable" group — atomic creation, same pattern as Phase 2's `createParty`). Expense claim lifecycle (DRAFT→SUBMITTED→APPROVED→REIMBURSED, with REJECTED and CANCELLED side paths) mirrors the existing sales/purchase order state-machine pattern: approval posts a real new `EXPENSE_CLAIM` voucher (Dr each line's expense ledger, Cr the employee's ledger — the accrual), reimbursement is a separate `PAYMENT` voucher settling the claim via a new `expense_claim_settlement` table (exact mirror of the existing bill-wise invoice settlement tables, partial reimbursement supported), and a new settlement-aware cancellation guard (no precedent elsewhere in this codebase) blocks cancelling a claim that already has any reimbursement recorded. Travel is just another expense-claim line category (no separate pre-trip advance workflow — confirmed scope choice). Generic, entity-agnostic document attachment (`core-documents`, brand-new package with zero dependency on `core-accounting`) stores files as BLOBs inside the encrypted company DB — the first blob column in this schema — so `backupCompany`'s existing whole-file copy needed zero changes; wired via a reusable `AttachmentsPanel` component into the Expense Claim register plus five other representative screens (Voucher Register, both invoice registers, Parties, Bank Accounts), and a standalone filename/description `DocumentSearchScreen`. Verified end-to-end (29 checks) against a real encrypted company DB, including a byte-for-byte blob round-trip and the full claim lifecycle's voucher Dr/Cr correctness. Full workspace `lint`+`build` (16 projects) clean. Not yet merged — on branch `phase6/expenses-travel-documents`, pending user review. |
 | 7 | Payroll | CTC, salary rules engine, attendance, leave, statutory, payslips | ⬜ Not started | | ⚠️ Re-verify Labour Code final rules before starting |
 | 8 | Advanced ERP | Fixed assets (dual depreciation), cost centres, budgets, manufacturing, multi-currency, multi-branch | ⬜ Not started | | |
 | 9 | Print + Templates | Print Centre, native printing, PDF, template designer | ⬜ Not started | | |
@@ -112,6 +112,14 @@ Record every architectural or business decision here the moment it's made, so it
 | 2026-09-06 | **Bank-statement direction terminology is the OPPOSITE sense of the ledger's own debit/credit convention, and this is encoded explicitly everywhere it matters, not left implicit.** A bank's own CSV/statement calls a deposit into the account a "CREDIT" and a withdrawal a "DEBIT" (the bank's point of view) — this maps to OUR ledger's `debit_amount` (money in) and `credit_amount` (money out) respectively, the reverse pairing from what the words might suggest. Every function that crosses this boundary (`mapStatementRows`, `findMatchCandidates`) carries an explicit code comment cross-referencing this, since it is the single easiest place to introduce a silent, hard-to-notice reversal bug in a reconciliation feature. | 5 |
 | 2026-09-06 | **`better-sqlite3` boolean-column comparison in a WHERE clause** needed the same `1 as unknown as boolean` / `0 as unknown as boolean` typed-constant workaround already established in `core-sales-purchase`'s `gstReturns.ts`/`receivablesPayables.ts` (better-sqlite3 cannot bind a raw JS boolean as a query parameter, but Kysely's generated `ColumnType` Select-side type for these int-backed boolean columns is `boolean`) — applied to `bank_reconciliation.is_reconciled` in `reconciliation.ts`/`statementImport.ts`'s unreconciled-line queries. Not a new pattern, just a new call site for an existing one. | 5 |
 
+| 2026-09-06 | **Phase 6 (Expenses, Travel, Documents) kicked off and completed in one pass.** The Blueprint's entire spec is one line ("Expense/travel workflows, reimbursements, document attachment + search," exit criterion "Every transaction type can carry an attached document") — same one-liner situation as Phase 5. Three design forks were resolved with the user via `AskUserQuestion` before coding (financial-logic gate): (1) build a new lightweight `employee` master now rather than wait for Phase 7 Payroll — Phase 7 will extend this same table with CTC/salary fields later rather than building a parallel concept; (2) store attached files as BLOBs inside the encrypted company DB rather than separate on-disk files — inherits SQLCipher's encryption for free and needs zero changes to `backupCompany`'s existing whole-file backup; (3) travel is just another expense-claim line category this pass, no separate pre-trip advance/disbursement workflow. | 6 |
+| 2026-09-06 | **`employee` gets its own dedicated ledger, created atomically** — same pattern as Phase 2's `createParty`/Phase 5's `createBankAccount`. Its ledger sits under a brand-new "Employee Reimbursements Payable" account_group (LIABILITY nature, under Current Liabilities) — an employee reimbursement is a liability (the company owes the employee) until paid, the opposite economic direction from an expense, so it can't be lumped into an EXPENSE-nature group. Seeding this new group directly mirrors `core-gst-engine`'s `seedGstLedgers`, which already established the precedent (its own "Input Tax Credit" group under Current Assets) of a later-phase package inserting a brand-new `account_group` row — confirmed by reading that code before assuming it was acceptable, not asserted. | 6 |
+| 2026-09-06 | **No new "expense category" concept was built** — an expense claim line just picks an existing EXPENSE-nature `ledger_account`, exactly like `purchase_invoice_line.expense_ledger_id` already does. Since `chartOfAccounts.ts`'s default groups seeded zero default EXPENSE ledgers, a new `seedExpenseLedgers` (required, not optional, called at company creation) adds five common ones (Travel & Conveyance, Staff Welfare, Office Supplies, Communication Expenses, Miscellaneous Expenses) under the pre-existing "Indirect Expenses" group. | 6 |
+| 2026-09-06 | **Expense claim lifecycle mirrors `core-sales-purchase`'s order state-machine pattern almost exactly** (`transitionStatus` helper validating legal `from`/`to` transitions, same as `confirmSalesOrder`/`cancelSalesOrder`): DRAFT→SUBMITTED (no GL impact) →APPROVED (posts a real new `EXPENSE_CLAIM` voucher — added to `core-accounting`'s `VOUCHER_TYPES`, no other change needed since its validation is already generic against the array — `Dr` each line's expense ledger, `Cr` the employee's ledger for the total: this is the accrual, mirroring exactly how a Purchase Invoice creates a payable) →REIMBURSED (a separate `PAYMENT` voucher via a new `expense_claim_settlement` table, an exact mirror of the existing `sales_invoice_settlement`/`purchase_invoice_settlement` bill-wise settlement tables, partial reimbursement supported). REJECTED is only reachable pre-approval (nothing was posted yet, so nothing needs reversing). | 6 |
+| 2026-09-06 | **New settlement-aware cancellation guard for expense claims** (`cancelExpenseClaim`: an APPROVED claim can be cancelled — reversing its voucher via the existing `cancelVoucherInTransaction` — only if it has ZERO `expense_claim_settlement` rows; any reimbursement recorded blocks cancellation outright). This is genuinely new logic with no existing precedent in this codebase to mirror (`cancelSalesInvoice`/`cancelPurchaseInvoice` only guard against stock movement, not prior settlements) — consistent with, but not copied from, Phase 3's "guard, don't half-build reversal" philosophy for stock-linked invoice cancellation. Flagged as a known inconsistency with the older Phase 2 cancellation functions, not retrofitted onto them in this pass (out of scope). | 6 |
+| 2026-09-06 | **Reimbursement composes `core-accounting`'s `createVoucherInTransaction` + `core-banking`'s `attachPaymentInstrumentInTransaction` directly inside its own transaction, NOT via `core-banking`'s `recordVoucherWithInstrument`** — that function opens its own transaction and has no hook for inserting the `expense_claim_settlement` row, which must commit atomically with the voucher and the status flip (Rule #4). A Plan agent caught this during design validation (the original sketch assumed `recordVoucherWithInstrument` was directly reusable); confirmed by reading its actual implementation before building against it. | 6 |
+| 2026-09-06 | **Generic, entity-agnostic document attachment — new `core-documents` package, deliberately with zero dependency on `core-accounting`.** `document_attachment` has a free-string `entity_type`/`entity_id` pair (same convention as `audit_log.entity_type`), so any current or future record is attachable with zero schema changes — this is what actually satisfies "every transaction type can carry an attached document," not pre-wiring the UI onto every existing screen. Files are stored as BLOBs (`file_data`, the first `'blob'`-typed column in this schema) — confirmed working via a real byte-for-byte round-trip in the verification script, not assumed from general `better-sqlite3` knowledge. A generic `AttachmentsPanel` React component was wired into a representative set of screens (Expense Claim register, Voucher Register, both invoice registers, Parties, Bank Accounts) as an expandable per-row section; extending it to any further screen is the same few-line addition, tracked as a UI-completeness gap in Open Questions, not a missing capability. Search (`searchDocuments`) is a plain `LIKE` match over filename/description — explicitly NOT full-text content extraction or OCR. | 6 |
+
 ## 3. Open Questions / Blockers
 
 Track anything unresolved so it surfaces automatically in the next session instead of being forgotten.
@@ -167,6 +175,12 @@ Track anything unresolved so it surfaces automatically in the next session inste
 - [ ] Phase 5: **CC/OD (cash credit/overdraft) bank accounts get no special treatment** — modeled identically to SAVINGS/CURRENT (same `ledger_account` under the same ASSET group). A CC/OD account can legitimately run a credit balance (overdrawn), which the reconciliation math handles correctly (the signed balance just goes negative), but there's no drawing-limit tracking or any UI distinction beyond the stored `account_type` label.
 - [ ] Phase 5: **No bank-statement format beyond CSV, and column mapping is manual per import** — the importer handles the two common Indian-bank CSV shapes (single Amount+Dr/Cr column, or separate Withdrawal/Deposit columns) via a user-driven mapping step, but doesn't remember a bank's mapping between imports or auto-detect known formats. A future pass could save a mapping per bank account.
 - [ ] Phase 5: **A CONTRA voucher between two bank ledgers reconciles each side completely independently** — no linkage recorded between the two `voucher_line` rows it produces, so reconciling one side against its bank statement has no bearing on the other. This matches how the two sides genuinely appear on two separate real bank statements, so it's not considered a gap, just worth noting.
+- [ ] Phase 6: **No settlement-cancellation guard on the older Phase 2 `cancelSalesInvoice`/`cancelPurchaseInvoice`** — only expense claims got this guard (see Key Decisions Log). A real, disclosed inconsistency, not retrofitted onto Phase 2 in this pass since it was out of scope.
+- [ ] Phase 6: **Existing (pre-Phase-6) companies don't get Expense/Documents permissions or the new default expense ledgers retroactively** — same characteristic every prior module's additions have had.
+- [ ] Phase 6: **Travel has no separate pre-trip advance/disbursement workflow** (confirmed scope choice) — a future pass would need its own "advance to employee" ledger and a settle-against-advance mechanism, materially different from the after-the-fact reimbursement flow built here.
+- [ ] Phase 6: **Document search is filename/description substring match only** — no OCR or full-text content extraction from the attached files themselves (confirmed out of scope).
+- [ ] Phase 6: **`AttachmentsPanel` is wired into a representative set of screens (Expense Claim register, Voucher Register, both invoice registers, Parties, Bank Accounts), not literally every transaction-type screen** — the generic capability (any `entity_type`/`entity_id` pair is attachable with zero schema changes) satisfies the exit criterion; extending the UI to remaining screens is the same few-line addition, tracked as incremental follow-up, not a missing capability.
+- [ ] Phase 6: **No employee self-service / login concept** — an expense claim's `employeeId` is independent of the system's `AppUser`/login identity; an employee doesn't need an app account to be reimbursed, and today only an already-logged-in user (with `EXPENSE.CREATE_CLAIM`) files a claim on their behalf. Revisit once Phase 7 Payroll's employee model (and any self-service login) exists.
 
 ---
 
@@ -187,6 +201,119 @@ Next concrete step:
 
 ### Entries:
 ```
+Date: 2026-09-06 (session 17)
+Phase: 6 (Expenses, Travel, Documents) — kicked off and completed in one pass
+What was completed:
+  - User confirmed Phase 5's PR (#13) had been merged to main and said "Done
+    next?" — pulled main, checked the Phase Tracker's own stated next step
+    (Phase 6 per the Blueprint sequence), and read the Blueprint's one-line
+    Phase 6 spec (confirmed via full-text search there is nothing else, same
+    situation as Phase 5).
+  - Used plan mode (financial-logic gate): two Explore agents in parallel
+    investigated (a) the identity/user model (confirmed no Employee master
+    exists anywhere — AppUser is a bare name+email anchor, and the only
+    "who did this" concept in any company-scoped table is a raw
+    unenriched AppUser.id string) and the existing order state-machine
+    pattern to mirror, and (b) the Blueprint's actual Phase 6 detail (none
+    beyond the one-liner) plus existing file-handling precedent (confirmed
+    there is zero prior art anywhere in this codebase for storing an
+    arbitrary user file, either as a DB blob or on disk).
+  - Surfaced three genuine design forks to the user via AskUserQuestion
+    before drafting a plan: (1) new Employee master now vs. tying claims to
+    the bare logged-in AppUser — user chose the new master (recommended);
+    (2) BLOB-in-DB vs. on-disk-with-new-encryption for attachments — user
+    chose BLOB-in-DB (recommended); (3) travel-as-category vs. a full
+    pre-trip advance workflow — user chose travel-as-category
+    (recommended). All three matched the recommended option.
+  - A Plan agent then validated the resulting design against the real code
+    and caught two real corrections before anything was built: (i) the
+    outstanding-invoice-list/settlement-recording functions live in one
+    file (`settlements.ts`), not the two-file split the draft assumed; (ii)
+    `core-banking`'s `recordVoucherWithInstrument` is NOT directly reusable
+    for reimbursement since it opens its own transaction with no hook for
+    the settlement insert — `reimburseExpenseClaim` instead composes
+    `createVoucherInTransaction` + `attachPaymentInstrumentInTransaction`
+    directly inside its own transaction. Also confirmed zero default
+    EXPENSE-nature ledgers exist in `chartOfAccounts.ts` (a seed function
+    was required, not optional) and that `core-gst-engine`'s `seedGstLedgers`
+    already sets the precedent for a later-phase package inserting a
+    brand-new `account_group` row.
+  - Built: new company-DB migration 011_expenses_documents.ts (employee,
+    expense_claim, expense_claim_line, expense_claim_settlement,
+    document_attachment — the last with the schema's first `'blob'`
+    column); `core-accounting`'s VOUCHER_TYPES gained EXPENSE_CLAIM; two new
+    pure-TS packages — `core-expense` (employees, claim lifecycle state
+    machine mirroring salesOrders.ts's transitionStatus pattern, settlement/
+    reimbursement mirroring recordPurchasePayment's validation) and
+    `core-documents` (generic entity-agnostic attach/list/get/delete/search,
+    zero dependency on core-accounting); new main-process expenseHandlers.ts/
+    documentHandlers.ts (the latter reusing bankingHandlers.ts's native
+    open-file-dialog pattern for both upload-pick and download-save); ~20
+    new expense:/documents: IPC channels; new renderer screens
+    (EmployeesScreen, NewExpenseClaimScreen + a new small ExpenseLinesEditor
+    deliberately NOT reusing the GST/stock-coupled DocumentLinesEditor,
+    ExpenseClaimRegisterScreen with Submit/Approve/Reject/Reimburse/Cancel
+    actions, OutstandingReimbursementsScreen, a generic AttachmentsPanel,
+    DocumentSearchScreen); AttachmentsPanel wired as an expandable per-row
+    section into VoucherRegisterScreen, both invoice register screens,
+    PartiesScreen, and BankAccountsScreen, alongside its primary use in the
+    Expense Claim register; Dashboard/App.tsx wiring for all five new
+    top-level screens, gated by the new EXPENSE.*/DOCUMENTS.* permissions.
+  - Verified end-to-end (29 checks, throwaway tsx script run from repo root
+    against a real encrypted company DB, deleted after): atomic employee+
+    ledger+audit-log creation; full claim lifecycle DRAFT->SUBMITTED->
+    APPROVED (posted voucher's Dr/Cr lines and balance verified)
+    ->REIMBURSED via two partial reimbursements; the employee's ledger
+    netting back to exactly zero once fully reimbursed; the new settlement
+    guard rejecting cancellation of an already-reimbursed claim and
+    succeeding on an unsettled one (with the cancelled claim's own expense
+    ledger balance verified back to zero via computeLedgerBalances); the
+    reject path leaving no voucher ever posted; and — the load-bearing check
+    for the first-ever blob column in this schema — a document attached,
+    retrieved, and compared BYTE-FOR-BYTE identical to the original buffer,
+    plus filename and description search correctness and an audited hard
+    delete. Full workspace `nx run-many -t build` (15 projects) and
+    `-t lint` (16 projects) both clean when run sequentially — one flaky,
+    non-reproducible ENOENT on a `desktop-shell` electron-vite temp config
+    file surfaced only when build+lint ran in the same parallel batch (Nx
+    itself flagged it as a flaky task); passed clean on immediate retry and
+    when run as separate sequential passes, confirmed as a tooling race, not
+    a code defect.
+What's still pending in this phase: functionally complete against the
+  Blueprint's one-line scope. Explicit, flagged (not silent) simplifications
+  — see Open Questions: no retroactive Expense/Documents permissions for
+  pre-existing companies (same characteristic every prior module has had);
+  no settlement-cancellation guard added retroactively to the older Phase 2
+  invoice-cancellation functions (a real, disclosed inconsistency); no
+  pre-trip travel advance workflow; document search is filename/description
+  only, no OCR/full-text extraction; AttachmentsPanel wired into a
+  representative screen set, not literally every transaction-type screen;
+  no employee self-service/login concept yet (expense claims are filed by an
+  already-logged-in user on an employee's behalf).
+Any decisions made (also add to Section 2): all seven Phase 6 rows in the
+  Key Decisions Log — the three AskUserQuestion-confirmed design forks, the
+  new Employee-Reimbursements-Payable account group (mirroring core-gst-
+  engine's precedent), the claim lifecycle/voucher-posting design mirroring
+  the sales/purchase order state machine, the new settlement-cancellation
+  guard (genuinely new logic, no prior precedent), the reimbursement
+  composition fix a Plan agent caught (createVoucherInTransaction +
+  attachPaymentInstrumentInTransaction directly, not via
+  recordVoucherWithInstrument), and the generic entity-agnostic document-
+  attachment design (BLOB-in-DB, zero core-accounting dependency).
+Any blockers (also add to Section 3): none new. Same standing sandboxed-
+  environment limitation as every session (no interactive desktop for a
+  real manual click-through — verified via real handler calls against a
+  real encrypted DB instead, same as every prior phase).
+Next concrete step: this session's work is on a new branch
+  (phase6/expenses-travel-documents, off the current `main` which already
+  has Phase 5 fully merged), not yet committed/PR'd as of end of session,
+  pending the user's go-ahead. After this merges, Phase 7 (Payroll) is next
+  per the Blueprint sequence — re-verify Labour Code final rules before
+  starting, per the standing note on that row of the Phase Status Board, and
+  note that Phase 7 should extend THIS session's new `employee` table with
+  CTC/salary fields rather than building a parallel employee concept.
+```
+
 Date: 2026-09-06 (session 16)
 Phase: 5 (Banking) — kicked off and completed in one pass
 What was completed:

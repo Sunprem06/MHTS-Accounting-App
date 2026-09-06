@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import type { PurchaseInvoiceSummary, SessionInfo } from '../../../shared/ipc';
+import { AttachmentsPanel } from './AttachmentsPanel';
 
 interface Props {
   session: SessionInfo;
@@ -10,6 +11,7 @@ export function PurchaseInvoiceRegisterScreen({ session, onBack }: Props) {
   const [invoices, setInvoices] = useState<PurchaseInvoiceSummary[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [cancellingId, setCancellingId] = useState<string | null>(null);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   const canCreate = session.permissions.includes('PURCHASE.CREATE_INVOICE');
 
@@ -61,33 +63,48 @@ export function PurchaseInvoiceRegisterScreen({ session, onBack }: Props) {
               <th style={{ textAlign: 'right' }}>Net payable (₹)</th>
               <th style={{ textAlign: 'left' }}>Due date</th>
               <th style={{ textAlign: 'left' }}>Status</th>
+              <th />
               {canCreate && <th />}
             </tr>
           </thead>
           <tbody>
             {invoices.map((invoice) => (
-              <tr key={invoice.id} style={{ opacity: invoice.cancelledAt ? 0.6 : 1 }}>
-                <td>{invoice.voucherNumber}</td>
-                <td>{invoice.invoiceDate}</td>
-                <td>
-                  {invoice.partyName}
-                  {invoice.isMsmeVendor ? ' (MSME)' : ''}
-                </td>
-                <td style={{ textAlign: 'right' }}>{invoice.totalAmount.toFixed(2)}</td>
-                <td>{invoice.tdsSection ? `${invoice.tdsSection}: ₹${invoice.tdsAmount.toFixed(2)}` : '—'}</td>
-                <td style={{ textAlign: 'right' }}>{invoice.netPayable.toFixed(2)}</td>
-                <td style={{ color: isOverdue(invoice) ? 'crimson' : undefined }}>{invoice.dueDate}</td>
-                <td>{invoice.cancelledAt ? 'Cancelled' : 'Active'}</td>
-                {canCreate && (
+              <Fragment key={invoice.id}>
+                <tr style={{ opacity: invoice.cancelledAt ? 0.6 : 1 }}>
+                  <td>{invoice.voucherNumber}</td>
+                  <td>{invoice.invoiceDate}</td>
                   <td>
-                    {!invoice.cancelledAt && (
-                      <button type="button" disabled={cancellingId === invoice.voucherId} onClick={() => handleCancel(invoice.voucherId)}>
-                        {cancellingId === invoice.voucherId ? 'Cancelling…' : 'Cancel'}
-                      </button>
-                    )}
+                    {invoice.partyName}
+                    {invoice.isMsmeVendor ? ' (MSME)' : ''}
                   </td>
+                  <td style={{ textAlign: 'right' }}>{invoice.totalAmount.toFixed(2)}</td>
+                  <td>{invoice.tdsSection ? `${invoice.tdsSection}: ₹${invoice.tdsAmount.toFixed(2)}` : '—'}</td>
+                  <td style={{ textAlign: 'right' }}>{invoice.netPayable.toFixed(2)}</td>
+                  <td style={{ color: isOverdue(invoice) ? 'crimson' : undefined }}>{invoice.dueDate}</td>
+                  <td>{invoice.cancelledAt ? 'Cancelled' : 'Active'}</td>
+                  <td>
+                    <button type="button" onClick={() => setExpandedId(expandedId === invoice.id ? null : invoice.id)}>
+                      {expandedId === invoice.id ? 'Hide' : 'Attachments'}
+                    </button>
+                  </td>
+                  {canCreate && (
+                    <td>
+                      {!invoice.cancelledAt && (
+                        <button type="button" disabled={cancellingId === invoice.voucherId} onClick={() => handleCancel(invoice.voucherId)}>
+                          {cancellingId === invoice.voucherId ? 'Cancelling…' : 'Cancel'}
+                        </button>
+                      )}
+                    </td>
+                  )}
+                </tr>
+                {expandedId === invoice.id && (
+                  <tr>
+                    <td colSpan={canCreate ? 10 : 9}>
+                      <AttachmentsPanel session={session} entityType="PurchaseInvoice" entityId={invoice.id} />
+                    </td>
+                  </tr>
                 )}
-              </tr>
+              </Fragment>
             ))}
           </tbody>
         </table>

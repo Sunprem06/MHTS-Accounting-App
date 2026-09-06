@@ -51,6 +51,11 @@ import { BankAccountsScreen } from './screens/BankAccountsScreen';
 import { BankReconciliationScreen } from './screens/BankReconciliationScreen';
 import { BankStatementImportScreen } from './screens/BankStatementImportScreen';
 import { ChequeRegisterScreen } from './screens/ChequeRegisterScreen';
+import { EmployeesScreen } from './screens/EmployeesScreen';
+import { NewExpenseClaimScreen } from './screens/NewExpenseClaimScreen';
+import { ExpenseClaimRegisterScreen } from './screens/ExpenseClaimRegisterScreen';
+import { OutstandingReimbursementsScreen } from './screens/OutstandingReimbursementsScreen';
+import { DocumentSearchScreen } from './screens/DocumentSearchScreen';
 
 type View =
   | { name: 'loading' }
@@ -103,7 +108,12 @@ type View =
   | { name: 'bankAccounts' }
   | { name: 'bankReconciliation' }
   | { name: 'bankStatementImport' }
-  | { name: 'chequeRegister' };
+  | { name: 'chequeRegister' }
+  | { name: 'employees' }
+  | { name: 'newExpenseClaim' }
+  | { name: 'expenseClaimRegister' }
+  | { name: 'outstandingReimbursements' }
+  | { name: 'documentSearch' };
 
 export function App() {
   return (
@@ -411,6 +421,26 @@ function AppRoutes() {
     return <ChequeRegisterScreen session={session!} onBack={() => setView({ name: 'dashboard' })} />;
   }
 
+  if (view.name === 'employees') {
+    return <EmployeesScreen session={session!} onBack={() => setView({ name: 'dashboard' })} />;
+  }
+
+  if (view.name === 'newExpenseClaim') {
+    return <NewExpenseClaimScreen onCreated={() => setView({ name: 'expenseClaimRegister' })} onBack={() => setView({ name: 'dashboard' })} />;
+  }
+
+  if (view.name === 'expenseClaimRegister') {
+    return <ExpenseClaimRegisterScreen session={session!} onBack={() => setView({ name: 'dashboard' })} />;
+  }
+
+  if (view.name === 'outstandingReimbursements') {
+    return <OutstandingReimbursementsScreen onBack={() => setView({ name: 'dashboard' })} />;
+  }
+
+  if (view.name === 'documentSearch') {
+    return <DocumentSearchScreen onBack={() => setView({ name: 'dashboard' })} />;
+  }
+
   return (
     <DashboardScreen
       session={session!}
@@ -456,6 +486,11 @@ function AppRoutes() {
       onBankReconciliation={() => setView({ name: 'bankReconciliation' })}
       onBankStatementImport={() => setView({ name: 'bankStatementImport' })}
       onChequeRegister={() => setView({ name: 'chequeRegister' })}
+      onEmployees={() => setView({ name: 'employees' })}
+      onNewExpenseClaim={() => setView({ name: 'newExpenseClaim' })}
+      onExpenseClaimRegister={() => setView({ name: 'expenseClaimRegister' })}
+      onOutstandingReimbursements={() => setView({ name: 'outstandingReimbursements' })}
+      onDocumentSearch={() => setView({ name: 'documentSearch' })}
       onLogout={async () => {
         await window.mhts.logout();
         setSession(null);

@@ -20,6 +20,8 @@
       "@mhts/core-payroll-engine": ["packages/core-payroll-engine/src/index.ts"],
       "@mhts/core-inventory": ["packages/core-inventory/src/index.ts"],
       "@mhts/core-banking": ["packages/core-banking/src/index.ts"],
+      "@mhts/core-expense": ["packages/core-expense/src/index.ts"],
+      "@mhts/core-documents": ["packages/core-documents/src/index.ts"],
       "@mhts/core-rules-engine": ["packages/core-rules-engine/src/index.ts"],
       "@mhts/core-identity": ["packages/core-identity/src/index.ts"],
       "@mhts/core-audit": ["packages/core-audit/src/index.ts"],

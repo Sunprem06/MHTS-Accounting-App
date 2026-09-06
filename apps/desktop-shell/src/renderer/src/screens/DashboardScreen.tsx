@@ -45,6 +45,11 @@ interface Props {
   onBankReconciliation: () => void;
   onBankStatementImport: () => void;
   onChequeRegister: () => void;
+  onEmployees: () => void;
+  onNewExpenseClaim: () => void;
+  onExpenseClaimRegister: () => void;
+  onOutstandingReimbursements: () => void;
+  onDocumentSearch: () => void;
 }
 
 export function DashboardScreen({
@@ -92,6 +97,11 @@ export function DashboardScreen({
   onBankReconciliation,
   onBankStatementImport,
   onChequeRegister,
+  onEmployees,
+  onNewExpenseClaim,
+  onExpenseClaimRegister,
+  onOutstandingReimbursements,
+  onDocumentSearch,
 }: Props) {
   return (
     <div style={{ padding: 24, fontFamily: 'sans-serif', maxWidth: 480 }}>
@@ -205,6 +215,21 @@ export function DashboardScreen({
           {session.permissions.includes('BANKING.VIEW_REPORTS') && <button onClick={onBankReconciliation}>Bank reconciliation</button>}{' '}
           {session.permissions.includes('BANKING.IMPORT_STATEMENT') && <button onClick={onBankStatementImport}>Import bank statement</button>}{' '}
           {session.permissions.includes('BANKING.VIEW_REPORTS') && <button onClick={onChequeRegister}>Cheque register</button>}
+        </p>
+      )}
+      {(session.permissions.includes('EXPENSE.MANAGE_EMPLOYEES') ||
+        session.permissions.includes('EXPENSE.CREATE_CLAIM') ||
+        session.permissions.includes('EXPENSE.VIEW_REPORTS')) && (
+        <p>
+          {session.permissions.includes('EXPENSE.MANAGE_EMPLOYEES') && <button onClick={onEmployees}>Employees</button>}{' '}
+          {session.permissions.includes('EXPENSE.CREATE_CLAIM') && <button onClick={onNewExpenseClaim}>New expense claim</button>}{' '}
+          {session.permissions.includes('EXPENSE.VIEW_REPORTS') && <button onClick={onExpenseClaimRegister}>Expense claim register</button>}{' '}
+          {session.permissions.includes('EXPENSE.VIEW_REPORTS') && <button onClick={onOutstandingReimbursements}>Outstanding reimbursements</button>}
+        </p>
+      )}
+      {session.permissions.includes('DOCUMENTS.VIEW') && (
+        <p>
+          <button onClick={onDocumentSearch}>Document search</button>
         </p>
       )}
       <p>

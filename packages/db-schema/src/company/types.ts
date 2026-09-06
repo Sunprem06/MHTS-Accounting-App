@@ -429,6 +429,68 @@ export interface BankStatementLineTable {
   created_at: ColumnType<string, string | undefined, never>;
 }
 
+export interface EmployeeTable {
+  id: string;
+  employee_code: string;
+  name: string;
+  department: string | null;
+  /** This employee's own dedicated ledger under "Employee Reimbursements Payable" — its balance IS the amount currently owed to them. */
+  ledger_account_id: string;
+  is_active: ColumnType<boolean, boolean | number, boolean | number>;
+  created_at: ColumnType<string, string | undefined, never>;
+}
+
+export interface ExpenseClaimTable {
+  id: string;
+  employee_id: string;
+  financial_year: string;
+  claim_number: number;
+  claim_date: string;
+  purpose: string | null;
+  /** 'DRAFT' | 'SUBMITTED' | 'APPROVED' | 'REJECTED' | 'REIMBURSED' | 'CANCELLED' — see @mhts/core-expense. */
+  status: string;
+  /** The EXPENSE_CLAIM voucher posted at APPROVAL time — null before that. */
+  voucher_id: string | null;
+  rejected_reason: string | null;
+  created_by: string | null;
+  created_at: ColumnType<string, string | undefined, never>;
+}
+
+export interface ExpenseClaimLineTable {
+  id: string;
+  expense_claim_id: string;
+  /** Must resolve to an EXPENSE-nature ledger — validated in core-expense. */
+  expense_ledger_id: string;
+  description: string;
+  expense_date: string;
+  /** Paise. */
+  amount: number;
+  line_narration: string | null;
+}
+
+export interface ExpenseClaimSettlementTable {
+  id: string;
+  expense_claim_id: string;
+  /** The PAYMENT voucher that reimburses this amount against the claim. */
+  voucher_id: string;
+  amount_applied: number;
+  created_at: ColumnType<string, string | undefined, never>;
+}
+
+export interface DocumentAttachmentTable {
+  id: string;
+  /** Free string, same convention as audit_log.entity_type. */
+  entity_type: string;
+  entity_id: string;
+  file_name: string;
+  mime_type: string;
+  file_size_bytes: number;
+  file_data: Buffer;
+  description: string | null;
+  uploaded_by: string | null;
+  uploaded_at: ColumnType<string, string | undefined, never>;
+}
+
 export interface CompanyDatabase {
   role: RoleTable;
   permission: PermissionTable;
@@ -461,4 +523,9 @@ export interface CompanyDatabase {
   bank_reconciliation: BankReconciliationTable;
   bank_statement_import: BankStatementImportTable;
   bank_statement_line: BankStatementLineTable;
+  employee: EmployeeTable;
+  expense_claim: ExpenseClaimTable;
+  expense_claim_line: ExpenseClaimLineTable;
+  expense_claim_settlement: ExpenseClaimSettlementTable;
+  document_attachment: DocumentAttachmentTable;
 }

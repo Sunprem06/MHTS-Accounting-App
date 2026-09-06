@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import type { SessionInfo, VoucherSummary } from '../../../shared/ipc';
+import { AttachmentsPanel } from './AttachmentsPanel';
 
 interface Props {
   session: SessionInfo;
@@ -10,6 +11,7 @@ export function VoucherRegisterScreen({ session, onBack }: Props) {
   const [vouchers, setVouchers] = useState<VoucherSummary[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [cancellingId, setCancellingId] = useState<string | null>(null);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   const canCreate = session.permissions.includes('ACCOUNTING.CREATE_VOUCHER');
 
@@ -70,34 +72,49 @@ export function VoucherRegisterScreen({ session, onBack }: Props) {
               <th style={{ textAlign: 'left' }}>Narration</th>
               <th style={{ textAlign: 'right' }}>Amount (₹)</th>
               <th style={{ textAlign: 'left' }}>Status</th>
+              <th />
               {canCreate && <th />}
             </tr>
           </thead>
           <tbody>
             {vouchers.map((voucher) => (
-              <tr key={voucher.id} style={{ opacity: voucher.cancelledAt || voucher.reversesVoucherId ? 0.6 : 1 }}>
-                <td>{voucher.voucherType}</td>
-                <td>{voucher.voucherNumber}</td>
-                <td>{voucher.voucherDate}</td>
-                <td>{voucher.narration ?? ''}</td>
-                <td style={{ textAlign: 'right' }}>{voucher.totalAmount.toFixed(2)}</td>
-                <td>
-                  {voucher.reversesVoucherId
-                    ? 'Reversal'
-                    : voucher.cancelledAt
-                      ? 'Cancelled'
-                      : 'Active'}
-                </td>
-                {canCreate && (
+              <Fragment key={voucher.id}>
+                <tr style={{ opacity: voucher.cancelledAt || voucher.reversesVoucherId ? 0.6 : 1 }}>
+                  <td>{voucher.voucherType}</td>
+                  <td>{voucher.voucherNumber}</td>
+                  <td>{voucher.voucherDate}</td>
+                  <td>{voucher.narration ?? ''}</td>
+                  <td style={{ textAlign: 'right' }}>{voucher.totalAmount.toFixed(2)}</td>
                   <td>
-                    {!voucher.cancelledAt && !voucher.reversesVoucherId && (
-                      <button type="button" disabled={cancellingId === voucher.id} onClick={() => handleCancel(voucher)}>
-                        {cancellingId === voucher.id ? 'Cancelling…' : 'Cancel'}
-                      </button>
-                    )}
+                    {voucher.reversesVoucherId
+                      ? 'Reversal'
+                      : voucher.cancelledAt
+                        ? 'Cancelled'
+                        : 'Active'}
                   </td>
+                  <td>
+                    <button type="button" onClick={() => setExpandedId(expandedId === voucher.id ? null : voucher.id)}>
+                      {expandedId === voucher.id ? 'Hide' : 'Attachments'}
+                    </button>
+                  </td>
+                  {canCreate && (
+                    <td>
+                      {!voucher.cancelledAt && !voucher.reversesVoucherId && (
+                        <button type="button" disabled={cancellingId === voucher.id} onClick={() => handleCancel(voucher)}>
+                          {cancellingId === voucher.id ? 'Cancelling…' : 'Cancel'}
+                        </button>
+                      )}
+                    </td>
+                  )}
+                </tr>
+                {expandedId === voucher.id && (
+                  <tr>
+                    <td colSpan={canCreate ? 8 : 7}>
+                      <AttachmentsPanel session={session} entityType="Voucher" entityId={voucher.id} />
+                    </td>
+                  </tr>
                 )}
-              </tr>
+              </Fragment>
             ))}
           </tbody>
         </table>

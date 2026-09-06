@@ -1,0 +1,12 @@
+{
+  "name": "@mhts/core-documents",
+  "version": "0.0.0",
+  "private": true,
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "dependencies": {
+    "@mhts/core-audit": "*",
+    "@mhts/db-schema": "*",
+    "@mhts/shared-types": "*"
+  }
+}

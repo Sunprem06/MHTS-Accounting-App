@@ -1,0 +1,17 @@
+{
+  "name": "core-documents",
+  "sourceRoot": "packages/core-documents/src",
+  "projectType": "library",
+  "tags": ["type:core"],
+  "targets": {
+    "build": {
+      "executor": "@nx/js:tsc",
+      "outputs": ["{options.outputPath}"],
+      "options": {
+        "outputPath": "dist/packages/core-documents",
+        "main": "packages/core-documents/src/index.ts",
+        "tsConfig": "packages/core-documents/tsconfig.json"
+      }
+    }
+  }
+}

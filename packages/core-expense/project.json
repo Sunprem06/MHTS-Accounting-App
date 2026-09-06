@@ -1,0 +1,17 @@
+{
+  "name": "core-expense",
+  "sourceRoot": "packages/core-expense/src",
+  "projectType": "library",
+  "tags": ["type:core"],
+  "targets": {
+    "build": {
+      "executor": "@nx/js:tsc",
+      "outputs": ["{options.outputPath}"],
+      "options": {
+        "outputPath": "dist/packages/core-expense",
+        "main": "packages/core-expense/src/index.ts",
+        "tsConfig": "packages/core-expense/tsconfig.json"
+      }
+    }
+  }
+}
