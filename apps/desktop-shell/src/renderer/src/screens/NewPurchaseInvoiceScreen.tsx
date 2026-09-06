@@ -134,6 +134,8 @@ export function NewPurchaseInvoiceScreen({ onCreated, onBack }: Props) {
             warehouses={warehouses}
             mode="purchase"
             stockInHandLedgerId={stockInHandLedgerId}
+            partyId={partyId}
+            documentDate={invoiceDate}
           />
         </div>
 

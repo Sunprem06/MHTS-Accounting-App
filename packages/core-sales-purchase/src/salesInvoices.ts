@@ -1,28 +1,55 @@
 import { randomUUID } from 'node:crypto';
-import type { Kysely, Transaction } from 'kysely';
-import type { CompanyDatabase } from '@mhts/db-schema';
+import { sql, type Kysely, type Transaction } from 'kysely';
+import type { CompanyDatabase, SystemDatabase } from '@mhts/db-schema';
 import { cancelVoucherInTransaction, createVoucherInTransaction } from '@mhts/core-accounting';
 import type { VoucherLineInput } from '@mhts/core-accounting';
 import { writeAuditLog } from '@mhts/core-audit';
 import { getInventoryLedgerIds, getItemOrThrow, postSalesIssueInTransaction, reverseStockMovementsForReferenceInTransaction } from '@mhts/core-inventory';
+import { getGstLedgerIds } from '@mhts/core-gst-engine';
+import type { GstLedgerIds } from '@mhts/core-gst-engine';
 import { validateDocumentLines } from './lineValidation';
+import { resolveLineGstList } from './gstLineResolution';
+import type { ResolvedLineGst } from './gstLineResolution';
 import type { CreateSalesInvoiceInput, DocumentLineInput, InvoiceSummary } from './types';
 
-/** Builds the debit/credit voucher lines for a sales invoice: one credit per income line, one credit per distinct tax ledger (summed), one debit to the party's own ledger for the grand total. Shared shape with purchaseInvoices.ts (mirrored, not literally shared, since debit/credit sides swap). */
-function buildSalesVoucherLines(partyLedgerId: string, lines: DocumentLineInput[]): { voucherLines: VoucherLineInput[]; taxableAmount: number; taxAmount: number } {
+/**
+ * Builds the debit/credit voucher lines for a sales invoice: one credit per
+ * income line, one credit per distinct tax ledger (summed — manual tax
+ * ledgers AND, when a line carries a resolved GST split, the CGST/SGST/IGST/
+ * Cess Payable ledgers), one debit to the party's own ledger for the grand
+ * total. Shared shape with purchaseInvoices.ts (mirrored, not literally
+ * shared, since debit/credit sides swap).
+ */
+function buildSalesVoucherLines(
+  partyLedgerId: string,
+  lines: DocumentLineInput[],
+  lineGst: (ResolvedLineGst | null)[],
+  gstLedgerIds: GstLedgerIds | null,
+): { voucherLines: VoucherLineInput[]; taxableAmount: number; taxAmount: number } {
   const taxByLedger = new Map<string, number>();
   let taxableAmount = 0;
   let taxAmount = 0;
 
   const voucherLines: VoucherLineInput[] = [];
-  for (const line of lines) {
+  lines.forEach((line, index) => {
     voucherLines.push({ ledgerId: line.ledgerId, debitAmount: 0, creditAmount: line.amount, lineNarration: line.lineNarration });
     taxableAmount += line.amount;
     if (line.taxLedgerId && line.taxAmount) {
       taxByLedger.set(line.taxLedgerId, (taxByLedger.get(line.taxLedgerId) ?? 0) + line.taxAmount);
       taxAmount += line.taxAmount;
     }
-  }
+    const gst = lineGst[index];
+    if (gst) {
+      if (!gstLedgerIds) {
+        throw new Error('GST ledgers not found — seedGstLedgers must run at company creation');
+      }
+      if (gst.cgstAmount > 0) taxByLedger.set(gstLedgerIds.cgstPayableLedgerId, (taxByLedger.get(gstLedgerIds.cgstPayableLedgerId) ?? 0) + gst.cgstAmount);
+      if (gst.sgstAmount > 0) taxByLedger.set(gstLedgerIds.sgstPayableLedgerId, (taxByLedger.get(gstLedgerIds.sgstPayableLedgerId) ?? 0) + gst.sgstAmount);
+      if (gst.igstAmount > 0) taxByLedger.set(gstLedgerIds.igstPayableLedgerId, (taxByLedger.get(gstLedgerIds.igstPayableLedgerId) ?? 0) + gst.igstAmount);
+      if (gst.cessAmount > 0) taxByLedger.set(gstLedgerIds.cessPayableLedgerId, (taxByLedger.get(gstLedgerIds.cessPayableLedgerId) ?? 0) + gst.cessAmount);
+      taxAmount += gst.totalTaxAmount;
+    }
+  });
   for (const [taxLedgerId, amount] of taxByLedger) {
     voucherLines.push({ ledgerId: taxLedgerId, debitAmount: 0, creditAmount: amount });
   }
@@ -40,6 +67,7 @@ function buildSalesVoucherLines(partyLedgerId: string, lines: DocumentLineInput[
  */
 export async function createSalesInvoiceInTransaction(
   trx: Transaction<CompanyDatabase>,
+  systemDb: Kysely<SystemDatabase>,
   input: CreateSalesInvoiceInput,
   actorUserId: string | null,
 ): Promise<string> {
@@ -56,7 +84,9 @@ export async function createSalesInvoiceInTransaction(
     throw new Error('This party is inactive');
   }
 
-  const { voucherLines, taxableAmount, taxAmount } = buildSalesVoucherLines(party.ledger_account_id, input.lines);
+  const lineGst = await resolveLineGstList(systemDb, input.companyStateCode ?? null, party.state_code, input.invoiceDate, input.lines);
+  const gstLedgerIds = lineGst.some((g) => g !== null) ? await getGstLedgerIds(trx) : null;
+  const { voucherLines, taxableAmount, taxAmount } = buildSalesVoucherLines(party.ledger_account_id, input.lines, lineGst, gstLedgerIds);
   const invoiceId = randomUUID();
 
   // Each stockable item line moves stock (via core-inventory) AND contributes to one
@@ -113,7 +143,8 @@ export async function createSalesInvoiceInTransaction(
     })
     .execute();
 
-  for (const line of input.lines) {
+  for (const [index, line] of input.lines.entries()) {
+    const gst = lineGst[index];
     await trx
       .insertInto('sales_invoice_line')
       .values({
@@ -125,6 +156,13 @@ export async function createSalesInvoiceInTransaction(
         tax_ledger_id: line.taxLedgerId ?? null,
         tax_amount: line.taxAmount ?? 0,
         line_narration: line.lineNarration ?? null,
+        hsn_sac_code: gst ? line.hsnSacCode!.trim() : null,
+        gst_rate_basis_points: gst ? Math.round(gst.ratePercent * 100) : null,
+        cess_rate_basis_points: gst ? Math.round(gst.cessPercent * 100) : null,
+        cgst_amount: gst?.cgstAmount ?? 0,
+        sgst_amount: gst?.sgstAmount ?? 0,
+        igst_amount: gst?.igstAmount ?? 0,
+        cess_amount: gst?.cessAmount ?? 0,
       })
       .execute();
   }
@@ -148,8 +186,13 @@ export async function createSalesInvoiceInTransaction(
  * directly instead, so the order's status update can share the same
  * transaction as the invoice it produces.
  */
-export async function createSalesInvoice(companyDb: Kysely<CompanyDatabase>, input: CreateSalesInvoiceInput, actorUserId: string | null): Promise<string> {
-  return companyDb.transaction().execute((trx) => createSalesInvoiceInTransaction(trx, input, actorUserId));
+export async function createSalesInvoice(
+  companyDb: Kysely<CompanyDatabase>,
+  systemDb: Kysely<SystemDatabase>,
+  input: CreateSalesInvoiceInput,
+  actorUserId: string | null,
+): Promise<string> {
+  return companyDb.transaction().execute((trx) => createSalesInvoiceInTransaction(trx, systemDb, input, actorUserId));
 }
 
 /**
@@ -195,7 +238,9 @@ export async function listSalesInvoices(companyDb: Kysely<CompanyDatabase>): Pro
       'sales_invoice.narration as narration',
       'voucher.cancelled_at as cancelledAt',
       fn.sum<number>('sales_invoice_line.amount').as('taxableAmount'),
-      fn.sum<number>('sales_invoice_line.tax_amount').as('taxAmount'),
+      // A line's tax is either the manual tax_amount OR the GST split (cgst+sgst+igst+cess) —
+      // never both (lineValidation) — so summing all five is safe and covers both paths.
+      sql<number>`SUM(sales_invoice_line.tax_amount + sales_invoice_line.cgst_amount + sales_invoice_line.sgst_amount + sales_invoice_line.igst_amount + sales_invoice_line.cess_amount)`.as('taxAmount'),
     ])
     .groupBy('sales_invoice.id')
     .orderBy('sales_invoice.invoice_date', 'desc')

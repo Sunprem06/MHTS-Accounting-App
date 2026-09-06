@@ -121,6 +121,8 @@ export function NewPurchaseOrderScreen({ onCreated, onBack }: Props) {
             warehouses={warehouses}
             mode="purchase"
             stockInHandLedgerId={stockInHandLedgerId}
+            partyId={partyId}
+            documentDate={orderDate}
           />
         </div>
 

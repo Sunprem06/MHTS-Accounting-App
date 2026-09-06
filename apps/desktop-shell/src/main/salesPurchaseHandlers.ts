@@ -71,6 +71,12 @@ async function financialYearFor(systemDb: Kysely<SystemDatabase>, companyId: str
   return computeFinancialYearLabel(company.financial_year_start_month, new Date(date));
 }
 
+/** Phase 4 (GST) — the company's own state_code, used to decide intra- vs inter-state place of supply. Resolved here (not inside core-sales-purchase) same as financialYearFor, since it's a system-DB lookup by companyId. */
+async function companyStateCodeFor(systemDb: Kysely<SystemDatabase>, companyId: string): Promise<string | null> {
+  const company = await systemDb.selectFrom('company').select('state_code').where('id', '=', companyId).executeTakeFirstOrThrow();
+  return company.state_code;
+}
+
 function toCoreLines(lines: DocumentLineInput[]): CoreDocumentLineInput[] {
   return lines.map((line) => ({
     description: line.description,
@@ -78,6 +84,7 @@ function toCoreLines(lines: DocumentLineInput[]): CoreDocumentLineInput[] {
     amount: rupeesToPaise(line.amountRupees),
     taxLedgerId: line.taxLedgerId,
     taxAmount: line.taxAmountRupees !== undefined ? rupeesToPaise(line.taxAmountRupees) : undefined,
+    hsnSacCode: line.hsnSacCode,
     lineNarration: line.lineNarration,
     itemId: line.itemId,
     warehouseId: line.warehouseId,
@@ -119,7 +126,13 @@ function invoiceToRupees<T extends { taxableAmount: number; taxAmount: number; t
 export async function createSalesInvoice(systemDb: Kysely<SystemDatabase>, input: CreateSalesInvoiceInput): Promise<string> {
   const { info, companyDb } = requireSessionWithCompanyDb('SALES.CREATE_INVOICE');
   const financialYear = await financialYearFor(systemDb, info.companyId, input.invoiceDate);
-  return coreCreateSalesInvoice(companyDb, { partyId: input.partyId, financialYear, invoiceDate: input.invoiceDate, narration: input.narration, lines: toCoreLines(input.lines) }, info.userId);
+  const companyStateCode = await companyStateCodeFor(systemDb, info.companyId);
+  return coreCreateSalesInvoice(
+    companyDb,
+    systemDb,
+    { partyId: input.partyId, financialYear, invoiceDate: input.invoiceDate, narration: input.narration, companyStateCode, lines: toCoreLines(input.lines) },
+    info.userId,
+  );
 }
 
 export async function listSalesInvoices(): Promise<InvoiceSummary[]> {
@@ -138,10 +151,11 @@ export async function cancelSalesInvoice(systemDb: Kysely<SystemDatabase>, vouch
 export async function createPurchaseInvoice(systemDb: Kysely<SystemDatabase>, input: CreatePurchaseInvoiceInput): Promise<string> {
   const { info, companyDb } = requireSessionWithCompanyDb('PURCHASE.CREATE_INVOICE');
   const financialYear = await financialYearFor(systemDb, info.companyId, input.invoiceDate);
+  const companyStateCode = await companyStateCodeFor(systemDb, info.companyId);
   return coreCreatePurchaseInvoice(
     companyDb,
     systemDb,
-    { partyId: input.partyId, financialYear, invoiceDate: input.invoiceDate, narration: input.narration, tdsSection: input.tdsSection, lines: toCoreLines(input.lines) },
+    { partyId: input.partyId, financialYear, invoiceDate: input.invoiceDate, narration: input.narration, tdsSection: input.tdsSection, companyStateCode, lines: toCoreLines(input.lines) },
     info.userId,
   );
 }
@@ -189,7 +203,8 @@ export async function convertSalesOrder(systemDb: Kysely<SystemDatabase>, orderI
   const { info, companyDb } = requireSessionWithCompanyDb('SALES.CREATE_ORDER');
   const invoiceDate = new Date().toISOString().slice(0, 10);
   const financialYear = await financialYearFor(systemDb, info.companyId, invoiceDate);
-  return coreConvertSalesOrderToInvoice(companyDb, orderId, invoiceDate, financialYear, info.userId);
+  const companyStateCode = await companyStateCodeFor(systemDb, info.companyId);
+  return coreConvertSalesOrderToInvoice(companyDb, systemDb, orderId, invoiceDate, financialYear, companyStateCode, info.userId);
 }
 
 export async function createPurchaseOrder(systemDb: Kysely<SystemDatabase>, input: CreatePurchaseOrderInput): Promise<string> {
@@ -222,7 +237,8 @@ export async function convertPurchaseOrder(systemDb: Kysely<SystemDatabase>, ord
   const { info, companyDb } = requireSessionWithCompanyDb('PURCHASE.CREATE_ORDER');
   const invoiceDate = new Date().toISOString().slice(0, 10);
   const financialYear = await financialYearFor(systemDb, info.companyId, invoiceDate);
-  return coreConvertPurchaseOrderToInvoice(companyDb, systemDb, orderId, invoiceDate, financialYear, info.userId);
+  const companyStateCode = await companyStateCodeFor(systemDb, info.companyId);
+  return coreConvertPurchaseOrderToInvoice(companyDb, systemDb, orderId, invoiceDate, financialYear, companyStateCode, info.userId);
 }
 
 export async function listReceivables(): Promise<PartyOutstandingRow[]> {

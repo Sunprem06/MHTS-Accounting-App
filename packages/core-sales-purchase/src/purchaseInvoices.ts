@@ -1,11 +1,15 @@
 import { randomUUID } from 'node:crypto';
-import type { Kysely, Transaction } from 'kysely';
+import { sql, type Kysely, type Transaction } from 'kysely';
 import type { CompanyDatabase, SystemDatabase } from '@mhts/db-schema';
 import { cancelVoucherInTransaction, createVoucherInTransaction } from '@mhts/core-accounting';
 import type { VoucherLineInput } from '@mhts/core-accounting';
 import { writeAuditLog } from '@mhts/core-audit';
 import { getInventoryLedgerIds, getItemOrThrow, postPurchaseReceiptInTransaction, reverseStockMovementsForReferenceInTransaction } from '@mhts/core-inventory';
+import { getGstLedgerIds } from '@mhts/core-gst-engine';
+import type { GstLedgerIds } from '@mhts/core-gst-engine';
 import { validateDocumentLines } from './lineValidation';
+import { resolveLineGstList } from './gstLineResolution';
+import type { ResolvedLineGst } from './gstLineResolution';
 import { computeTdsAmount, cumulativeTaxableThisFinancialYear, resolveTdsRate } from './tds';
 import type { CreatePurchaseInvoiceInput, DocumentLineInput, PurchaseInvoiceSummary } from './types';
 
@@ -33,20 +37,33 @@ function buildPurchaseVoucherLines(
   tdsPayableLedgerId: string | null,
   tdsAmount: number,
   lines: DocumentLineInput[],
+  lineGst: (ResolvedLineGst | null)[],
+  gstLedgerIds: GstLedgerIds | null,
 ): { voucherLines: VoucherLineInput[]; taxableAmount: number; taxAmount: number } {
   const taxByLedger = new Map<string, number>();
   let taxableAmount = 0;
   let taxAmount = 0;
 
   const voucherLines: VoucherLineInput[] = [];
-  for (const line of lines) {
+  lines.forEach((line, index) => {
     voucherLines.push({ ledgerId: line.ledgerId, debitAmount: line.amount, creditAmount: 0, lineNarration: line.lineNarration });
     taxableAmount += line.amount;
     if (line.taxLedgerId && line.taxAmount) {
       taxByLedger.set(line.taxLedgerId, (taxByLedger.get(line.taxLedgerId) ?? 0) + line.taxAmount);
       taxAmount += line.taxAmount;
     }
-  }
+    const gst = lineGst[index];
+    if (gst) {
+      if (!gstLedgerIds) {
+        throw new Error('GST ledgers not found — seedGstLedgers must run at company creation');
+      }
+      if (gst.cgstAmount > 0) taxByLedger.set(gstLedgerIds.cgstInputLedgerId, (taxByLedger.get(gstLedgerIds.cgstInputLedgerId) ?? 0) + gst.cgstAmount);
+      if (gst.sgstAmount > 0) taxByLedger.set(gstLedgerIds.sgstInputLedgerId, (taxByLedger.get(gstLedgerIds.sgstInputLedgerId) ?? 0) + gst.sgstAmount);
+      if (gst.igstAmount > 0) taxByLedger.set(gstLedgerIds.igstInputLedgerId, (taxByLedger.get(gstLedgerIds.igstInputLedgerId) ?? 0) + gst.igstAmount);
+      if (gst.cessAmount > 0) taxByLedger.set(gstLedgerIds.cessInputLedgerId, (taxByLedger.get(gstLedgerIds.cessInputLedgerId) ?? 0) + gst.cessAmount);
+      taxAmount += gst.totalTaxAmount;
+    }
+  });
   for (const [taxLedgerId, amount] of taxByLedger) {
     voucherLines.push({ ledgerId: taxLedgerId, debitAmount: amount, creditAmount: 0 });
   }
@@ -104,7 +121,9 @@ export async function createPurchaseInvoiceInTransaction(
   }
 
   const tdsPayableLedger = await trx.selectFrom('ledger_account').select('id').where('name', '=', 'TDS Payable').executeTakeFirst();
-  const { voucherLines, taxAmount } = buildPurchaseVoucherLines(party.ledger_account_id, tdsPayableLedger?.id ?? null, tdsAmount, input.lines);
+  const lineGst = await resolveLineGstList(systemDb, input.companyStateCode ?? null, party.state_code, input.invoiceDate, input.lines);
+  const gstLedgerIds = lineGst.some((g) => g !== null) ? await getGstLedgerIds(trx) : null;
+  const { voucherLines, taxAmount } = buildPurchaseVoucherLines(party.ledger_account_id, tdsPayableLedger?.id ?? null, tdsAmount, input.lines, lineGst, gstLedgerIds);
 
   const invoiceId = randomUUID();
 
@@ -173,7 +192,8 @@ export async function createPurchaseInvoiceInTransaction(
     })
     .execute();
 
-  for (const line of input.lines) {
+  for (const [index, line] of input.lines.entries()) {
+    const gst = lineGst[index];
     await trx
       .insertInto('purchase_invoice_line')
       .values({
@@ -185,6 +205,13 @@ export async function createPurchaseInvoiceInTransaction(
         tax_ledger_id: line.taxLedgerId ?? null,
         tax_amount: line.taxAmount ?? 0,
         line_narration: line.lineNarration ?? null,
+        hsn_sac_code: gst ? line.hsnSacCode!.trim() : null,
+        gst_rate_basis_points: gst ? Math.round(gst.ratePercent * 100) : null,
+        cess_rate_basis_points: gst ? Math.round(gst.cessPercent * 100) : null,
+        cgst_amount: gst?.cgstAmount ?? 0,
+        sgst_amount: gst?.sgstAmount ?? 0,
+        igst_amount: gst?.igstAmount ?? 0,
+        cess_amount: gst?.cessAmount ?? 0,
       })
       .execute();
   }
@@ -260,7 +287,9 @@ export async function listPurchaseInvoices(companyDb: Kysely<CompanyDatabase>): 
       'purchase_invoice.tds_section as tdsSection',
       'purchase_invoice.tds_amount as tdsAmount',
       fn.sum<number>('purchase_invoice_line.amount').as('taxableAmount'),
-      fn.sum<number>('purchase_invoice_line.tax_amount').as('taxAmount'),
+      // See listSalesInvoices for why summing all five tax columns is safe: a line's tax
+      // is either the manual tax_amount OR the GST split, never both (lineValidation).
+      sql<number>`SUM(purchase_invoice_line.tax_amount + purchase_invoice_line.cgst_amount + purchase_invoice_line.sgst_amount + purchase_invoice_line.igst_amount + purchase_invoice_line.cess_amount)`.as('taxAmount'),
     ])
     .groupBy('purchase_invoice.id')
     .orderBy('purchase_invoice.invoice_date', 'desc')

@@ -59,6 +59,13 @@ import {
   type TrialBalanceResult,
   type VoucherSummary,
   type WarehouseSummary,
+  type CreateOrUpdateGstRateInput,
+  type GstRatePreviewInput,
+  type GstRatePreviewResult,
+  type GstRateSummary,
+  type GstRateVersion,
+  type GstSummaryInput,
+  type GstSummaryResult,
 } from '../shared/ipc';
 
 const api = {
@@ -136,6 +143,11 @@ const api = {
   transferStock: (input: TransferStockInput): Promise<IpcResult<string>> => ipcRenderer.invoke(IPC.TRANSFER_STOCK, input),
   listStockMovements: (): Promise<IpcResult<StockMovementSummary[]>> => ipcRenderer.invoke(IPC.LIST_STOCK_MOVEMENTS),
   getStockPosition: (query: StockPositionQuery): Promise<IpcResult<StockPositionRow[]>> => ipcRenderer.invoke(IPC.GET_STOCK_POSITION, query),
+  createOrUpdateGstRate: (input: CreateOrUpdateGstRateInput): Promise<IpcResult<string>> => ipcRenderer.invoke(IPC.CREATE_OR_UPDATE_GST_RATE, input),
+  listGstRates: (hsnSacCode: string): Promise<IpcResult<GstRateVersion[]>> => ipcRenderer.invoke(IPC.LIST_GST_RATES, hsnSacCode),
+  listActiveGstRates: (): Promise<IpcResult<GstRateSummary[]>> => ipcRenderer.invoke(IPC.LIST_ACTIVE_GST_RATES),
+  previewGst: (input: GstRatePreviewInput): Promise<IpcResult<GstRatePreviewResult>> => ipcRenderer.invoke(IPC.PREVIEW_GST, input),
+  getGstSummary: (input: GstSummaryInput): Promise<IpcResult<GstSummaryResult>> => ipcRenderer.invoke(IPC.GET_GST_SUMMARY, input),
 };
 
 export type MhtsApi = typeof api;

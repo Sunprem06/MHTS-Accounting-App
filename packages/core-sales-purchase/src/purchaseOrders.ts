@@ -59,6 +59,7 @@ export async function createPurchaseOrder(companyDb: Kysely<CompanyDatabase>, in
           warehouse_id: line.warehouseId ?? null,
           quantity_thousandths: line.quantityThousandths ?? null,
           rate_paise: line.ratePaise ?? null,
+          hsn_sac_code: line.hsnSacCode ?? null,
         })
         .execute();
     }
@@ -142,6 +143,7 @@ export async function convertPurchaseOrderToInvoice(
   orderId: string,
   invoiceDate: string,
   financialYear: string,
+  companyStateCode: string | null,
   actorUserId: string | null,
 ): Promise<string> {
   const order = await companyDb.selectFrom('purchase_order').selectAll().where('id', '=', orderId).executeTakeFirst();
@@ -159,6 +161,7 @@ export async function convertPurchaseOrderToInvoice(
     invoiceDate,
     narration: order.narration ?? undefined,
     tdsSection: (order.tds_section as CreatePurchaseInvoiceInput['tdsSection']) ?? undefined,
+    companyStateCode,
     // See salesOrders.ts's convertSalesOrderToInvoice for why every field
     // must be listed explicitly here — this mapper does not forward unknown
     // fields, so a new column on purchase_order_line silently disappears on
@@ -169,6 +172,7 @@ export async function convertPurchaseOrderToInvoice(
       amount: line.amount,
       taxLedgerId: line.tax_ledger_id ?? undefined,
       taxAmount: line.tax_amount,
+      hsnSacCode: line.hsn_sac_code ?? undefined,
       lineNarration: line.line_narration ?? undefined,
       itemId: line.item_id ?? undefined,
       warehouseId: line.warehouse_id ?? undefined,

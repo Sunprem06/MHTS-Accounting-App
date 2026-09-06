@@ -259,6 +259,8 @@ export interface DocumentLineInput {
   amountRupees: number;
   taxLedgerId?: string;
   taxAmountRupees?: number;
+  /** Phase 4 (GST) — mutually exclusive with taxLedgerId/taxAmountRupees. See core-sales-purchase's DocumentLineInput. */
+  hsnSacCode?: string;
   lineNarration?: string;
   /** Phase 3 (Inventory) — set only for a stockable item line, all four required together. Quantity/rate are decimal units here, converted to thousandths-of-a-unit/paise at the IPC boundary. */
   itemId?: string;
@@ -395,6 +397,66 @@ export interface MsmeAgeingRow {
   daysOverdue: number;
   /** Rupees. Estimated via a FIFO settlement assumption — see core-sales-purchase. */
   estimatedOutstanding: number;
+}
+
+// --- Phase 4: GST Engine ---
+
+export interface GstRateSummary {
+  hsnSacCode: string;
+  ratePercent: number;
+  cessPercent: number;
+  effectiveFrom: string;
+  sourceReference: string | null;
+}
+
+export interface GstRateVersion extends GstRateSummary {
+  id: string;
+  effectiveTo: string | null;
+  version: number;
+}
+
+export interface CreateOrUpdateGstRateInput {
+  hsnSacCode: string;
+  ratePercent: number;
+  cessPercent?: number;
+  effectiveFrom: string;
+  sourceReference?: string;
+}
+
+export interface GstRatePreviewInput {
+  hsnSacCode: string;
+  partyId: string;
+  invoiceDate: string;
+  amountRupees: number;
+}
+
+export interface GstRatePreviewResult {
+  ratePercent: number;
+  cessPercent: number;
+  isIntraState: boolean;
+  /** Rupees. */
+  cgstRupees: number;
+  sgstRupees: number;
+  igstRupees: number;
+  cessRupees: number;
+  totalTaxRupees: number;
+}
+
+export interface GstSummaryInput {
+  fromDate?: string;
+  toDate?: string;
+}
+
+export interface GstSummaryResult {
+  /** Rupees. */
+  outputCgst: number;
+  outputSgst: number;
+  outputIgst: number;
+  outputCess: number;
+  inputCgst: number;
+  inputSgst: number;
+  inputIgst: number;
+  inputCess: number;
 }
 
 // --- Phase 3: Inventory ---
@@ -652,4 +714,9 @@ export const IPC = {
   TRANSFER_STOCK: 'inventory:transferStock',
   LIST_STOCK_MOVEMENTS: 'inventory:listStockMovements',
   GET_STOCK_POSITION: 'inventory:getStockPosition',
+  CREATE_OR_UPDATE_GST_RATE: 'gst:createOrUpdateRate',
+  LIST_GST_RATES: 'gst:listRates',
+  LIST_ACTIVE_GST_RATES: 'gst:listActiveRates',
+  PREVIEW_GST: 'gst:preview',
+  GET_GST_SUMMARY: 'gst:getSummary',
 } as const;

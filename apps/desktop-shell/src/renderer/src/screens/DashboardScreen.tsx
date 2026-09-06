@@ -38,6 +38,8 @@ interface Props {
   onStockSummary: () => void;
   onStockMovementRegister: () => void;
   onStockValuationVsLedger: () => void;
+  onManageGstRates: () => void;
+  onGstSummary: () => void;
 }
 
 export function DashboardScreen({
@@ -78,6 +80,8 @@ export function DashboardScreen({
   onStockSummary,
   onStockMovementRegister,
   onStockValuationVsLedger,
+  onManageGstRates,
+  onGstSummary,
 }: Props) {
   return (
     <div style={{ padding: 24, fontFamily: 'sans-serif', maxWidth: 480 }}>
@@ -174,6 +178,12 @@ export function DashboardScreen({
           <button onClick={onStockSummary}>Stock summary</button>{' '}
           <button onClick={onStockMovementRegister}>Stock movement register</button>{' '}
           <button onClick={onStockValuationVsLedger}>Stock valuation vs. ledger</button>
+        </p>
+      )}
+      {(session.permissions.includes('GST.MANAGE_RATES') || session.permissions.includes('GST.VIEW_REPORTS')) && (
+        <p>
+          {session.permissions.includes('GST.MANAGE_RATES') && <button onClick={onManageGstRates}>Manage GST rates</button>}{' '}
+          {session.permissions.includes('GST.VIEW_REPORTS') && <button onClick={onGstSummary}>GST summary</button>}
         </p>
       )}
       <p>

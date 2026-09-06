@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import type { Kysely } from 'kysely';
-import type { CompanyDatabase } from '@mhts/db-schema';
+import type { CompanyDatabase, SystemDatabase } from '@mhts/db-schema';
 import { writeAuditLog } from '@mhts/core-audit';
 import { validateDocumentLines } from './lineValidation';
 import { createSalesInvoiceInTransaction } from './salesInvoices';
@@ -59,6 +59,7 @@ export async function createSalesOrder(companyDb: Kysely<CompanyDatabase>, input
           warehouse_id: line.warehouseId ?? null,
           quantity_thousandths: line.quantityThousandths ?? null,
           rate_paise: line.ratePaise ?? null,
+          hsn_sac_code: line.hsnSacCode ?? null,
         })
         .execute();
     }
@@ -146,9 +147,11 @@ export function cancelSalesOrder(companyDb: Kysely<CompanyDatabase>, orderId: st
  */
 export async function convertSalesOrderToInvoice(
   companyDb: Kysely<CompanyDatabase>,
+  systemDb: Kysely<SystemDatabase>,
   orderId: string,
   invoiceDate: string,
   financialYear: string,
+  companyStateCode: string | null,
   actorUserId: string | null,
 ): Promise<string> {
   const order = await companyDb.selectFrom('sales_order').selectAll().where('id', '=', orderId).executeTakeFirst();
@@ -165,6 +168,7 @@ export async function convertSalesOrderToInvoice(
     financialYear,
     invoiceDate,
     narration: order.narration ?? undefined,
+    companyStateCode,
     // Every field the order line carries must be forwarded explicitly — this
     // mapper does NOT pass through unknown fields, so a new item/quantity
     // column added to sales_order_line has to be added here too, or a
@@ -177,6 +181,7 @@ export async function convertSalesOrderToInvoice(
       amount: line.amount,
       taxLedgerId: line.tax_ledger_id ?? undefined,
       taxAmount: line.tax_amount,
+      hsnSacCode: line.hsn_sac_code ?? undefined,
       lineNarration: line.line_narration ?? undefined,
       itemId: line.item_id ?? undefined,
       warehouseId: line.warehouse_id ?? undefined,
@@ -186,7 +191,7 @@ export async function convertSalesOrderToInvoice(
   };
 
   return companyDb.transaction().execute(async (trx) => {
-    const invoiceId = await createSalesInvoiceInTransaction(trx, invoiceInput, actorUserId);
+    const invoiceId = await createSalesInvoiceInTransaction(trx, systemDb, invoiceInput, actorUserId);
 
     await trx.updateTable('sales_order').set({ status: 'CONVERTED' satisfies OrderStatus, converted_to_invoice_id: invoiceId }).where('id', '=', orderId).execute();
     await writeAuditLog(trx, {

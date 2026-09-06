@@ -129,10 +129,20 @@ export interface SalesInvoiceLineTable {
   income_ledger_id: string;
   /** Paise. Taxable value. */
   amount: number;
-  /** Manually entered — GST rules engine lands in Phase 4 (Rule #2: never hardcode a rate). */
+  /** Manual tax entry (pre-Phase-4). Mutually exclusive with hsn_sac_code — see core-sales-purchase's lineValidation. */
   tax_ledger_id: string | null;
   tax_amount: number;
   line_narration: string | null;
+  /** Phase 4 (GST). Set only when this line's tax was auto-computed (never together with tax_ledger_id/tax_amount). */
+  hsn_sac_code: string | null;
+  /** Rate% * 100, e.g. 1800 for 18% — stored for audit/display only, the amount columns below are the source of truth. */
+  gst_rate_basis_points: number | null;
+  cess_rate_basis_points: number | null;
+  /** Paise. Exactly one of cgst_amount/sgst_amount OR igst_amount is non-zero, per place-of-supply. */
+  cgst_amount: number;
+  sgst_amount: number;
+  igst_amount: number;
+  cess_amount: number;
 }
 
 export interface PurchaseInvoiceTable {
@@ -161,6 +171,14 @@ export interface PurchaseInvoiceLineTable {
   tax_ledger_id: string | null;
   tax_amount: number;
   line_narration: string | null;
+  /** Phase 4 (GST) — see SalesInvoiceLineTable's identical fields for the full explanation. */
+  hsn_sac_code: string | null;
+  gst_rate_basis_points: number | null;
+  cess_rate_basis_points: number | null;
+  cgst_amount: number;
+  sgst_amount: number;
+  igst_amount: number;
+  cess_amount: number;
 }
 
 export interface SalesOrderTable {
@@ -193,6 +211,8 @@ export interface SalesOrderLineTable {
   quantity_thousandths: number | null;
   /** Paise, per whole unit. */
   rate_paise: number | null;
+  /** Phase 4 (GST) — carried into the invoice at conversion time, same as the Phase 3 item fields above. */
+  hsn_sac_code: string | null;
 }
 
 export interface PurchaseOrderTable {
@@ -225,6 +245,8 @@ export interface PurchaseOrderLineTable {
   quantity_thousandths: number | null;
   /** Paise, per whole unit. */
   rate_paise: number | null;
+  /** Phase 4 (GST) — carried into the invoice at conversion time, same as the Phase 3 item fields above. */
+  hsn_sac_code: string | null;
 }
 
 export interface SalesInvoiceSettlementTable {
