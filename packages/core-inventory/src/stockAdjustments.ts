@@ -1,11 +1,13 @@
 import { randomUUID } from 'node:crypto';
 import type { Kysely, Transaction } from 'kysely';
 import type { CompanyDatabase } from '@mhts/db-schema';
-import { createVoucherInTransaction } from '@mhts/core-accounting';
+import { cancelVoucherInTransaction, createVoucherInTransaction } from '@mhts/core-accounting';
 import { writeAuditLog } from '@mhts/core-audit';
 import { createFifoLayerInTransaction, consumeFifoLayersInTransaction } from './stockLayers';
+import type { FifoConsumptionResult } from './stockLayers';
 import { computeWeightedAverageIssueCost } from './weightedAverage';
 import { getInventoryLedgerIds } from './ledgers';
+import { reverseStockMovementsForReferenceInTransaction } from './stockReversals';
 import type { PostStockAdjustmentInput } from './types';
 
 /**
@@ -52,11 +54,16 @@ export async function postStockAdjustmentInTransaction(trx: Transaction<CompanyD
 
   let ratePaise: number;
   let valuePaise: number;
+  let fifoConsumptions: FifoConsumptionResult['consumptions'] = [];
   if (input.direction === 'ADJUSTMENT_OUT') {
-    const costPaise =
-      item.valuation_method === 'FIFO'
-        ? (await consumeFifoLayersInTransaction(trx, scope, input.quantityThousandths)).costPaise
-        : await computeWeightedAverageIssueCost(trx, scope, input.quantityThousandths);
+    let costPaise: number;
+    if (item.valuation_method === 'FIFO') {
+      const result = await consumeFifoLayersInTransaction(trx, scope, input.quantityThousandths);
+      costPaise = result.costPaise;
+      fifoConsumptions = result.consumptions;
+    } else {
+      costPaise = await computeWeightedAverageIssueCost(trx, scope, input.quantityThousandths);
+    }
     valuePaise = costPaise;
     ratePaise = Math.round((costPaise * 1000) / input.quantityThousandths);
   } else {
@@ -111,6 +118,17 @@ export async function postStockAdjustmentInTransaction(trx: Transaction<CompanyD
     await createFifoLayerInTransaction(trx, scope, input.quantityThousandths, ratePaise, valuePaise, movementId, input.movementDate);
   }
 
+  // Record exactly which layer(s) this ADJUSTMENT_OUT drew from, the same
+  // way postSalesIssueInTransaction/transferStockInTransaction already do —
+  // without this, a FIFO adjustment-out could never be reversed precisely
+  // (found and fixed while designing stock-movement reversal).
+  for (const consumption of fifoConsumptions) {
+    await trx
+      .insertInto('stock_movement_layer_consumption')
+      .values({ id: randomUUID(), movement_id: movementId, layer_id: consumption.layerId, quantity_consumed_thousandths: consumption.quantityThousandths, value_consumed_paise: consumption.valuePaise })
+      .execute();
+  }
+
   await writeAuditLog(trx, {
     actorUserId,
     action: 'CREATE',
@@ -124,4 +142,17 @@ export async function postStockAdjustmentInTransaction(trx: Transaction<CompanyD
 
 export async function postStockAdjustment(companyDb: Kysely<CompanyDatabase>, input: PostStockAdjustmentInput, actorUserId: string | null): Promise<{ movementId: string; voucherId: string }> {
   return companyDb.transaction().execute((trx) => postStockAdjustmentInTransaction(trx, input, actorUserId));
+}
+
+/**
+ * Cancels a stock adjustment voucher — reverses its stock movement (via the
+ * same eligibility-checked reversal machinery used for invoices) and its
+ * voucher, atomically, in one transaction. Stock adjustments are keyed by
+ * voucher id in stock_movement.reference_id (see postStockAdjustmentInTransaction).
+ */
+export async function cancelStockAdjustment(companyDb: Kysely<CompanyDatabase>, voucherId: string, reversalFinancialYear: string, reversalDate: string, actorUserId: string | null): Promise<string> {
+  return companyDb.transaction().execute(async (trx) => {
+    await reverseStockMovementsForReferenceInTransaction(trx, 'STOCK_ADJUSTMENT', voucherId, reversalDate, actorUserId);
+    return cancelVoucherInTransaction(trx, voucherId, reversalFinancialYear, reversalDate, actorUserId);
+  });
 }

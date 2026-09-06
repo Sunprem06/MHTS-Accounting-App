@@ -43,6 +43,7 @@ export {
   hasStockMovementsForReference,
 } from './stockMovements';
 export type { PostPurchaseReceiptInput, PostSalesIssueInput } from './stockMovements';
-export { postStockAdjustmentInTransaction, postStockAdjustment } from './stockAdjustments';
+export { postStockAdjustmentInTransaction, postStockAdjustment, cancelStockAdjustment } from './stockAdjustments';
 export { transferStockInTransaction, transferStock } from './stockTransfers';
 export { computeStockPosition } from './stockPosition';
+export { reverseOutboundMovementInTransaction, reverseInboundMovementInTransaction, reverseStockMovementsForReferenceInTransaction } from './stockReversals';

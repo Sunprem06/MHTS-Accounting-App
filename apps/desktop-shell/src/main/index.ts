@@ -65,6 +65,7 @@ import {
   listBatchesForItem,
   recordOpeningStock,
   postStockAdjustment,
+  cancelStockAdjustment,
   transferStock,
   listStockMovements,
   getStockPosition,
@@ -204,6 +205,7 @@ async function bootstrap(): Promise<void> {
   handleWithArg(IPC.LIST_BATCHES_FOR_ITEM, (itemId: string) => listBatchesForItem(itemId));
   handleWithArg(IPC.RECORD_OPENING_STOCK, (input: RecordOpeningStockInput) => recordOpeningStock(input));
   handleWithArg(IPC.POST_STOCK_ADJUSTMENT, (input: PostStockAdjustmentInput) => postStockAdjustment(systemDb, input));
+  handleWithArg(IPC.CANCEL_STOCK_ADJUSTMENT, (voucherId: string) => cancelStockAdjustment(systemDb, voucherId));
   handleWithArg(IPC.TRANSFER_STOCK, (input: TransferStockInput) => transferStock(input));
   handle(IPC.LIST_STOCK_MOVEMENTS, () => listStockMovements());
   handleWithArg(IPC.GET_STOCK_POSITION, (query: StockPositionQuery) => getStockPosition(query));

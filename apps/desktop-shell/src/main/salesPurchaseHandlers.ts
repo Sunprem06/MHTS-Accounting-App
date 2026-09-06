@@ -128,11 +128,11 @@ export async function listSalesInvoices(): Promise<InvoiceSummary[]> {
   return invoices.map(invoiceToRupees);
 }
 
-export async function cancelSalesInvoice(systemDb: Kysely<SystemDatabase>, invoiceId: string): Promise<string> {
+export async function cancelSalesInvoice(systemDb: Kysely<SystemDatabase>, voucherId: string): Promise<string> {
   const { info, companyDb } = requireSessionWithCompanyDb('SALES.CREATE_INVOICE');
   const reversalDate = new Date().toISOString().slice(0, 10);
   const reversalFinancialYear = await financialYearFor(systemDb, info.companyId, reversalDate);
-  return coreCancelSalesInvoice(companyDb, invoiceId, reversalFinancialYear, reversalDate, info.userId);
+  return coreCancelSalesInvoice(companyDb, voucherId, reversalFinancialYear, reversalDate, info.userId);
 }
 
 export async function createPurchaseInvoice(systemDb: Kysely<SystemDatabase>, input: CreatePurchaseInvoiceInput): Promise<string> {
@@ -152,11 +152,11 @@ export async function listPurchaseInvoices(): Promise<PurchaseInvoiceSummary[]> 
   return invoices.map((invoice) => ({ ...invoiceToRupees(invoice), tdsAmount: paiseToRupees(invoice.tdsAmount), netPayable: paiseToRupees(invoice.netPayable) }));
 }
 
-export async function cancelPurchaseInvoice(systemDb: Kysely<SystemDatabase>, invoiceId: string): Promise<string> {
+export async function cancelPurchaseInvoice(systemDb: Kysely<SystemDatabase>, voucherId: string): Promise<string> {
   const { info, companyDb } = requireSessionWithCompanyDb('PURCHASE.CREATE_INVOICE');
   const reversalDate = new Date().toISOString().slice(0, 10);
   const reversalFinancialYear = await financialYearFor(systemDb, info.companyId, reversalDate);
-  return coreCancelPurchaseInvoice(companyDb, invoiceId, reversalFinancialYear, reversalDate, info.userId);
+  return coreCancelPurchaseInvoice(companyDb, voucherId, reversalFinancialYear, reversalDate, info.userId);
 }
 
 function orderToRupees(order: OrderSummary): OrderSummary {

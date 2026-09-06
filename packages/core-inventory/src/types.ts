@@ -71,8 +71,34 @@ export interface ItemBatchSummary {
  * "never REAL/float" discipline used for money (paise), applied here to
  * avoid the identical class of rounding bug in valuation math.
  */
-export const MOVEMENT_TYPES = ['OPENING_STOCK', 'PURCHASE_RECEIPT', 'SALES_ISSUE', 'ADJUSTMENT_IN', 'ADJUSTMENT_OUT', 'TRANSFER_OUT', 'TRANSFER_IN'] as const;
+export const MOVEMENT_TYPES = [
+  'OPENING_STOCK',
+  'PURCHASE_RECEIPT',
+  'SALES_ISSUE',
+  'ADJUSTMENT_IN',
+  'ADJUSTMENT_OUT',
+  'TRANSFER_OUT',
+  'TRANSFER_IN',
+  /** Reversal types (stock-movement reversal feature) — dedicated types rather than doubling up on PURCHASE_RECEIPT/SALES_ISSUE, so the Stock Movement Register stays unambiguous about what's being reversed. */
+  'SALES_ISSUE_REVERSAL',
+  'PURCHASE_RECEIPT_REVERSAL',
+  'ADJUSTMENT_IN_REVERSAL',
+  'ADJUSTMENT_OUT_REVERSAL',
+] as const;
 export type MovementType = (typeof MOVEMENT_TYPES)[number];
+
+/**
+ * Shared by weightedAverage.ts's cumulative position and stockPosition.ts's
+ * on-hand reporting — kept in one place so the two can't drift out of sync
+ * (they used to be independently duplicated lists). A movement's sign in
+ * both the running weighted-average pool and the on-hand quantity/value is
+ * determined purely by which of these two lists it's in.
+ */
+const INBOUND_MOVEMENT_TYPES_TYPED: readonly MovementType[] = ['OPENING_STOCK', 'PURCHASE_RECEIPT', 'ADJUSTMENT_IN', 'TRANSFER_IN', 'SALES_ISSUE_REVERSAL', 'ADJUSTMENT_OUT_REVERSAL'];
+const OUTBOUND_MOVEMENT_TYPES_TYPED: readonly MovementType[] = ['SALES_ISSUE', 'ADJUSTMENT_OUT', 'TRANSFER_OUT', 'PURCHASE_RECEIPT_REVERSAL', 'ADJUSTMENT_IN_REVERSAL'];
+/** Typed as readonly string[] (not MovementType[]) at the exported boundary — every call site checks a raw movement_type string read back from the DB, not a value already known to be a MovementType. The *_TYPED consts above exist only so this list itself is checked against MovementType at compile time. */
+export const INBOUND_MOVEMENT_TYPES: readonly string[] = INBOUND_MOVEMENT_TYPES_TYPED;
+export const OUTBOUND_MOVEMENT_TYPES: readonly string[] = OUTBOUND_MOVEMENT_TYPES_TYPED;
 
 export interface StockMovementSummary {
   id: string;

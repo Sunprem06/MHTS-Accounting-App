@@ -26,13 +26,26 @@ export function VoucherRegisterScreen({ session, onBack }: Props) {
     refresh();
   }, []);
 
-  async function handleCancel(voucherId: string) {
+  async function handleCancel(voucher: VoucherSummary) {
     if (!window.confirm('Cancel this voucher? A reversal voucher will be posted automatically — the original stays on record.')) {
       return;
     }
     setError(null);
-    setCancellingId(voucherId);
-    const result = await window.mhts.cancelVoucher(voucherId);
+    setCancellingId(voucher.id);
+    // SALES_INVOICE/PURCHASE_INVOICE/STOCK_ADJUSTMENT vouchers can carry
+    // stock movements — routing them through the plain cancelVoucher below
+    // would post a correct GL reversal while silently leaving stock
+    // completely out of sync. Route each to its stock-aware cancel path
+    // instead; only voucher types that never touch stock (JOURNAL, PAYMENT,
+    // RECEIPT, CONTRA) use the generic path.
+    const result =
+      voucher.voucherType === 'SALES_INVOICE'
+        ? await window.mhts.cancelSalesInvoice(voucher.id)
+        : voucher.voucherType === 'PURCHASE_INVOICE'
+          ? await window.mhts.cancelPurchaseInvoice(voucher.id)
+          : voucher.voucherType === 'STOCK_ADJUSTMENT'
+            ? await window.mhts.cancelStockAdjustment(voucher.id)
+            : await window.mhts.cancelVoucher(voucher.id);
     setCancellingId(null);
     if (result.ok) {
       await refresh();
@@ -78,7 +91,7 @@ export function VoucherRegisterScreen({ session, onBack }: Props) {
                 {canCreate && (
                   <td>
                     {!voucher.cancelledAt && !voucher.reversesVoucherId && (
-                      <button type="button" disabled={cancellingId === voucher.id} onClick={() => handleCancel(voucher.id)}>
+                      <button type="button" disabled={cancellingId === voucher.id} onClick={() => handleCancel(voucher)}>
                         {cancellingId === voucher.id ? 'Cancelling…' : 'Cancel'}
                       </button>
                     )}

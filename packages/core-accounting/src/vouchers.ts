@@ -180,20 +180,23 @@ export async function listVouchers(companyDb: Kysely<CompanyDatabase>): Promise<
 }
 
 /**
- * Cancels a voucher by posting an automatic reversal (mirror-image lines),
- * never by editing or deleting the original — consistent with the
- * append-only audit philosophy already established for audit_log. The
- * original is marked cancelled and linked to its reversal; the reversal is
- * marked as reversing the original. Both changes commit in one transaction.
+ * The transaction-scoped half of cancelVoucher — usable by a caller (e.g.
+ * @mhts/core-sales-purchase's cancelSalesInvoice, @mhts/core-inventory's
+ * cancelStockAdjustment) that needs to reverse some OTHER effect of the
+ * same business event (stock movements) in the SAME atomic transaction as
+ * the voucher's own reversal, same reasoning as createVoucherInTransaction.
+ * All guard reads go through `trx` (not a separate companyDb query), so a
+ * caller composing this after an earlier write in the same transaction
+ * sees consistent state, not a stale pre-transaction snapshot.
  */
-export async function cancelVoucher(
-  companyDb: Kysely<CompanyDatabase>,
+export async function cancelVoucherInTransaction(
+  trx: Transaction<CompanyDatabase>,
   voucherId: string,
   reversalFinancialYear: string,
   reversalDate: string,
   actorUserId: string | null,
 ): Promise<string> {
-  const original = await companyDb.selectFrom('voucher').selectAll().where('id', '=', voucherId).executeTakeFirst();
+  const original = await trx.selectFrom('voucher').selectAll().where('id', '=', voucherId).executeTakeFirst();
   if (!original) {
     throw new Error('Voucher not found');
   }
@@ -204,7 +207,7 @@ export async function cancelVoucher(
     throw new Error('A reversal voucher cannot itself be cancelled');
   }
 
-  const originalLines = await companyDb.selectFrom('voucher_line').selectAll().where('voucher_id', '=', voucherId).execute();
+  const originalLines = await trx.selectFrom('voucher_line').selectAll().where('voucher_id', '=', voucherId).execute();
   const reversalLines: VoucherLineInput[] = originalLines.map((line) => ({
     ledgerId: line.ledger_id,
     debitAmount: line.credit_amount,
@@ -213,33 +216,44 @@ export async function cancelVoucher(
   }));
 
   const reversalId = randomUUID();
-  await companyDb.transaction().execute(async (trx) => {
-    await insertVoucherWithLines(trx, {
-      id: reversalId,
-      voucherType: original.voucher_type as VoucherType,
-      financialYear: reversalFinancialYear,
-      voucherDate: reversalDate,
-      narration: `Reversal of ${original.voucher_type} #${original.voucher_number}${original.narration ? ` (${original.narration})` : ''}`,
-      lines: reversalLines,
-      actorUserId,
-      reversesVoucherId: voucherId,
-    });
+  await insertVoucherWithLines(trx, {
+    id: reversalId,
+    voucherType: original.voucher_type as VoucherType,
+    financialYear: reversalFinancialYear,
+    voucherDate: reversalDate,
+    narration: `Reversal of ${original.voucher_type} #${original.voucher_number}${original.narration ? ` (${original.narration})` : ''}`,
+    lines: reversalLines,
+    actorUserId,
+    reversesVoucherId: voucherId,
+  });
 
-    await trx
-      .updateTable('voucher')
-      .set({ cancelled_at: reversalDate, cancelled_by_voucher_id: reversalId })
-      .where('id', '=', voucherId)
-      .execute();
+  await trx
+    .updateTable('voucher')
+    .set({ cancelled_at: reversalDate, cancelled_by_voucher_id: reversalId })
+    .where('id', '=', voucherId)
+    .execute();
 
-    await writeAuditLog(trx, {
-      actorUserId,
-      action: 'UPDATE',
-      entityType: 'Voucher',
-      entityId: voucherId,
-      beforeData: { cancelledAt: null },
-      afterData: { cancelledAt: reversalDate, cancelledByVoucherId: reversalId },
-    });
+  await writeAuditLog(trx, {
+    actorUserId,
+    action: 'UPDATE',
+    entityType: 'Voucher',
+    entityId: voucherId,
+    beforeData: { cancelledAt: null },
+    afterData: { cancelledAt: reversalDate, cancelledByVoucherId: reversalId },
   });
 
   return reversalId;
+}
+
+/**
+ * Cancels a voucher by posting an automatic reversal (mirror-image lines),
+ * never by editing or deleting the original — consistent with the
+ * append-only audit philosophy already established for audit_log. Opens
+ * its own transaction — the standalone entry point used by the generic
+ * Voucher Register screen, which has nothing else to compose alongside the
+ * cancellation itself (see cancelVoucherInTransaction for the composable
+ * half, used where a caller does have something else to compose).
+ */
+export async function cancelVoucher(companyDb: Kysely<CompanyDatabase>, voucherId: string, reversalFinancialYear: string, reversalDate: string, actorUserId: string | null): Promise<string> {
+  return companyDb.transaction().execute((trx) => cancelVoucherInTransaction(trx, voucherId, reversalFinancialYear, reversalDate, actorUserId));
 }

@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import type { Transaction } from 'kysely';
+import { sql, type Transaction } from 'kysely';
 import type { CompanyDatabase } from '@mhts/db-schema';
 
 export interface LayerScope {
@@ -51,7 +51,13 @@ function scopedLayerQuery(trx: Transaction<CompanyDatabase>, scope: LayerScope) 
     .where('warehouse_id', '=', scope.warehouseId)
     .where('quantity_remaining_thousandths', '>', 0);
   query = scope.batchId === null ? query.where('batch_id', 'is', null) : query.where('batch_id', '=', scope.batchId);
-  return query.orderBy('received_at', 'asc').orderBy('id', 'asc');
+  // Tiebreak on rowid (SQLite's implicit insertion-order column — this table
+  // has no INTEGER PRIMARY KEY so it isn't WITHOUT ROWID), not `id` (a random
+  // UUID): two layers received on the same calendar date must still be
+  // consumed in the order they were actually created, not UUID-lexicographic
+  // order. Found while building stock-movement reversal — the same ordering
+  // signal that feature's weighted-average eligibility check relies on.
+  return query.orderBy('received_at', 'asc').orderBy(sql`rowid`, 'asc');
 }
 
 /**
@@ -99,4 +105,24 @@ export async function consumeFifoLayersInTransaction(trx: Transaction<CompanyDat
   }
 
   return { costPaise: totalCost, consumptions };
+}
+
+/**
+ * Credits a specific draw back onto the layer it came from — the mechanism
+ * behind reversing an outbound movement (see stockReversals.ts). A plain
+ * increment by id, deliberately with NO quantity_remaining > 0 filtering:
+ * restoring into a layer that a later draw fully drained (quantity_remaining
+ * currently 0) must still work, since draws and reversals always move a
+ * layer's remaining quantity/value in matched pairs — see stockReversals.ts
+ * for why this can never overshoot the layer's original quantity.
+ */
+export async function restoreFifoLayerInTransaction(trx: Transaction<CompanyDatabase>, layerId: string, quantityThousandths: number, valuePaise: number): Promise<void> {
+  await trx
+    .updateTable('stock_receipt_layer')
+    .set((eb) => ({
+      quantity_remaining_thousandths: eb('quantity_remaining_thousandths', '+', quantityThousandths),
+      value_remaining_paise: eb('value_remaining_paise', '+', valuePaise),
+    }))
+    .where('id', '=', layerId)
+    .execute();
 }

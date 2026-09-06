@@ -1,9 +1,7 @@
 import type { Kysely } from 'kysely';
 import type { CompanyDatabase } from '@mhts/db-schema';
 import type { LayerScope } from './stockLayers';
-
-const INBOUND_TYPES = ['OPENING_STOCK', 'PURCHASE_RECEIPT', 'ADJUSTMENT_IN', 'TRANSFER_IN'] as const;
-const OUTBOUND_TYPES = ['SALES_ISSUE', 'ADJUSTMENT_OUT', 'TRANSFER_OUT'] as const;
+import { INBOUND_MOVEMENT_TYPES, OUTBOUND_MOVEMENT_TYPES } from './types';
 
 /** Cumulative on-hand quantity/value for a (item, warehouse, batch) scope, summed from the full stock_movement history — the same on-the-fly philosophy as computeLedgerBalances, no cached balance table. */
 export async function computeCumulativePosition(companyDb: Kysely<CompanyDatabase>, scope: LayerScope): Promise<{ quantityThousandths: number; valuePaise: number }> {
@@ -14,7 +12,7 @@ export async function computeCumulativePosition(companyDb: Kysely<CompanyDatabas
   let quantityThousandths = 0;
   let valuePaise = 0;
   for (const row of rows) {
-    const sign = (INBOUND_TYPES as readonly string[]).includes(row.movement_type) ? 1 : (OUTBOUND_TYPES as readonly string[]).includes(row.movement_type) ? -1 : 0;
+    const sign = INBOUND_MOVEMENT_TYPES.includes(row.movement_type) ? 1 : OUTBOUND_MOVEMENT_TYPES.includes(row.movement_type) ? -1 : 0;
     quantityThousandths += sign * row.quantity_thousandths;
     valuePaise += sign * row.value_paise;
   }

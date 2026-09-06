@@ -1,10 +1,10 @@
 import { randomUUID } from 'node:crypto';
 import type { Kysely, Transaction } from 'kysely';
 import type { CompanyDatabase } from '@mhts/db-schema';
-import { cancelVoucher as coreCancelVoucher, createVoucherInTransaction } from '@mhts/core-accounting';
+import { cancelVoucherInTransaction, createVoucherInTransaction } from '@mhts/core-accounting';
 import type { VoucherLineInput } from '@mhts/core-accounting';
 import { writeAuditLog } from '@mhts/core-audit';
-import { getInventoryLedgerIds, getItemOrThrow, hasStockMovementsForReference, postSalesIssueInTransaction } from '@mhts/core-inventory';
+import { getInventoryLedgerIds, getItemOrThrow, postSalesIssueInTransaction, reverseStockMovementsForReferenceInTransaction } from '@mhts/core-inventory';
 import { validateDocumentLines } from './lineValidation';
 import type { CreateSalesInvoiceInput, DocumentLineInput, InvoiceSummary } from './types';
 
@@ -153,26 +153,29 @@ export async function createSalesInvoice(companyDb: Kysely<CompanyDatabase>, inp
 }
 
 /**
- * Cancels a sales invoice's voucher via the normal reversal mechanism —
- * EXCEPT when any of its lines moved stock, which this pass deliberately
- * refuses rather than silently leaving stock and the ledger disagreeing.
- * core-accounting's generic cancelVoucher correctly reverses every GL line
- * (including the COGS pair, since it's just more lines on the same
- * voucher) — what it can't do is un-consume the FIFO layers or re-credit
- * the stock position that postSalesIssueInTransaction already touched.
- * Full stock-aware reversal is a flagged follow-up (see Phase Tracker Open
- * Questions), not silently worked around.
+ * Cancels a sales invoice: reverses any stock movements its lines posted
+ * (crediting back the exact FIFO layer(s) drawn from, or the equivalent
+ * weighted-average pool amount) AND reverses its voucher (mirror-image GL
+ * lines, including the COGS pair — just more lines on the same voucher) —
+ * both in ONE transaction, so either both happen or neither does. Reversing
+ * a SALES_ISSUE is always safe regardless of what's happened since (see
+ * reverseStockMovementsForReferenceInTransaction); a plain invoice with no
+ * stock movements reverses exactly as it always has.
+ *
+ * Keyed by voucherId (not the invoice's own id) so the generic Voucher
+ * Register — which only ever has a voucher's id, for any voucher type — can
+ * route a SALES_INVOICE row here just as naturally as the dedicated Sales
+ * Invoice Register does.
  */
-export async function cancelSalesInvoice(companyDb: Kysely<CompanyDatabase>, invoiceId: string, reversalFinancialYear: string, reversalDate: string, actorUserId: string | null): Promise<string> {
-  const invoice = await companyDb.selectFrom('sales_invoice').select(['voucher_id']).where('id', '=', invoiceId).executeTakeFirst();
+export async function cancelSalesInvoice(companyDb: Kysely<CompanyDatabase>, voucherId: string, reversalFinancialYear: string, reversalDate: string, actorUserId: string | null): Promise<string> {
+  const invoice = await companyDb.selectFrom('sales_invoice').select(['id']).where('voucher_id', '=', voucherId).executeTakeFirst();
   if (!invoice) {
-    throw new Error('Sales invoice not found');
+    throw new Error('Sales invoice not found for this voucher');
   }
-  const hasStockMovements = await hasStockMovementsForReference(companyDb, 'SALES_INVOICE', invoiceId);
-  if (hasStockMovements) {
-    throw new Error('This invoice moved stock and cannot be cancelled yet — automatic stock reversal is not supported in this release. Contact support for a manual correction.');
-  }
-  return coreCancelVoucher(companyDb, invoice.voucher_id, reversalFinancialYear, reversalDate, actorUserId);
+  return companyDb.transaction().execute(async (trx) => {
+    await reverseStockMovementsForReferenceInTransaction(trx, 'SALES_INVOICE', invoice.id, reversalDate, actorUserId);
+    return cancelVoucherInTransaction(trx, voucherId, reversalFinancialYear, reversalDate, actorUserId);
+  });
 }
 
 export async function listSalesInvoices(companyDb: Kysely<CompanyDatabase>): Promise<InvoiceSummary[]> {
