@@ -55,6 +55,10 @@ export async function createSalesOrder(companyDb: Kysely<CompanyDatabase>, input
           tax_ledger_id: line.taxLedgerId ?? null,
           tax_amount: line.taxAmount ?? 0,
           line_narration: line.lineNarration ?? null,
+          item_id: line.itemId ?? null,
+          warehouse_id: line.warehouseId ?? null,
+          quantity_thousandths: line.quantityThousandths ?? null,
+          rate_paise: line.ratePaise ?? null,
         })
         .execute();
     }
@@ -161,6 +165,12 @@ export async function convertSalesOrderToInvoice(
     financialYear,
     invoiceDate,
     narration: order.narration ?? undefined,
+    // Every field the order line carries must be forwarded explicitly — this
+    // mapper does NOT pass through unknown fields, so a new item/quantity
+    // column added to sales_order_line has to be added here too, or a
+    // converted invoice would silently lose its stock/COGS posting (caught
+    // in Phase 3 design review: the invoice still posts fine on the GL
+    // side, so nothing errors — it just never moves stock).
     lines: lines.map((line) => ({
       description: line.description,
       ledgerId: line.income_ledger_id,
@@ -168,6 +178,10 @@ export async function convertSalesOrderToInvoice(
       taxLedgerId: line.tax_ledger_id ?? undefined,
       taxAmount: line.tax_amount,
       lineNarration: line.line_narration ?? undefined,
+      itemId: line.item_id ?? undefined,
+      warehouseId: line.warehouse_id ?? undefined,
+      quantityThousandths: line.quantity_thousandths ?? undefined,
+      ratePaise: line.rate_paise ?? undefined,
     })),
   };
 

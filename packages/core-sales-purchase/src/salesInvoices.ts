@@ -1,9 +1,10 @@
 import { randomUUID } from 'node:crypto';
 import type { Kysely, Transaction } from 'kysely';
 import type { CompanyDatabase } from '@mhts/db-schema';
-import { createVoucherInTransaction } from '@mhts/core-accounting';
+import { cancelVoucher as coreCancelVoucher, createVoucherInTransaction } from '@mhts/core-accounting';
 import type { VoucherLineInput } from '@mhts/core-accounting';
 import { writeAuditLog } from '@mhts/core-audit';
+import { getInventoryLedgerIds, getItemOrThrow, hasStockMovementsForReference, postSalesIssueInTransaction } from '@mhts/core-inventory';
 import { validateDocumentLines } from './lineValidation';
 import type { CreateSalesInvoiceInput, DocumentLineInput, InvoiceSummary } from './types';
 
@@ -57,6 +58,36 @@ export async function createSalesInvoiceInTransaction(
 
   const { voucherLines, taxableAmount, taxAmount } = buildSalesVoucherLines(party.ledger_account_id, input.lines);
   const invoiceId = randomUUID();
+
+  // Each stockable item line moves stock (via core-inventory) AND contributes to one
+  // self-balancing Dr COGS / Cr Stock-in-Hand pair appended to this SAME voucher — so
+  // the invoice's revenue posting and its cost-of-goods posting are one atomic unit
+  // (Rule #4), never two separate transactions that could disagree if one half failed.
+  let totalCostPaise = 0;
+  for (const line of input.lines) {
+    if (!line.itemId) continue;
+    const item = await getItemOrThrow(trx, line.itemId);
+    if (item.item_type !== 'STOCKABLE') continue;
+    const { costPaise } = await postSalesIssueInTransaction(
+      trx,
+      {
+        itemId: line.itemId,
+        warehouseId: line.warehouseId!,
+        quantityThousandths: line.quantityThousandths!,
+        batchId: line.batchId,
+        movementDate: input.invoiceDate,
+        referenceType: 'SALES_INVOICE',
+        referenceId: invoiceId,
+      },
+      actorUserId,
+    );
+    totalCostPaise += costPaise;
+  }
+  if (totalCostPaise > 0) {
+    const { stockInHandLedgerId, cogsLedgerId } = await getInventoryLedgerIds(trx);
+    voucherLines.push({ ledgerId: cogsLedgerId, debitAmount: totalCostPaise, creditAmount: 0 });
+    voucherLines.push({ ledgerId: stockInHandLedgerId, debitAmount: 0, creditAmount: totalCostPaise });
+  }
 
   const { voucherId } = await createVoucherInTransaction(
     trx,
@@ -119,6 +150,29 @@ export async function createSalesInvoiceInTransaction(
  */
 export async function createSalesInvoice(companyDb: Kysely<CompanyDatabase>, input: CreateSalesInvoiceInput, actorUserId: string | null): Promise<string> {
   return companyDb.transaction().execute((trx) => createSalesInvoiceInTransaction(trx, input, actorUserId));
+}
+
+/**
+ * Cancels a sales invoice's voucher via the normal reversal mechanism —
+ * EXCEPT when any of its lines moved stock, which this pass deliberately
+ * refuses rather than silently leaving stock and the ledger disagreeing.
+ * core-accounting's generic cancelVoucher correctly reverses every GL line
+ * (including the COGS pair, since it's just more lines on the same
+ * voucher) — what it can't do is un-consume the FIFO layers or re-credit
+ * the stock position that postSalesIssueInTransaction already touched.
+ * Full stock-aware reversal is a flagged follow-up (see Phase Tracker Open
+ * Questions), not silently worked around.
+ */
+export async function cancelSalesInvoice(companyDb: Kysely<CompanyDatabase>, invoiceId: string, reversalFinancialYear: string, reversalDate: string, actorUserId: string | null): Promise<string> {
+  const invoice = await companyDb.selectFrom('sales_invoice').select(['voucher_id']).where('id', '=', invoiceId).executeTakeFirst();
+  if (!invoice) {
+    throw new Error('Sales invoice not found');
+  }
+  const hasStockMovements = await hasStockMovementsForReference(companyDb, 'SALES_INVOICE', invoiceId);
+  if (hasStockMovements) {
+    throw new Error('This invoice moved stock and cannot be cancelled yet — automatic stock reversal is not supported in this release. Contact support for a manual correction.');
+  }
+  return coreCancelVoucher(companyDb, invoice.voucher_id, reversalFinancialYear, reversalDate, actorUserId);
 }
 
 export async function listSalesInvoices(companyDb: Kysely<CompanyDatabase>): Promise<InvoiceSummary[]> {

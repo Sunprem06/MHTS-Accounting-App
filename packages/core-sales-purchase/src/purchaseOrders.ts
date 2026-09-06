@@ -55,6 +55,10 @@ export async function createPurchaseOrder(companyDb: Kysely<CompanyDatabase>, in
           tax_ledger_id: line.taxLedgerId ?? null,
           tax_amount: line.taxAmount ?? 0,
           line_narration: line.lineNarration ?? null,
+          item_id: line.itemId ?? null,
+          warehouse_id: line.warehouseId ?? null,
+          quantity_thousandths: line.quantityThousandths ?? null,
+          rate_paise: line.ratePaise ?? null,
         })
         .execute();
     }
@@ -155,6 +159,10 @@ export async function convertPurchaseOrderToInvoice(
     invoiceDate,
     narration: order.narration ?? undefined,
     tdsSection: (order.tds_section as CreatePurchaseInvoiceInput['tdsSection']) ?? undefined,
+    // See salesOrders.ts's convertSalesOrderToInvoice for why every field
+    // must be listed explicitly here — this mapper does not forward unknown
+    // fields, so a new column on purchase_order_line silently disappears on
+    // conversion unless it's added here too.
     lines: lines.map((line) => ({
       description: line.description,
       ledgerId: line.expense_ledger_id,
@@ -162,6 +170,10 @@ export async function convertPurchaseOrderToInvoice(
       taxLedgerId: line.tax_ledger_id ?? undefined,
       taxAmount: line.tax_amount,
       lineNarration: line.line_narration ?? undefined,
+      itemId: line.item_id ?? undefined,
+      warehouseId: line.warehouse_id ?? undefined,
+      quantityThousandths: line.quantity_thousandths ?? undefined,
+      ratePaise: line.rate_paise ?? undefined,
     })),
   };
 

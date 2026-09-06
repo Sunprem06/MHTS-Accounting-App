@@ -29,8 +29,10 @@ import {
   listParties,
   createSalesInvoice,
   listSalesInvoices,
+  cancelSalesInvoice,
   createPurchaseInvoice,
   listPurchaseInvoices,
+  cancelPurchaseInvoice,
   createSalesOrder,
   listSalesOrders,
   confirmSalesOrder,
@@ -53,6 +55,20 @@ import { getThemePreference, setThemePreference } from './preferenceHandlers';
 import { backupCompany, restoreCompany } from './backupHandlers';
 import { checkLicenseStatus, activateLicense } from './licenseHandlers';
 import { listAllPermissions, listRolesWithPermissions, createRole, updateRolePermissions } from './roleHandlers';
+import {
+  createUnitOfMeasure,
+  listUnitsOfMeasure,
+  createWarehouse,
+  listWarehouses,
+  createItem,
+  listItems,
+  listBatchesForItem,
+  recordOpeningStock,
+  postStockAdjustment,
+  transferStock,
+  listStockMovements,
+  getStockPosition,
+} from './inventoryHandlers';
 import { session } from './session';
 import {
   IPC,
@@ -68,6 +84,13 @@ import {
   type CreateSalesInvoiceInput,
   type CreateRoleInput,
   type CreateSalesOrderInput,
+  type CreateUnitOfMeasureInput,
+  type CreateWarehouseInput,
+  type CreateItemInput,
+  type RecordOpeningStockInput,
+  type PostStockAdjustmentInput,
+  type TransferStockInput,
+  type StockPositionQuery,
   type CreateVoucherInput,
   type LoginInput,
   type ProfitAndLossInput,
@@ -136,8 +159,10 @@ async function bootstrap(): Promise<void> {
   handle(IPC.LIST_PARTIES, () => listParties());
   handleWithArg(IPC.CREATE_SALES_INVOICE, (input: CreateSalesInvoiceInput) => createSalesInvoice(systemDb, input));
   handle(IPC.LIST_SALES_INVOICES, () => listSalesInvoices());
+  handleWithArg(IPC.CANCEL_SALES_INVOICE, (invoiceId: string) => cancelSalesInvoice(systemDb, invoiceId));
   handleWithArg(IPC.CREATE_PURCHASE_INVOICE, (input: CreatePurchaseInvoiceInput) => createPurchaseInvoice(systemDb, input));
   handle(IPC.LIST_PURCHASE_INVOICES, () => listPurchaseInvoices());
+  handleWithArg(IPC.CANCEL_PURCHASE_INVOICE, (invoiceId: string) => cancelPurchaseInvoice(systemDb, invoiceId));
   handleWithArg(IPC.CREATE_SALES_ORDER, (input: CreateSalesOrderInput) => createSalesOrder(systemDb, input));
   handle(IPC.LIST_SALES_ORDERS, () => listSalesOrders());
   handleWithArg(IPC.CONFIRM_SALES_ORDER, (orderId: string) => confirmSalesOrder(orderId));
@@ -169,6 +194,19 @@ async function bootstrap(): Promise<void> {
   handle(IPC.LIST_ROLES_WITH_PERMISSIONS, () => listRolesWithPermissions());
   handleWithArg(IPC.CREATE_ROLE, (input: CreateRoleInput) => createRole(input));
   handleWithArg(IPC.UPDATE_ROLE_PERMISSIONS, (input: UpdateRolePermissionsInput) => updateRolePermissions(input));
+
+  handleWithArg(IPC.CREATE_UNIT_OF_MEASURE, (input: CreateUnitOfMeasureInput) => createUnitOfMeasure(input));
+  handle(IPC.LIST_UNITS_OF_MEASURE, () => listUnitsOfMeasure());
+  handleWithArg(IPC.CREATE_WAREHOUSE, (input: CreateWarehouseInput) => createWarehouse(input));
+  handle(IPC.LIST_WAREHOUSES, () => listWarehouses());
+  handleWithArg(IPC.CREATE_ITEM, (input: CreateItemInput) => createItem(input));
+  handle(IPC.LIST_ITEMS, () => listItems());
+  handleWithArg(IPC.LIST_BATCHES_FOR_ITEM, (itemId: string) => listBatchesForItem(itemId));
+  handleWithArg(IPC.RECORD_OPENING_STOCK, (input: RecordOpeningStockInput) => recordOpeningStock(input));
+  handleWithArg(IPC.POST_STOCK_ADJUSTMENT, (input: PostStockAdjustmentInput) => postStockAdjustment(systemDb, input));
+  handleWithArg(IPC.TRANSFER_STOCK, (input: TransferStockInput) => transferStock(input));
+  handle(IPC.LIST_STOCK_MOVEMENTS, () => listStockMovements());
+  handleWithArg(IPC.GET_STOCK_POSITION, (query: StockPositionQuery) => getStockPosition(query));
 
   createWindow();
 }

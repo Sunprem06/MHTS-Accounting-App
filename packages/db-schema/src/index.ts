@@ -30,6 +30,13 @@ export type {
   PurchaseOrderLineTable,
   SalesInvoiceSettlementTable,
   PurchaseInvoiceSettlementTable,
+  UnitOfMeasureTable,
+  WarehouseTable,
+  ItemTable,
+  ItemBatchTable,
+  StockMovementTable,
+  StockReceiptLayerTable,
+  StockMovementLayerConsumptionTable,
 } from './company/types';
 export { openSystemDb, openCompanyDb } from './connection';
 export type { OpenEncryptedDbOptions } from './connection';

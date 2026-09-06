@@ -6,8 +6,10 @@ import {
   listParties as coreListParties,
   createSalesInvoice as coreCreateSalesInvoice,
   listSalesInvoices as coreListSalesInvoices,
+  cancelSalesInvoice as coreCancelSalesInvoice,
   createPurchaseInvoice as coreCreatePurchaseInvoice,
   listPurchaseInvoices as coreListPurchaseInvoices,
+  cancelPurchaseInvoice as coreCancelPurchaseInvoice,
   createSalesOrder as coreCreateSalesOrder,
   listSalesOrders as coreListSalesOrders,
   confirmSalesOrder as coreConfirmSalesOrder,
@@ -47,8 +49,10 @@ import type {
 } from '../shared/ipc';
 
 const PAISE_PER_RUPEE = 100;
+const THOUSANDTHS_PER_UNIT = 1000;
 const rupeesToPaise = (rupees: number): number => Math.round(rupees * PAISE_PER_RUPEE);
 const paiseToRupees = (paise: number): number => paise / PAISE_PER_RUPEE;
+const unitsToThousandths = (units: number): number => Math.round(units * THOUSANDTHS_PER_UNIT);
 
 function requireSessionWithCompanyDb(requiredPermission: string) {
   const info = session.get();
@@ -75,6 +79,14 @@ function toCoreLines(lines: DocumentLineInput[]): CoreDocumentLineInput[] {
     taxLedgerId: line.taxLedgerId,
     taxAmount: line.taxAmountRupees !== undefined ? rupeesToPaise(line.taxAmountRupees) : undefined,
     lineNarration: line.lineNarration,
+    itemId: line.itemId,
+    warehouseId: line.warehouseId,
+    quantityThousandths: line.quantityUnits !== undefined ? unitsToThousandths(line.quantityUnits) : undefined,
+    ratePaise: line.ratePerUnitRupees !== undefined ? rupeesToPaise(line.ratePerUnitRupees) : undefined,
+    batchId: line.batchId,
+    batchNumber: line.batchNumber,
+    expiryDate: line.expiryDate,
+    manufactureDate: line.manufactureDate,
   }));
 }
 
@@ -116,6 +128,13 @@ export async function listSalesInvoices(): Promise<InvoiceSummary[]> {
   return invoices.map(invoiceToRupees);
 }
 
+export async function cancelSalesInvoice(systemDb: Kysely<SystemDatabase>, invoiceId: string): Promise<string> {
+  const { info, companyDb } = requireSessionWithCompanyDb('SALES.CREATE_INVOICE');
+  const reversalDate = new Date().toISOString().slice(0, 10);
+  const reversalFinancialYear = await financialYearFor(systemDb, info.companyId, reversalDate);
+  return coreCancelSalesInvoice(companyDb, invoiceId, reversalFinancialYear, reversalDate, info.userId);
+}
+
 export async function createPurchaseInvoice(systemDb: Kysely<SystemDatabase>, input: CreatePurchaseInvoiceInput): Promise<string> {
   const { info, companyDb } = requireSessionWithCompanyDb('PURCHASE.CREATE_INVOICE');
   const financialYear = await financialYearFor(systemDb, info.companyId, input.invoiceDate);
@@ -131,6 +150,13 @@ export async function listPurchaseInvoices(): Promise<PurchaseInvoiceSummary[]> 
   const { companyDb } = requireSessionWithCompanyDb('PURCHASE.VIEW_REPORTS');
   const invoices = await coreListPurchaseInvoices(companyDb);
   return invoices.map((invoice) => ({ ...invoiceToRupees(invoice), tdsAmount: paiseToRupees(invoice.tdsAmount), netPayable: paiseToRupees(invoice.netPayable) }));
+}
+
+export async function cancelPurchaseInvoice(systemDb: Kysely<SystemDatabase>, invoiceId: string): Promise<string> {
+  const { info, companyDb } = requireSessionWithCompanyDb('PURCHASE.CREATE_INVOICE');
+  const reversalDate = new Date().toISOString().slice(0, 10);
+  const reversalFinancialYear = await financialYearFor(systemDb, info.companyId, reversalDate);
+  return coreCancelPurchaseInvoice(companyDb, invoiceId, reversalFinancialYear, reversalDate, info.userId);
 }
 
 function orderToRupees(order: OrderSummary): OrderSummary {

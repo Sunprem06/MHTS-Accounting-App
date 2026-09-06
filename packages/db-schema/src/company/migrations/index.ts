@@ -5,6 +5,7 @@ import * as m003Vouchers from './003_vouchers';
 import * as m004VoucherCancellation from './004_voucher_cancellation';
 import * as m005SalesPurchase from './005_sales_purchase';
 import * as m006BillWiseSettlement from './006_bill_wise_settlement';
+import * as m007Inventory from './007_inventory';
 
 export const migrations: Record<string, Migration> = {
   '001_init': m001Init,
@@ -13,4 +14,5 @@ export const migrations: Record<string, Migration> = {
   '004_voucher_cancellation': m004VoucherCancellation,
   '005_sales_purchase': m005SalesPurchase,
   '006_bill_wise_settlement': m006BillWiseSettlement,
+  '007_inventory': m007Inventory,
 };

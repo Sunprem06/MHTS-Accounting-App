@@ -49,10 +49,19 @@ export interface CreatePartyInput {
   creditPeriodDays?: number;
 }
 
-/** One line of an invoice or order. Tax is manually entered against any existing Duties & Taxes ledger — GST auto-computation lands in Phase 4. */
+/**
+ * One line of an invoice or order. Tax is manually entered against any
+ * existing Duties & Taxes ledger — GST auto-computation lands in Phase 4.
+ *
+ * itemId/warehouseId/quantityThousandths/ratePaise (Phase 3, Inventory) are
+ * all-or-nothing together — set only when this line is for a stockable
+ * item, which also moves stock and (on a sale) posts a Cost-of-Goods-Sold
+ * voucher-line pair. A line with no itemId behaves exactly as it always
+ * has — a plain ledger+amount entry.
+ */
 export interface DocumentLineInput {
   description: string;
-  /** Income ledger (sales) or expense ledger (purchase). */
+  /** Income ledger (sales) or expense ledger (purchase). For a STOCKABLE purchase line this MUST be the Stock-in-Hand ledger — validated in createPurchaseInvoiceInTransaction. */
   ledgerId: string;
   /** Paise. Taxable value. */
   amount: number;
@@ -60,6 +69,19 @@ export interface DocumentLineInput {
   /** Paise. */
   taxAmount?: number;
   lineNarration?: string;
+  /** @mhts/core-inventory item id — set only for a stockable item line. */
+  itemId?: string;
+  warehouseId?: string;
+  /** Thousandths of a unit. */
+  quantityThousandths?: number;
+  /** Paise, per whole unit. amount must equal quantityThousandths * ratePaise / 1000 within a small tolerance. */
+  ratePaise?: number;
+  /** Sales line, batch-tracked item: which existing batch to issue from. Required iff the item is batch-tracked. */
+  batchId?: string;
+  /** Purchase line, batch-tracked item: the batch this receipt belongs to (created on first use). Required iff the item is batch-tracked. */
+  batchNumber?: string;
+  expiryDate?: string;
+  manufactureDate?: string;
 }
 
 export interface CreateSalesInvoiceInput {

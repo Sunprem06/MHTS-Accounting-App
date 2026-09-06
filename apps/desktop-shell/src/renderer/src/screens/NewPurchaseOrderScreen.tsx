@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { DocumentLineInput, LedgerAccountSummary, PartySummary, TdsSectionCode } from '../../../shared/ipc';
+import type { DocumentLineInput, ItemSummary, LedgerAccountSummary, PartySummary, TdsSectionCode, WarehouseSummary } from '../../../shared/ipc';
 import { DocumentLinesEditor } from './DocumentLinesEditor';
 
 interface Props {
@@ -18,6 +18,9 @@ const TDS_SECTIONS: { code: TdsSectionCode; label: string }[] = [
 export function NewPurchaseOrderScreen({ onCreated, onBack }: Props) {
   const [parties, setParties] = useState<PartySummary[]>([]);
   const [ledgers, setLedgers] = useState<LedgerAccountSummary[]>([]);
+  const [items, setItems] = useState<ItemSummary[]>([]);
+  const [warehouses, setWarehouses] = useState<WarehouseSummary[]>([]);
+  const [stockInHandLedgerId, setStockInHandLedgerId] = useState<string | undefined>(undefined);
   const [partyId, setPartyId] = useState('');
   const [orderDate, setOrderDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [narration, setNarration] = useState('');
@@ -28,17 +31,27 @@ export function NewPurchaseOrderScreen({ onCreated, onBack }: Props) {
 
   useEffect(() => {
     (async () => {
-      const [partiesResult, ledgersResult] = await Promise.all([window.mhts.listParties(), window.mhts.listLedgers()]);
+      const [partiesResult, ledgersResult, itemsResult, warehousesResult] = await Promise.all([
+        window.mhts.listParties(),
+        window.mhts.listLedgers(),
+        window.mhts.listItems(),
+        window.mhts.listWarehouses(),
+      ]);
       if (partiesResult.ok && partiesResult.data) {
         const suppliers = partiesResult.data.filter((p) => p.partyType === 'SUPPLIER' || p.partyType === 'BOTH');
         setParties(suppliers);
         setPartyId(suppliers[0]?.id ?? '');
       }
       if (ledgersResult.ok && ledgersResult.data) {
+        const stockInHand = ledgersResult.data.find((l) => l.name === 'Stock-in-Hand');
+        setStockInHandLedgerId(stockInHand?.id);
         const expenseLedgers = ledgersResult.data.filter((l) => l.nature === 'EXPENSE');
-        setLedgers(expenseLedgers.length > 0 ? expenseLedgers : ledgersResult.data);
+        const relevantLedgers = stockInHand ? [...expenseLedgers, stockInHand] : expenseLedgers;
+        setLedgers(relevantLedgers.length > 0 ? relevantLedgers : ledgersResult.data);
         setLines([{ description: '', ledgerId: (expenseLedgers[0] ?? ledgersResult.data[0])?.id ?? '', amountRupees: 0 }]);
       }
+      if (itemsResult.ok && itemsResult.data) setItems(itemsResult.data);
+      if (warehousesResult.ok && warehousesResult.data) setWarehouses(warehousesResult.data);
     })();
   }, []);
 
@@ -99,7 +112,16 @@ export function NewPurchaseOrderScreen({ onCreated, onBack }: Props) {
         </label>
 
         <div style={{ marginTop: 16 }}>
-          <DocumentLinesEditor lines={lines} ledgers={ledgers} ledgerLabel="Expense ledger" onChange={setLines} />
+          <DocumentLinesEditor
+            lines={lines}
+            ledgers={ledgers}
+            ledgerLabel="Expense ledger"
+            onChange={setLines}
+            items={items}
+            warehouses={warehouses}
+            mode="purchase"
+            stockInHandLedgerId={stockInHandLedgerId}
+          />
         </div>
 
         {error && <p style={{ color: 'crimson' }}>{error}</p>}

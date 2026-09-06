@@ -109,7 +109,7 @@ export interface InviteUserResult {
 
 export type AccountNature = 'ASSET' | 'LIABILITY' | 'EQUITY' | 'INCOME' | 'EXPENSE';
 export type BalanceSide = 'DEBIT' | 'CREDIT';
-export type VoucherType = 'JOURNAL' | 'PAYMENT' | 'RECEIPT' | 'CONTRA' | 'SALES_INVOICE' | 'PURCHASE_INVOICE';
+export type VoucherType = 'JOURNAL' | 'PAYMENT' | 'RECEIPT' | 'CONTRA' | 'SALES_INVOICE' | 'PURCHASE_INVOICE' | 'STOCK_ADJUSTMENT';
 
 export interface AccountGroupSummary {
   id: string;
@@ -260,6 +260,17 @@ export interface DocumentLineInput {
   taxLedgerId?: string;
   taxAmountRupees?: number;
   lineNarration?: string;
+  /** Phase 3 (Inventory) — set only for a stockable item line, all four required together. Quantity/rate are decimal units here, converted to thousandths-of-a-unit/paise at the IPC boundary. */
+  itemId?: string;
+  warehouseId?: string;
+  quantityUnits?: number;
+  ratePerUnitRupees?: number;
+  /** Sales line, batch-tracked item: which existing batch to issue from. */
+  batchId?: string;
+  /** Purchase line, batch-tracked item: the batch this receipt belongs to. */
+  batchNumber?: string;
+  expiryDate?: string;
+  manufactureDate?: string;
 }
 
 export interface CreateSalesInvoiceInput {
@@ -386,6 +397,140 @@ export interface MsmeAgeingRow {
   estimatedOutstanding: number;
 }
 
+// --- Phase 3: Inventory ---
+
+export type ItemType = 'STOCKABLE' | 'SERVICE';
+export type ValuationMethod = 'FIFO' | 'WEIGHTED_AVERAGE';
+
+export interface UnitOfMeasureSummary {
+  id: string;
+  name: string;
+  symbol: string;
+  isActive: boolean;
+}
+
+export interface CreateUnitOfMeasureInput {
+  name: string;
+  symbol: string;
+}
+
+export interface WarehouseSummary {
+  id: string;
+  name: string;
+  address: string | null;
+  isActive: boolean;
+}
+
+export interface CreateWarehouseInput {
+  name: string;
+  address?: string;
+}
+
+export interface ItemSummary {
+  id: string;
+  itemCode: string;
+  name: string;
+  itemType: ItemType;
+  unitId: string | null;
+  unitName: string | null;
+  hsnSacCode: string | null;
+  isBatchTracked: boolean;
+  valuationMethod: ValuationMethod | null;
+  defaultSalesLedgerId: string | null;
+  isActive: boolean;
+}
+
+export interface CancelInvoiceInput {
+  invoiceId: string;
+}
+
+export interface CreateItemInput {
+  itemCode: string;
+  name: string;
+  itemType: ItemType;
+  unitId?: string;
+  hsnSacCode?: string;
+  isBatchTracked?: boolean;
+  valuationMethod?: ValuationMethod;
+  defaultSalesLedgerId?: string;
+}
+
+export interface ItemBatchSummary {
+  id: string;
+  itemId: string;
+  batchNumber: string;
+  expiryDate: string | null;
+  manufactureDate: string | null;
+}
+
+export type MovementType = 'OPENING_STOCK' | 'PURCHASE_RECEIPT' | 'SALES_ISSUE' | 'ADJUSTMENT_IN' | 'ADJUSTMENT_OUT' | 'TRANSFER_OUT' | 'TRANSFER_IN';
+
+export interface RecordOpeningStockInput {
+  itemId: string;
+  warehouseId: string;
+  batchNumber?: string;
+  expiryDate?: string;
+  manufactureDate?: string;
+  quantityUnits: number;
+  ratePerUnitRupees: number;
+  movementDate: string;
+}
+
+export interface PostStockAdjustmentInput {
+  itemId: string;
+  warehouseId: string;
+  batchId?: string;
+  direction: 'ADJUSTMENT_IN' | 'ADJUSTMENT_OUT';
+  quantityUnits: number;
+  ratePerUnitRupees?: number;
+  movementDate: string;
+  narration?: string;
+}
+
+export interface TransferStockInput {
+  itemId: string;
+  fromWarehouseId: string;
+  toWarehouseId: string;
+  batchId?: string;
+  quantityUnits: number;
+  movementDate: string;
+}
+
+export interface StockMovementSummary {
+  id: string;
+  itemId: string;
+  itemName: string;
+  warehouseId: string;
+  warehouseName: string;
+  batchId: string | null;
+  batchNumber: string | null;
+  movementType: MovementType;
+  quantityUnits: number;
+  ratePerUnitRupees: number;
+  valueRupees: number;
+  referenceType: string | null;
+  referenceId: string | null;
+  movementDate: string;
+}
+
+export interface StockPositionRow {
+  itemId: string;
+  itemName: string;
+  warehouseId: string;
+  warehouseName: string;
+  batchId: string | null;
+  batchNumber: string | null;
+  quantityUnits: number;
+  valueRupees: number;
+}
+
+export interface StockPositionQuery {
+  itemId?: string;
+  warehouseId?: string;
+  batchId?: string;
+  asOfDate?: string;
+}
+
 export type ThemePreference = 'LIGHT' | 'DARK' | 'SYSTEM';
 
 export interface RestoreResult {
@@ -481,4 +626,18 @@ export const IPC = {
   LIST_ROLES_WITH_PERMISSIONS: 'roles:listWithPermissions',
   CREATE_ROLE: 'roles:create',
   UPDATE_ROLE_PERMISSIONS: 'roles:updatePermissions',
+  CREATE_UNIT_OF_MEASURE: 'inventory:createUnitOfMeasure',
+  LIST_UNITS_OF_MEASURE: 'inventory:listUnitsOfMeasure',
+  CREATE_WAREHOUSE: 'inventory:createWarehouse',
+  LIST_WAREHOUSES: 'inventory:listWarehouses',
+  CREATE_ITEM: 'inventory:createItem',
+  LIST_ITEMS: 'inventory:listItems',
+  CANCEL_SALES_INVOICE: 'salesPurchase:cancelSalesInvoice',
+  CANCEL_PURCHASE_INVOICE: 'salesPurchase:cancelPurchaseInvoice',
+  LIST_BATCHES_FOR_ITEM: 'inventory:listBatchesForItem',
+  RECORD_OPENING_STOCK: 'inventory:recordOpeningStock',
+  POST_STOCK_ADJUSTMENT: 'inventory:postStockAdjustment',
+  TRANSFER_STOCK: 'inventory:transferStock',
+  LIST_STOCK_MOVEMENTS: 'inventory:listStockMovements',
+  GET_STOCK_POSITION: 'inventory:getStockPosition',
 } as const;

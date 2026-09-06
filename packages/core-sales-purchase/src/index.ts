@@ -27,8 +27,8 @@ export { SALES_PURCHASE_PERMISSIONS, grantSalesPurchasePermissions, seedSalesPur
 
 export { seedDefaultTdsRates, resolveTdsRate, computeTdsAmount, cumulativeTaxableThisFinancialYear } from './tds';
 
-export { createSalesInvoice, listSalesInvoices } from './salesInvoices';
-export { createPurchaseInvoice, listPurchaseInvoices, computeDueDate } from './purchaseInvoices';
+export { createSalesInvoice, listSalesInvoices, cancelSalesInvoice } from './salesInvoices';
+export { createPurchaseInvoice, listPurchaseInvoices, computeDueDate, cancelPurchaseInvoice } from './purchaseInvoices';
 
 export { createSalesOrder, listSalesOrders, confirmSalesOrder, cancelSalesOrder, convertSalesOrderToInvoice } from './salesOrders';
 export { createPurchaseOrder, listPurchaseOrders, confirmPurchaseOrder, cancelPurchaseOrder, convertPurchaseOrderToInvoice } from './purchaseOrders';

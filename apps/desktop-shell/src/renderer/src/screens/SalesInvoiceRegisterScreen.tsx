@@ -26,13 +26,13 @@ export function SalesInvoiceRegisterScreen({ session, onBack }: Props) {
     refresh();
   }, []);
 
-  async function handleCancel(voucherId: string) {
+  async function handleCancel(invoiceId: string) {
     if (!window.confirm('Cancel this invoice? A reversal voucher will be posted automatically — the original stays on record.')) {
       return;
     }
     setError(null);
-    setCancellingId(voucherId);
-    const result = await window.mhts.cancelVoucher(voucherId);
+    setCancellingId(invoiceId);
+    const result = await window.mhts.cancelSalesInvoice(invoiceId);
     setCancellingId(null);
     if (result.ok) {
       await refresh();
@@ -74,8 +74,8 @@ export function SalesInvoiceRegisterScreen({ session, onBack }: Props) {
                 {canCreate && (
                   <td>
                     {!invoice.cancelledAt && (
-                      <button type="button" disabled={cancellingId === invoice.voucherId} onClick={() => handleCancel(invoice.voucherId)}>
-                        {cancellingId === invoice.voucherId ? 'Cancelling…' : 'Cancel'}
+                      <button type="button" disabled={cancellingId === invoice.id} onClick={() => handleCancel(invoice.id)}>
+                        {cancellingId === invoice.id ? 'Cancelling…' : 'Cancel'}
                       </button>
                     )}
                   </td>
