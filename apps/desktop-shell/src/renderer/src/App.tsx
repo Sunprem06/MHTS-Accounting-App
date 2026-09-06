@@ -44,6 +44,8 @@ import { StockTransferScreen } from './screens/StockTransferScreen';
 import { StockSummaryScreen } from './screens/StockSummaryScreen';
 import { StockMovementRegisterScreen } from './screens/StockMovementRegisterScreen';
 import { StockValuationVsLedgerScreen } from './screens/StockValuationVsLedgerScreen';
+import { ManageGstRatesScreen } from './screens/ManageGstRatesScreen';
+import { GstSummaryScreen } from './screens/GstSummaryScreen';
 
 type View =
   | { name: 'loading' }
@@ -89,7 +91,9 @@ type View =
   | { name: 'stockTransfer' }
   | { name: 'stockSummary' }
   | { name: 'stockMovementRegister' }
-  | { name: 'stockValuationVsLedger' };
+  | { name: 'stockValuationVsLedger' }
+  | { name: 'manageGstRates' }
+  | { name: 'gstSummary' };
 
 export function App() {
   return (
@@ -369,6 +373,14 @@ function AppRoutes() {
     return <StockValuationVsLedgerScreen onBack={() => setView({ name: 'dashboard' })} />;
   }
 
+  if (view.name === 'manageGstRates') {
+    return <ManageGstRatesScreen session={session!} onBack={() => setView({ name: 'dashboard' })} />;
+  }
+
+  if (view.name === 'gstSummary') {
+    return <GstSummaryScreen onBack={() => setView({ name: 'dashboard' })} />;
+  }
+
   return (
     <DashboardScreen
       session={session!}
@@ -407,6 +419,8 @@ function AppRoutes() {
       onStockSummary={() => setView({ name: 'stockSummary' })}
       onStockMovementRegister={() => setView({ name: 'stockMovementRegister' })}
       onStockValuationVsLedger={() => setView({ name: 'stockValuationVsLedger' })}
+      onManageGstRates={() => setView({ name: 'manageGstRates' })}
+      onGstSummary={() => setView({ name: 'gstSummary' })}
       onLogout={async () => {
         await window.mhts.logout();
         setSession(null);

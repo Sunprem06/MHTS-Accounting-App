@@ -88,7 +88,17 @@ export function NewSalesOrderScreen({ onCreated, onBack }: Props) {
         </label>
 
         <div style={{ marginTop: 16 }}>
-          <DocumentLinesEditor lines={lines} ledgers={ledgers} ledgerLabel="Income ledger" onChange={setLines} items={items} warehouses={warehouses} mode="sales" />
+          <DocumentLinesEditor
+            lines={lines}
+            ledgers={ledgers}
+            ledgerLabel="Income ledger"
+            onChange={setLines}
+            items={items}
+            warehouses={warehouses}
+            mode="sales"
+            partyId={partyId}
+            documentDate={orderDate}
+          />
         </div>
 
         {error && <p style={{ color: 'crimson' }}>{error}</p>}

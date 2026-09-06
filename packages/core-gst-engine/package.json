@@ -5,6 +5,8 @@
   "main": "src/index.ts",
   "types": "src/index.ts",
   "dependencies": {
+    "@mhts/core-accounting": "*",
+    "@mhts/core-rules-engine": "*",
     "@mhts/db-schema": "*",
     "@mhts/shared-types": "*"
   }

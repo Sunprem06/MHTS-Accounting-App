@@ -50,8 +50,10 @@ export interface CreatePartyInput {
 }
 
 /**
- * One line of an invoice or order. Tax is manually entered against any
- * existing Duties & Taxes ledger — GST auto-computation lands in Phase 4.
+ * One line of an invoice or order. Tax is EITHER the pre-existing manual
+ * taxLedgerId/taxAmount pair OR an hsnSacCode-driven GST auto-computation
+ * (Phase 4) — never both on the same line (enforced in lineValidation). A
+ * line with neither set posts with no tax at all, same as before Phase 4.
  *
  * itemId/warehouseId/quantityThousandths/ratePaise (Phase 3, Inventory) are
  * all-or-nothing together — set only when this line is for a stockable
@@ -68,6 +70,16 @@ export interface DocumentLineInput {
   taxLedgerId?: string;
   /** Paise. */
   taxAmount?: number;
+  /**
+   * Phase 4 (GST). When set, tax on this line is resolved from the
+   * versioned GST rate table and auto-split into CGST+SGST (intra-state) or
+   * IGST (inter-state), posted to core-gst-engine's own ledgers — mutually
+   * exclusive with taxLedgerId/taxAmount. Defaults from the linked item's
+   * own hsnSacCode when itemId is set and this isn't overridden; can also be
+   * set directly with no itemId, for a service line with a SAC code and no
+   * inventory item.
+   */
+  hsnSacCode?: string;
   lineNarration?: string;
   /** @mhts/core-inventory item id — set only for a stockable item line. */
   itemId?: string;
@@ -89,6 +101,8 @@ export interface CreateSalesInvoiceInput {
   financialYear: string;
   invoiceDate: string;
   narration?: string;
+  /** Phase 4 (GST) — the company's own state_code (system DB), resolved by the caller (same pattern as financialYear), used to decide intra- vs inter-state place of supply. Null if the company has no state code on file (treated as intra-state, the conservative default). */
+  companyStateCode?: string | null;
   lines: DocumentLineInput[];
 }
 
@@ -98,6 +112,8 @@ export interface CreatePurchaseInvoiceInput {
   invoiceDate: string;
   narration?: string;
   tdsSection?: TdsSectionCode;
+  /** Phase 4 (GST) — see CreateSalesInvoiceInput's identical field. */
+  companyStateCode?: string | null;
   lines: DocumentLineInput[];
 }
 

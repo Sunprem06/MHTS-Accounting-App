@@ -19,6 +19,7 @@ import {
 import { seedChartOfAccounts, grantAccountingPermissions } from '@mhts/core-accounting';
 import { seedSalesPurchaseLedgers, grantSalesPurchasePermissions } from '@mhts/core-sales-purchase';
 import { seedInventoryLedgers, grantInventoryPermissions } from '@mhts/core-inventory';
+import { seedGstLedgers, grantGstPermissions } from '@mhts/core-gst-engine';
 import type { AppPaths } from './db';
 import { companyDbFilePath, createAndMigrateCompanyDb, openExistingCompanyDb } from './db';
 import { checkLicenseStatus } from './licenseHandlers';
@@ -126,6 +127,8 @@ export async function createCompany(
   await seedSalesPurchaseLedgers(companyDb);
   await grantInventoryPermissions(companyDb, adminRoleId);
   await seedInventoryLedgers(companyDb);
+  await grantGstPermissions(companyDb, adminRoleId);
+  await seedGstLedgers(companyDb);
   await companyDb.destroy();
 
   await systemDb

@@ -21,6 +21,9 @@ export function validateDocumentLines(lines: DocumentLineInput[]): void {
     if ((line.taxAmount ?? 0) > 0 && !line.taxLedgerId) {
       throw new Error('A tax amount needs a tax ledger to post it to');
     }
+    if (line.hsnSacCode !== undefined && line.hsnSacCode.trim() && ((line.taxAmount ?? 0) > 0 || line.taxLedgerId)) {
+      throw new Error('A line cannot have both a manual tax amount/ledger and an HSN/SAC code — pick one');
+    }
 
     const itemFields = [line.itemId, line.warehouseId, line.quantityThousandths, line.ratePaise];
     const itemFieldsPresent = itemFields.filter((f) => f !== undefined).length;

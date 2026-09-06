@@ -1,6 +1,7 @@
 import { join } from 'node:path';
 import { app, BrowserWindow, ipcMain } from 'electron';
 import { seedDefaultTdsRates } from '@mhts/core-sales-purchase';
+import { seedDefaultGstRates } from '@mhts/core-gst-engine';
 import { resolveAppPaths, openAndMigrateSystemDb } from './db';
 import {
   listCompanies,
@@ -70,6 +71,7 @@ import {
   listStockMovements,
   getStockPosition,
 } from './inventoryHandlers';
+import { createOrUpdateGstRate, listGstRates, listActiveGstRates, previewGst, getGstSummary } from './gstHandlers';
 import { session } from './session';
 import {
   IPC,
@@ -100,6 +102,9 @@ import {
   type ResetPasswordInput,
   type ThemePreference,
   type UpdateRolePermissionsInput,
+  type CreateOrUpdateGstRateInput,
+  type GstRatePreviewInput,
+  type GstSummaryInput,
 } from '../shared/ipc';
 
 function handle<T>(channel: string, fn: () => Promise<T>): void {
@@ -131,6 +136,7 @@ async function bootstrap(): Promise<void> {
   // install — see @mhts/db-schema's system/types.ts) — seeded once here, idempotently,
   // never per-company (createCompany must not re-seed/duplicate/version-bump this).
   await seedDefaultTdsRates(systemDb);
+  await seedDefaultGstRates(systemDb);
 
   handle(IPC.LIST_COMPANIES, () => listCompanies(systemDb));
   handleWithArg(IPC.CREATE_COMPANY, (input: CreateCompanyInput) => createCompany(systemDb, paths, input));
@@ -209,6 +215,12 @@ async function bootstrap(): Promise<void> {
   handleWithArg(IPC.TRANSFER_STOCK, (input: TransferStockInput) => transferStock(input));
   handle(IPC.LIST_STOCK_MOVEMENTS, () => listStockMovements());
   handleWithArg(IPC.GET_STOCK_POSITION, (query: StockPositionQuery) => getStockPosition(query));
+
+  handleWithArg(IPC.CREATE_OR_UPDATE_GST_RATE, (input: CreateOrUpdateGstRateInput) => createOrUpdateGstRate(systemDb, input));
+  handleWithArg(IPC.LIST_GST_RATES, (hsnSacCode: string) => listGstRates(systemDb, hsnSacCode));
+  handle(IPC.LIST_ACTIVE_GST_RATES, () => listActiveGstRates(systemDb));
+  handleWithArg(IPC.PREVIEW_GST, (input: GstRatePreviewInput) => previewGst(systemDb, input));
+  handleWithArg(IPC.GET_GST_SUMMARY, (input: GstSummaryInput) => getGstSummary(input));
 
   createWindow();
 }
