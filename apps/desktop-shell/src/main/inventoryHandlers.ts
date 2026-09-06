@@ -14,6 +14,7 @@ import {
   transferStock as coreTransferStock,
   listStockMovements as coreListStockMovements,
   computeStockPosition as coreComputeStockPosition,
+  cancelStockAdjustment as coreCancelStockAdjustment,
 } from '@mhts/core-inventory';
 import { session } from './session';
 import type {
@@ -129,6 +130,13 @@ export async function postStockAdjustment(systemDb: Kysely<SystemDatabase>, inpu
     info.userId,
   );
   return result.movementId;
+}
+
+export async function cancelStockAdjustment(systemDb: Kysely<SystemDatabase>, voucherId: string): Promise<string> {
+  const { info, companyDb } = requireSessionWithCompanyDb('INVENTORY.ADJUST_STOCK');
+  const reversalDate = new Date().toISOString().slice(0, 10);
+  const reversalFinancialYear = await financialYearFor(systemDb, info.companyId, reversalDate);
+  return coreCancelStockAdjustment(companyDb, voucherId, reversalFinancialYear, reversalDate, info.userId);
 }
 
 export async function transferStock(input: TransferStockInput): Promise<string> {

@@ -132,6 +132,7 @@ const api = {
   listBatchesForItem: (itemId: string): Promise<IpcResult<ItemBatchSummary[]>> => ipcRenderer.invoke(IPC.LIST_BATCHES_FOR_ITEM, itemId),
   recordOpeningStock: (input: RecordOpeningStockInput): Promise<IpcResult<string>> => ipcRenderer.invoke(IPC.RECORD_OPENING_STOCK, input),
   postStockAdjustment: (input: PostStockAdjustmentInput): Promise<IpcResult<string>> => ipcRenderer.invoke(IPC.POST_STOCK_ADJUSTMENT, input),
+  cancelStockAdjustment: (voucherId: string): Promise<IpcResult<string>> => ipcRenderer.invoke(IPC.CANCEL_STOCK_ADJUSTMENT, voucherId),
   transferStock: (input: TransferStockInput): Promise<IpcResult<string>> => ipcRenderer.invoke(IPC.TRANSFER_STOCK, input),
   listStockMovements: (): Promise<IpcResult<StockMovementSummary[]>> => ipcRenderer.invoke(IPC.LIST_STOCK_MOVEMENTS),
   getStockPosition: (query: StockPositionQuery): Promise<IpcResult<StockPositionRow[]>> => ipcRenderer.invoke(IPC.GET_STOCK_POSITION, query),

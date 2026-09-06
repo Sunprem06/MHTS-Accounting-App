@@ -1,8 +1,7 @@
 import type { Kysely } from 'kysely';
 import type { CompanyDatabase } from '@mhts/db-schema';
+import { INBOUND_MOVEMENT_TYPES } from './types';
 import type { StockPositionQuery, StockPositionRow } from './types';
-
-const INBOUND_TYPES = ['OPENING_STOCK', 'PURCHASE_RECEIPT', 'ADJUSTMENT_IN', 'TRANSFER_IN'] as const;
 
 /**
  * Derived on-hand qty/value per (item, warehouse, batch) — the same
@@ -35,7 +34,7 @@ export async function computeStockPosition(companyDb: Kysely<CompanyDatabase>, q
   for (const row of rows) {
     const key = `${row.itemId}::${row.warehouseId}::${row.batchId ?? ''}`;
     const existing = positions.get(key) ?? { itemId: row.itemId, warehouseId: row.warehouseId, batchId: row.batchId, quantityThousandths: 0, valuePaise: 0 };
-    const sign = (INBOUND_TYPES as readonly string[]).includes(row.movementType) ? 1 : -1;
+    const sign = INBOUND_MOVEMENT_TYPES.includes(row.movementType) ? 1 : -1;
     existing.quantityThousandths += sign * Number(row.totalQuantity);
     existing.valuePaise += sign * Number(row.totalValue);
     positions.set(key, existing);

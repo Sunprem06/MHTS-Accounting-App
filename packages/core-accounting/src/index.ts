@@ -26,7 +26,7 @@ export {
   createLedgerAccount,
 } from './chartOfAccounts';
 export type { CreateLedgerAccountInput } from './chartOfAccounts';
-export { createVoucher, createVoucherInTransaction, listVouchers, cancelVoucher } from './vouchers';
+export { createVoucher, createVoucherInTransaction, listVouchers, cancelVoucher, cancelVoucherInTransaction } from './vouchers';
 export { computeTrialBalance } from './trialBalance';
 export { computeProfitAndLoss } from './profitAndLoss';
 export type { ProfitAndLossOptions } from './profitAndLoss';

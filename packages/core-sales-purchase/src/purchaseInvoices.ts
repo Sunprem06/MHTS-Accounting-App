@@ -1,10 +1,10 @@
 import { randomUUID } from 'node:crypto';
 import type { Kysely, Transaction } from 'kysely';
 import type { CompanyDatabase, SystemDatabase } from '@mhts/db-schema';
-import { cancelVoucher as coreCancelVoucher, createVoucherInTransaction } from '@mhts/core-accounting';
+import { cancelVoucherInTransaction, createVoucherInTransaction } from '@mhts/core-accounting';
 import type { VoucherLineInput } from '@mhts/core-accounting';
 import { writeAuditLog } from '@mhts/core-audit';
-import { getInventoryLedgerIds, getItemOrThrow, hasStockMovementsForReference, postPurchaseReceiptInTransaction } from '@mhts/core-inventory';
+import { getInventoryLedgerIds, getItemOrThrow, postPurchaseReceiptInTransaction, reverseStockMovementsForReferenceInTransaction } from '@mhts/core-inventory';
 import { validateDocumentLines } from './lineValidation';
 import { computeTdsAmount, cumulativeTaxableThisFinancialYear, resolveTdsRate } from './tds';
 import type { CreatePurchaseInvoiceInput, DocumentLineInput, PurchaseInvoiceSummary } from './types';
@@ -219,17 +219,24 @@ export async function createPurchaseInvoice(
   return companyDb.transaction().execute((trx) => createPurchaseInvoiceInTransaction(trx, systemDb, input, actorUserId));
 }
 
-/** Mirror of cancelSalesInvoice's stock-movement guard — see its comment for why full reversal isn't attempted automatically in this pass. */
-export async function cancelPurchaseInvoice(companyDb: Kysely<CompanyDatabase>, invoiceId: string, reversalFinancialYear: string, reversalDate: string, actorUserId: string | null): Promise<string> {
-  const invoice = await companyDb.selectFrom('purchase_invoice').select(['voucher_id']).where('id', '=', invoiceId).executeTakeFirst();
+/**
+ * Mirror of cancelSalesInvoice, reversing PURCHASE_RECEIPT movements instead
+ * of SALES_ISSUE ones, and keyed the same way (by voucherId, not the
+ * invoice's own id — see cancelSalesInvoice's comment). Unlike a sale,
+ * reversing a receipt is NOT always safe —
+ * reverseStockMovementsForReferenceInTransaction throws (rolling back the
+ * whole cancellation) if any of the received quantity has already been
+ * issued, adjusted out, or transferred to another warehouse.
+ */
+export async function cancelPurchaseInvoice(companyDb: Kysely<CompanyDatabase>, voucherId: string, reversalFinancialYear: string, reversalDate: string, actorUserId: string | null): Promise<string> {
+  const invoice = await companyDb.selectFrom('purchase_invoice').select(['id']).where('voucher_id', '=', voucherId).executeTakeFirst();
   if (!invoice) {
-    throw new Error('Purchase invoice not found');
+    throw new Error('Purchase invoice not found for this voucher');
   }
-  const hasStockMovements = await hasStockMovementsForReference(companyDb, 'PURCHASE_INVOICE', invoiceId);
-  if (hasStockMovements) {
-    throw new Error('This invoice moved stock and cannot be cancelled yet — automatic stock reversal is not supported in this release. Contact support for a manual correction.');
-  }
-  return coreCancelVoucher(companyDb, invoice.voucher_id, reversalFinancialYear, reversalDate, actorUserId);
+  return companyDb.transaction().execute(async (trx) => {
+    await reverseStockMovementsForReferenceInTransaction(trx, 'PURCHASE_INVOICE', invoice.id, reversalDate, actorUserId);
+    return cancelVoucherInTransaction(trx, voucherId, reversalFinancialYear, reversalDate, actorUserId);
+  });
 }
 
 export async function listPurchaseInvoices(companyDb: Kysely<CompanyDatabase>): Promise<PurchaseInvoiceSummary[]> {

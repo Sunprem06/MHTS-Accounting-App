@@ -463,7 +463,18 @@ export interface ItemBatchSummary {
   manufactureDate: string | null;
 }
 
-export type MovementType = 'OPENING_STOCK' | 'PURCHASE_RECEIPT' | 'SALES_ISSUE' | 'ADJUSTMENT_IN' | 'ADJUSTMENT_OUT' | 'TRANSFER_OUT' | 'TRANSFER_IN';
+export type MovementType =
+  | 'OPENING_STOCK'
+  | 'PURCHASE_RECEIPT'
+  | 'SALES_ISSUE'
+  | 'ADJUSTMENT_IN'
+  | 'ADJUSTMENT_OUT'
+  | 'TRANSFER_OUT'
+  | 'TRANSFER_IN'
+  | 'SALES_ISSUE_REVERSAL'
+  | 'PURCHASE_RECEIPT_REVERSAL'
+  | 'ADJUSTMENT_IN_REVERSAL'
+  | 'ADJUSTMENT_OUT_REVERSAL';
 
 export interface RecordOpeningStockInput {
   itemId: string;
@@ -634,6 +645,7 @@ export const IPC = {
   LIST_ITEMS: 'inventory:listItems',
   CANCEL_SALES_INVOICE: 'salesPurchase:cancelSalesInvoice',
   CANCEL_PURCHASE_INVOICE: 'salesPurchase:cancelPurchaseInvoice',
+  CANCEL_STOCK_ADJUSTMENT: 'inventory:cancelStockAdjustment',
   LIST_BATCHES_FOR_ITEM: 'inventory:listBatchesForItem',
   RECORD_OPENING_STOCK: 'inventory:recordOpeningStock',
   POST_STOCK_ADJUSTMENT: 'inventory:postStockAdjustment',
