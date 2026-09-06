@@ -23,7 +23,7 @@ Then paste the latest entry from the **Session Handoff Log** (Section 4 of this 
 | 2 | Sales + Purchase | Customers, suppliers, invoices, receivables/payables, vendor TDS, 43B(h) flag | ✅ Done | | Customer/supplier master (unified `business_party`, own dedicated ledger under the existing Sundry Debtors/Creditors groups); Sales/Purchase Invoices AND Orders (order→invoice conversion), all posting through the unchanged Phase 1 double-entry engine; vendor TDS (194C/194J/194Q/194I) with threshold-aware deduction, rate resolved from a new versioned rule_set mechanism (never hardcoded); Section 43B(h) MSME due-date stamping + an ageing report. Bill-wise (invoice-level) payment allocation added in a follow-up session: Customer Receipt/Supplier Payment screens link a Receipt/Payment voucher to the specific invoice(s) it settles, so MSME ageing is now exact (not FIFO-estimated) for any invoice paid through them — the generic Payment/Receipt screens still work unchanged for anything not tied to an invoice. Verified end-to-end against real encrypted files. Deferred, tracked in Open Questions: TDS Form 26Q/16A generation, a rate-editing admin UI, 194Q's buyer-turnover eligibility gate. |
 | 3 | Inventory | Items, units, warehouses, batches, valuation | ✅ Done | | Item/Unit/Warehouse/Batch master data; an append-only `stock_movement` ledger with FIFO-layer or weighted-average costing (`core-inventory`); Sales/Purchase invoices wired so a stockable item line moves stock and (on a sale) posts a self-balancing Cost-of-Goods-Sold voucher-line pair on the SAME atomic voucher; Stock Adjustment/Transfer/Opening Stock, Stock Summary, Stock Movement Register, and a Stock Valuation vs Ledger reconciliation view demonstrating the Blueprint's literal exit criterion. Verified end-to-end via real handler calls against a real encrypted company DB (FIFO multi-layer consumption, rounding-remainder absorption, weighted-average costing, batch isolation, insufficient-stock rollback, GL postings, and the invoice/order integration all independently checked). Deliberately deferred, tracked in Open Questions: full stock-aware invoice cancellation (a hard guard blocks it instead), alternate-UOM conversion, auto-batch-selection on issue. |
 | 4 | GST Engine | Rules engine, HSN/SAC, ITC, GSTR-1/3B/9/9C prep | ✅ Done | | Increment 1: versioned GST rate/HSN-SAC rules engine (via `core-rules-engine`, same mechanism as vendor TDS), CGST/SGST/IGST place-of-supply auto-split wired into Sales/Purchase invoices and orders, new `core-gst-engine` package, Manage GST Rates admin screen, and a GST Summary reconciliation report — verified end-to-end (18 checks), including the Blueprint's literal exit criterion (rate-change simulation, zero code changes). Same-day follow-up: expanded the 5-example seed into a ~54-code, 14-category general-purpose starter catalog plus a category-browse HSN/SAC picker (`GstHsnPicker`) — verified (12 more checks). Increment 2 (same session, user asked to "complete Phase 4"): Input Tax Credit eligibility (blocked credit folds into cost, not a recoverable asset), reverse charge (self-assessed Dr Input/Cr RCM-Liability pair excluded from the supplier's payable), composition scheme (company-level, forces zero output tax + zero ITC), a standard GST set-off algorithm (`computeGstSetOff`), and all four GSTR-1/3B/9/9C prep reports (CA-facing reference reports + CSV export, not GSTN-upload-schema-exact — a deliberate, confirmed scope choice) — verified end-to-end (27 more checks) plus a full regression re-run of both earlier suites (30 checks, zero regressions). Phase 4 is now functionally complete against the Blueprint's one-line scope; residual simplifications are tracked explicitly in Open Questions, not silently dropped. |
-| 5 | Banking | Accounts, reconciliation, cheque/UTR | ⬜ Not started | | |
+| 5 | Banking | Accounts, reconciliation, cheque/UTR | ✅ Done | | New `bank_account` master (own dedicated ledger under the existing "Bank Accounts" group, atomic creation — same pattern as Phase 2's `createParty`), cheque/UTR/instrument tracking on Payment/Receipt/Contra vouchers (`voucher_payment_instrument`, one entry point `recordVoucherWithInstrument` degrading to a plain voucher post when no instrument), manual bank reconciliation (`bank_reconciliation`, a pure metadata/tracking layer that never touches `voucher`/`voucher_line`) with a reconciliation-statement report reusing Phase 1's `computeLedgerBalances`, and — per the user's explicit choice over manual-only — a real CSV bank-statement importer (`bank_statement_import`/`bank_statement_line`) with user-driven column mapping and paisa-exact, direction-aware auto-matching within a 7-day window (ambiguous/unmatched lines always left for manual resolution, never guessed). New pure-TS `core-banking` package, same `type:core` Nx boundary as every other module. Verified end-to-end (23 checks) against a real encrypted company DB, including the Blueprint's literal exit criterion (reconciliation statement ties to `computeLedgerBalances` to the paisa) and the CSV importer's direction-flip correctness (bank-statement CREDIT/DEBIT is the opposite sense of the ledger's own debit/credit on this asset account). Full workspace `lint`+`build` (14 projects, cache bypassed) clean. Not yet merged — on branch `phase5/banking`, pending user review. |
 | 6 | Expenses/Travel/Documents | Claims, reimbursements, attachments | ⬜ Not started | | |
 | 7 | Payroll | CTC, salary rules engine, attendance, leave, statutory, payslips | ⬜ Not started | | ⚠️ Re-verify Labour Code final rules before starting |
 | 8 | Advanced ERP | Fixed assets (dual depreciation), cost centres, budgets, manufacturing, multi-currency, multi-branch | ⬜ Not started | | |
@@ -104,6 +104,14 @@ Record every architectural or business decision here the moment it's made, so it
 | 2026-09-06 | **`computeGstSetOff` (new, pure function in `core-gst-engine`) implements the standard textbook GST credit set-off order**: IGST credit → IGST liability, then spills into CGST, then SGST; CGST credit → CGST liability first, spillover into IGST; SGST credit → SGST liability first, spillover into IGST; Cess never cross-utilizes. Explicitly NOT the fully optimal cash-minimizing algorithm the real rule allows some discretion for (how IGST credit splits between CGST/SGST) — flagged in its own doc comment as "verify against an actual GSTR-3B before relying on this for a real filing," same disclaimer pattern as every other simplified tax rule in this codebase. RCM's self-assessed liability is deliberately NOT run through this set-off — it's reported as a separate "must be paid in cash, not eligible for set-off this period" figure, a real statutory restriction, not an oversight. | Verified end-to-end with a hand-computed scenario (IGST credit exceeding IGST liability, spilling into both CGST and SGST liability with an exact carry-forward remainder) and cross-checked that GSTR-3B's own `netPayable` field matches calling `computeGstSetOff` independently with the same period's figures. | 4 |
 | 2026-09-06 | **GSTR-1/3B/9/9C prep implemented as `core-sales-purchase/src/gstReturns.ts`** (not `core-gst-engine`, since it needs to join `sales_invoice_line`/`purchase_invoice_line`/`business_party`, which `core-gst-engine` has no knowledge of) — modeled on `settlements.ts`'s existing join shape. Only invoice lines with an `hsn_sac_code` (the GST-computed path) are included; a line still using the pre-Phase-4 manual `tax_ledger_id`/`tax_amount` path has no resolved rate/HSN to classify by and is excluded — a real, explicitly flagged scoping limit. GSTR-1: B2B (party has a GSTIN) invoice-wise, B2C (no GSTIN) state+rate summary, HSN-wise summary across both — mirrors the real return's own structure rather than one flat invoice list. GSTR-9 reuses GSTR-3B's exact aggregation logic over a full financial year (`computeFinancialYearDateBounds`, new inverse of the existing `computeFinancialYearLabel` in `core-accounting`) instead of a parallel implementation; Part V (prior-year amendments declared in a later year's return) is not modeled since this app has no return-period concept separate from an invoice's own date. GSTR-9C compares turnover per audited books (`computeProfitAndLoss`'s total income) against turnover per GST returns (GSTR-1's taxable value sum) — a genuine reconciliation, since the two are drawn from independently-sourced aggregations and a gap is expected (non-GST income like interest has no HSN/SAC). The tax-side of GSTR-9C is explicitly informational only, NOT a two-source reconciliation — this app has no bookkeeping source for "tax as per books" independent of the return data itself, and presenting a fake second figure that would always trivially match was rejected as dishonest output. | User confirmed (after being offered the alternative) that these should be CA-facing reference reports — on-screen tables plus a plain CSV export via the same native-save-dialog pattern as `backupCompany` — not an attempt to match the GST portal's exact upload-ready JSON schema, which is separate, precision-heavy work with real downside risk if a field is subtly wrong and someone trusts it as upload-ready. Verified end-to-end: B2B/B2C classification splits correctly on GSTIN presence, HSN summary aggregates correctly across both, GSTR-9's FY aggregation matches an independent direct GSTR-3B call over the same computed date bounds, and GSTR-9C's reconciliation gap correctly reflects a real non-GST "Interest Income" journal entry with no corresponding sales invoice. | 4 |
 
+| 2026-09-06 | **Phase 5 (Banking) kicked off and completed in one pass.** The Blueprint's entire spec for this phase is one line ("Bank accounts, reconciliation, cheque/UTR tracking," exit criterion "Bank rec matches ledger to the paisa") — this plan was designed against standard Indian-SME bank-rec practice and confirmed with the user before coding (financial-logic gate). The user was explicitly asked whether bank-statement CSV import should be in scope for this pass (vs. manual tick-off only) and chose **both** — the importer described below was built as real, working functionality as a result, not deferred. | 5 |
+| 2026-09-06 | **New `bank_account` master, own dedicated ledger under the pre-existing "Bank Accounts" group (seeded since Phase 1), created atomically** — same pattern as Phase 2's `createParty` (one `companyDb.transaction()` inserting `ledger_account` + `bank_account` + an audit-log entry). No new default account groups needed. New pure-TS `core-banking` package (Nx `type:core` tag, zero Electron/UI dependency, same boundary as every other module) owns this plus everything else in this phase. | 5 |
+| 2026-09-06 | **Cheque/UTR tracking is an optional 1:1 attachment on a voucher** (`voucher_payment_instrument`), not a new voucher type — `VOUCHER_TYPES` is unchanged. New `recordVoucherWithInstrument` (wraps `core-accounting`'s existing `createVoucherInTransaction` + the instrument insert in ONE transaction, Rule #4) is the single entry point the Payment/Receipt/Contra screens now call, degrading to a plain voucher post when no instrument is given — one code path regardless of whether a bank ledger is involved, rather than two parallel ones. | 5 |
+| 2026-09-06 | **Bank reconciliation is a pure metadata/tracking layer** (`bank_reconciliation`, keyed by `voucher_line_id`, rows created lazily only when first ticked) — marking a line reconciled NEVER touches `voucher`/`voucher_line`; the reconciliation statement is a read-only reconstruction on top of `core-accounting`'s existing `computeLedgerBalances` (Book Balance → + uncleared payments (unreconciled credit lines) → − uncleared receipts (unreconciled debit lines) → = Calculated Bank Balance). **Every voucher_line on the bank ledger is reconcilable, regardless of voucher type** — a plain JOURNAL entry (bank charges, interest) moves the bank ledger just as much as a Payment/Receipt does, and the exit criterion's literal wording ("bank rec matches ledger") covers all of it, not just instrument-carrying vouchers. Verified: the sign convention (bank ledger `credit_amount > 0` = money out, `debit_amount > 0` = money in) was confirmed by reading the Payment/Receipt/Contra screens' own line construction, not assumed. | 5 |
+| 2026-09-06 | **CSV bank-statement import**: new `bank_statement_import`/`bank_statement_line` tables; a small dependency-free RFC4180 CSV parser (`parseBankStatementCsv`) plus user-driven column mapping (`mapStatementRows` — handles both common Indian-bank CSV shapes: a single Amount+Dr/Cr column, or separate Withdrawal/Deposit columns) live in `core-banking` as pure functions; file reading and the native open-file dialog stay in the Electron main process (`bankingHandlers.ts`), matching the existing `backupCompany` dialog pattern — Rule #1's Electron-free boundary applies to the parsing/matching logic, not file I/O. Matching (`suggestMatches`) is **exact-amount-in-paise** (never fuzzy — "to the paisa" is the whole point of this phase) and direction-aware within a ±7-day window; exactly one candidate auto-reconciles, multiple candidates are left for manual pick, zero candidates are surfaced as a genuine unmatched diagnostic (e.g. an uncaptured bank charge) rather than hidden. A likely-duplicate re-import (same account/date/amount/description as an existing line) is flagged, never silently blocked, since legitimate repeats can occur. | 5 |
+| 2026-09-06 | **Bank-statement direction terminology is the OPPOSITE sense of the ledger's own debit/credit convention, and this is encoded explicitly everywhere it matters, not left implicit.** A bank's own CSV/statement calls a deposit into the account a "CREDIT" and a withdrawal a "DEBIT" (the bank's point of view) — this maps to OUR ledger's `debit_amount` (money in) and `credit_amount` (money out) respectively, the reverse pairing from what the words might suggest. Every function that crosses this boundary (`mapStatementRows`, `findMatchCandidates`) carries an explicit code comment cross-referencing this, since it is the single easiest place to introduce a silent, hard-to-notice reversal bug in a reconciliation feature. | 5 |
+| 2026-09-06 | **`better-sqlite3` boolean-column comparison in a WHERE clause** needed the same `1 as unknown as boolean` / `0 as unknown as boolean` typed-constant workaround already established in `core-sales-purchase`'s `gstReturns.ts`/`receivablesPayables.ts` (better-sqlite3 cannot bind a raw JS boolean as a query parameter, but Kysely's generated `ColumnType` Select-side type for these int-backed boolean columns is `boolean`) — applied to `bank_reconciliation.is_reconciled` in `reconciliation.ts`/`statementImport.ts`'s unreconciled-line queries. Not a new pattern, just a new call site for an existing one. | 5 |
+
 ## 3. Open Questions / Blockers
 
 Track anything unresolved so it surfaces automatically in the next session instead of being forgotten.
@@ -155,6 +163,10 @@ Track anything unresolved so it surfaces automatically in the next session inste
 - [ ] Phase 4: **GSTR-1/3B/9/9C prep reports don't match the GST portal's offline-utility JSON schema** — deliberate, confirmed scope choice (see Key Decisions Log): CSV export for manual reference/CA handoff, not an upload-ready file. Building real schema conformance is separate, precision-heavy work with real downside risk (a subtly wrong field presented as upload-ready could mislead a real filing) — would need dedicated research against the actual current GSTN offline-utility spec before attempting.
 - [ ] Phase 4: **`computeGstSetOff`'s credit utilization order is the standard textbook rule, not the fully cash-minimizing algorithm** the actual law permits some discretion for (exactly how IGST credit splits between CGST and SGST liability when both are open) — correct and usable as a "roughly how much do I owe" figure, but verify against an actual GSTR-3B computation before relying on it for a real filing.
 - [ ] Phase 4: **GSTR-9's Part V (prior-year amendments declared in a later financial year's returns) is not modeled** — this app has no return-period concept separate from an invoice's own date, so there's no data source for "an invoice dated in FY24-25 but amended in an FY25-26 return." Flagged in the GSTR-9 screen itself, not silently omitted.
+- [ ] Phase 5: **Existing (pre-Phase-5) companies don't get Banking permissions retroactively** — `grantBankingPermissions` only runs at NEW company creation, same characteristic every prior module's permissions have had (Phase 3/4 noted the identical gap). Not a real problem yet since no paying customers exist on an older schema version.
+- [ ] Phase 5: **CC/OD (cash credit/overdraft) bank accounts get no special treatment** — modeled identically to SAVINGS/CURRENT (same `ledger_account` under the same ASSET group). A CC/OD account can legitimately run a credit balance (overdrawn), which the reconciliation math handles correctly (the signed balance just goes negative), but there's no drawing-limit tracking or any UI distinction beyond the stored `account_type` label.
+- [ ] Phase 5: **No bank-statement format beyond CSV, and column mapping is manual per import** — the importer handles the two common Indian-bank CSV shapes (single Amount+Dr/Cr column, or separate Withdrawal/Deposit columns) via a user-driven mapping step, but doesn't remember a bank's mapping between imports or auto-detect known formats. A future pass could save a mapping per bank account.
+- [ ] Phase 5: **A CONTRA voucher between two bank ledgers reconciles each side completely independently** — no linkage recorded between the two `voucher_line` rows it produces, so reconciling one side against its bank statement has no bearing on the other. This matches how the two sides genuinely appear on two separate real bank statements, so it's not considered a gap, just worth noting.
 
 ---
 
@@ -174,6 +186,90 @@ Next concrete step:
 ```
 
 ### Entries:
+```
+Date: 2026-09-06 (session 16)
+Phase: 5 (Banking) — kicked off and completed in one pass
+What was completed:
+  - User said "Start phase 5." The Blueprint's entire spec for this phase is
+    one line ("Bank accounts, reconciliation, cheque/UTR tracking," exit
+    criterion "Bank rec matches ledger to the paisa") — used plan mode
+    (financial-logic gate) to explore existing patterns (business_party's
+    atomic ledger+master creation, computeLedgerBalances, per-module RBAC
+    grant pattern, IPC/preload/screen wiring) via a background Explore agent,
+    then a Plan agent to validate the design against the actual code
+    (confirmed the bank-ledger debit/credit sign convention by reading the
+    Payment/Receipt/Contra screens directly, not assuming it).
+  - Asked the user via AskUserQuestion whether bank-statement CSV import
+    should be in scope for this pass vs. manual tick-off only — user chose
+    "Both," so the plan (and the build) includes a real CSV importer with
+    column mapping and paisa-exact auto-matching, not just manual
+    reconciliation.
+  - Built: new company-DB migration 010_banking.ts (bank_account,
+    voucher_payment_instrument, bank_reconciliation, bank_statement_import,
+    bank_statement_line); new pure-TS @mhts/core-banking package (permissions,
+    bankAccounts.ts, paymentInstruments.ts, reconciliation.ts,
+    statementImport.ts — RFC4180 CSV parser + column-mapping + exact-amount/
+    direction-aware/date-windowed matching); grantBankingPermissions wired
+    into company creation (apps/desktop-shell/src/main/handlers.ts); new
+    bankingHandlers.ts (main process) with the native open-file dialog for
+    statement import, mirroring backupCompany's save-dialog pattern; ~15 new
+    banking: IPC channels (shared/ipc.ts, main/index.ts, preload/index.ts);
+    new renderer screens BankAccountsScreen, BankReconciliationScreen (tick-
+    off checklist + reconciliation statement panel with a free-text actual-
+    balance tie-out field), BankStatementImportScreen (file pick -> column
+    mapping -> import -> per-line manual match resolution -> past-imports
+    list), ChequeRegisterScreen, plus a shared PaymentInstrumentFields
+    sub-form reused by the updated PaymentVoucherScreen/ReceiptVoucherScreen/
+    ContraVoucherScreen (each now routes through one recordBankVoucher IPC
+    call that degrades to a plain voucher post when no bank ledger/
+    instrument is involved); Dashboard/App.tsx wiring for all four new
+    screens, gated by the new BANKING.* permissions.
+  - Verified end-to-end (23 checks, throwaway tsx script run from repo root
+    against a real encrypted company DB via openCompanyDb/migrateCompanyDb,
+    deleted after): atomic bank-account+ledger+audit-log creation; cheque
+    instrument attach + status update (PENDING->CLEARED); a bank voucher
+    with no instrument creates no instrument row; manual reconciliation;
+    CSV parsing/column-mapping correctness (including the bank-statement
+    CREDIT/DEBIT direction flip vs. the ledger's own debit/credit); auto-
+    match on an exact-amount receipt; a deliberately-off-by-one-paisa line
+    correctly staying UNMATCHED (never fuzzy-matched); the reconciliation
+    statement's calculatedBankBalance tying to an independently-called
+    computeLedgerBalances to the paisa, both mid-reconciliation and once
+    fully reconciled. Full workspace `nx run-many -t lint,build
+    --skip-nx-cache` across all 14 projects (including every pre-existing
+    package) passed clean — no persisted test suite exists in this repo to
+    re-run for a formal "regression suite," so this full clean build/lint
+    across the whole dependency graph (with core-accounting/core-sales-
+    purchase/core-inventory/core-gst-engine completely UNCHANGED — only new
+    tables and new consumption of existing exports) is this session's
+    regression signal.
+What's still pending in this phase: functionally complete against the
+  Blueprint's one-line scope. Explicit, flagged (not silent) simplifications
+  — see Open Questions: no retroactive Banking permissions for pre-existing
+  companies (same characteristic every prior module's additions have had);
+  CC/OD account types get no special drawing-limit treatment; CSV column
+  mappings aren't remembered/auto-detected per bank; a CONTRA between two
+  bank ledgers reconciles each side fully independently (matches how two
+  real bank statements would actually behave, not considered a gap).
+Any decisions made (also add to Section 2): all seven Phase 5 rows in the
+  Key Decisions Log — CSV-import-in-scope confirmation, the atomic bank-
+  account creation pattern, cheque/UTR as a voucher attachment (not a new
+  voucher type) with one recordVoucherWithInstrument entry point, bank
+  reconciliation as a pure metadata layer covering every voucher type on the
+  ledger, the CSV importer's parsing/matching design, the bank-statement
+  direction-terminology flip (explicitly documented at every call site to
+  prevent a silent reversal bug), and the reused `1/0 as unknown as boolean`
+  better-sqlite3 workaround for a new call site.
+Any blockers (also add to Section 3): none new. Same standing sandboxed-
+  environment limitation as every session (no interactive desktop for a
+  real manual click-through — verified via real handler calls against a
+  real encrypted DB instead, same as every prior phase).
+Next concrete step: this session's work is on a new branch
+  (phase5/banking, off the current `main` which already has Phase 4 fully
+  merged), not yet committed/PR'd as of end of session, pending the user's
+  go-ahead. After this merges, Phase 6 (Expenses/Travel/Documents) is next
+  per the Blueprint sequence.
+```
 ```
 Date: 2026-09-06 (session 15)
 Phase: 4 (GST Engine) — Increment 2, "complete Phase 4"

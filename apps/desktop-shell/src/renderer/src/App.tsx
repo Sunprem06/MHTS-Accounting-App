@@ -47,6 +47,10 @@ import { StockValuationVsLedgerScreen } from './screens/StockValuationVsLedgerSc
 import { ManageGstRatesScreen } from './screens/ManageGstRatesScreen';
 import { GstSummaryScreen } from './screens/GstSummaryScreen';
 import { GstReturnsScreen } from './screens/GstReturnsScreen';
+import { BankAccountsScreen } from './screens/BankAccountsScreen';
+import { BankReconciliationScreen } from './screens/BankReconciliationScreen';
+import { BankStatementImportScreen } from './screens/BankStatementImportScreen';
+import { ChequeRegisterScreen } from './screens/ChequeRegisterScreen';
 
 type View =
   | { name: 'loading' }
@@ -95,7 +99,11 @@ type View =
   | { name: 'stockValuationVsLedger' }
   | { name: 'manageGstRates' }
   | { name: 'gstSummary' }
-  | { name: 'gstReturns' };
+  | { name: 'gstReturns' }
+  | { name: 'bankAccounts' }
+  | { name: 'bankReconciliation' }
+  | { name: 'bankStatementImport' }
+  | { name: 'chequeRegister' };
 
 export function App() {
   return (
@@ -239,15 +247,15 @@ function AppRoutes() {
   }
 
   if (view.name === 'paymentVoucher') {
-    return <PaymentVoucherScreen onCreated={() => setView({ name: 'dashboard' })} onBack={() => setView({ name: 'dashboard' })} />;
+    return <PaymentVoucherScreen session={session!} onCreated={() => setView({ name: 'dashboard' })} onBack={() => setView({ name: 'dashboard' })} />;
   }
 
   if (view.name === 'receiptVoucher') {
-    return <ReceiptVoucherScreen onCreated={() => setView({ name: 'dashboard' })} onBack={() => setView({ name: 'dashboard' })} />;
+    return <ReceiptVoucherScreen session={session!} onCreated={() => setView({ name: 'dashboard' })} onBack={() => setView({ name: 'dashboard' })} />;
   }
 
   if (view.name === 'contraVoucher') {
-    return <ContraVoucherScreen onCreated={() => setView({ name: 'dashboard' })} onBack={() => setView({ name: 'dashboard' })} />;
+    return <ContraVoucherScreen session={session!} onCreated={() => setView({ name: 'dashboard' })} onBack={() => setView({ name: 'dashboard' })} />;
   }
 
   if (view.name === 'voucherRegister') {
@@ -387,6 +395,22 @@ function AppRoutes() {
     return <GstReturnsScreen onBack={() => setView({ name: 'dashboard' })} />;
   }
 
+  if (view.name === 'bankAccounts') {
+    return <BankAccountsScreen session={session!} onBack={() => setView({ name: 'dashboard' })} />;
+  }
+
+  if (view.name === 'bankReconciliation') {
+    return <BankReconciliationScreen session={session!} onBack={() => setView({ name: 'dashboard' })} />;
+  }
+
+  if (view.name === 'bankStatementImport') {
+    return <BankStatementImportScreen session={session!} onBack={() => setView({ name: 'dashboard' })} />;
+  }
+
+  if (view.name === 'chequeRegister') {
+    return <ChequeRegisterScreen session={session!} onBack={() => setView({ name: 'dashboard' })} />;
+  }
+
   return (
     <DashboardScreen
       session={session!}
@@ -428,6 +452,10 @@ function AppRoutes() {
       onManageGstRates={() => setView({ name: 'manageGstRates' })}
       onGstSummary={() => setView({ name: 'gstSummary' })}
       onGstReturns={() => setView({ name: 'gstReturns' })}
+      onBankAccounts={() => setView({ name: 'bankAccounts' })}
+      onBankReconciliation={() => setView({ name: 'bankReconciliation' })}
+      onBankStatementImport={() => setView({ name: 'bankStatementImport' })}
+      onChequeRegister={() => setView({ name: 'chequeRegister' })}
       onLogout={async () => {
         await window.mhts.logout();
         setSession(null);

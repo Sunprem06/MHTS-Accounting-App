@@ -782,6 +782,176 @@ export interface SessionInfo {
   permissions: string[];
 }
 
+// --- Phase 5: Banking ---
+
+export type AccountType = 'SAVINGS' | 'CURRENT' | 'CC' | 'OD';
+export type InstrumentType = 'CASH' | 'CHEQUE' | 'NEFT' | 'RTGS' | 'UPI' | 'IMPS' | 'DD' | 'CARD';
+export type InstrumentStatus = 'PENDING' | 'PRESENTED' | 'CLEARED' | 'BOUNCED' | 'CANCELLED';
+export type StatementDirection = 'CREDIT' | 'DEBIT';
+export type MatchStatus = 'MATCHED' | 'UNMATCHED' | 'IGNORED';
+export type MatchedVia = 'MANUAL' | 'IMPORT';
+
+export interface BankAccountSummary {
+  id: string;
+  ledgerAccountId: string;
+  ledgerName: string;
+  accountNumber: string;
+  ifscCode: string;
+  bankName: string;
+  branchName: string | null;
+  accountType: AccountType;
+  isActive: boolean;
+  /** Rupees, for display. */
+  currentBalance: number;
+}
+
+export interface CreateBankAccountInput {
+  name: string;
+  accountNumber: string;
+  ifscCode: string;
+  bankName: string;
+  branchName?: string;
+  accountType: AccountType;
+  /** Rupees, as typed by the user — converted to paise at the IPC boundary. */
+  openingBalanceRupees?: number;
+  openingBalanceSide?: BalanceSide;
+}
+
+export interface PaymentInstrumentInput {
+  instrumentType: InstrumentType;
+  chequeNumber?: string;
+  chequeDate?: string;
+  utrReference?: string;
+}
+
+export interface RecordBankVoucherInput {
+  voucherType: VoucherType;
+  voucherDate: string;
+  narration?: string;
+  lines: VoucherLineInput[];
+  instrument: PaymentInstrumentInput | null;
+}
+
+export interface UpdateInstrumentStatusInput {
+  voucherId: string;
+  status: InstrumentStatus;
+  statusDate: string;
+}
+
+export interface PaymentInstrumentSummary {
+  id: string;
+  voucherId: string;
+  voucherType: string;
+  voucherNumber: number;
+  voucherDate: string;
+  instrumentType: InstrumentType;
+  chequeNumber: string | null;
+  chequeDate: string | null;
+  utrReference: string | null;
+  instrumentStatus: InstrumentStatus;
+  statusDate: string | null;
+}
+
+export interface ReconcilableLineRow {
+  voucherLineId: string;
+  voucherId: string;
+  voucherType: string;
+  voucherNumber: number;
+  voucherDate: string;
+  narration: string | null;
+  /** Rupees. Exactly one of these is non-zero. */
+  debitAmount: number;
+  creditAmount: number;
+  isReconciled: boolean;
+  reconciledAt: string | null;
+  bankStatementDate: string | null;
+  matchedVia: MatchedVia | null;
+}
+
+export interface MarkReconciledInput {
+  voucherLineId: string;
+  bankStatementDate: string;
+}
+
+export interface BankReconciliationStatement {
+  bankLedgerId: string;
+  asOfDate: string;
+  /** Rupees, for display (bookBalance/unclearedPayments/unclearedReceipts/calculatedBankBalance). */
+  bookBalance: number;
+  unclearedPayments: number;
+  unclearedReceipts: number;
+  calculatedBankBalance: number;
+  unclearedLineCount: number;
+}
+
+export interface StatementPreview {
+  headers: string[];
+  previewRows: string[][];
+}
+
+export interface StatementColumnMapping {
+  dateColumnIndex: number;
+  descriptionColumnIndex: number;
+  amountMode: 'single-with-type' | 'separate-debit-credit';
+  amountColumnIndex?: number;
+  typeColumnIndex?: number;
+  debitColumnIndex?: number;
+  creditColumnIndex?: number;
+  dateFormat: 'DD/MM/YYYY' | 'YYYY-MM-DD' | 'MM/DD/YYYY';
+}
+
+export interface ImportStatementFileInput {
+  bankAccountId: string;
+  fileName: string;
+  csvText: string;
+  mapping: StatementColumnMapping;
+}
+
+export interface StatementImportSummary {
+  id: string;
+  bankAccountId: string;
+  fileName: string;
+  importedAt: string;
+  totalLines: number;
+  matchedLines: number;
+  unmatchedLines: number;
+}
+
+export interface StatementLineSummary {
+  id: string;
+  importId: string;
+  statementDate: string;
+  description: string;
+  /** Rupees, for display. */
+  amount: number;
+  direction: StatementDirection;
+  matchStatus: MatchStatus;
+  matchedVoucherLineId: string | null;
+  isLikelyDuplicate: boolean;
+  candidateVoucherLineIds?: string[];
+}
+
+export interface ImportStatementResult {
+  import: StatementImportSummary;
+  lines: StatementLineSummary[];
+}
+
+export interface ResolveStatementLineMatchInput {
+  statementLineId: string;
+  voucherLineId: string | null;
+}
+
+export interface ListReconcilableLinesInput {
+  bankLedgerId: string;
+  fromDate?: string;
+  toDate?: string;
+}
+
+export interface GetReconciliationStatementInput {
+  bankLedgerId: string;
+  asOfDate: string;
+}
+
 export interface IpcResult<T> {
   ok: boolean;
   data?: T;
@@ -867,4 +1037,21 @@ export const IPC = {
   GET_GSTR9: 'gst:getGstr9',
   GET_GSTR9C: 'gst:getGstr9c',
   EXPORT_CSV: 'export:csv',
+
+  // Phase 5: Banking
+  LIST_BANK_ACCOUNTS: 'banking:listBankAccounts',
+  CREATE_BANK_ACCOUNT: 'banking:createBankAccount',
+  RECORD_BANK_VOUCHER: 'banking:recordVoucher',
+  UPDATE_INSTRUMENT_STATUS: 'banking:updateInstrumentStatus',
+  LIST_PAYMENT_INSTRUMENTS: 'banking:listPaymentInstruments',
+  LIST_RECONCILABLE_LINES: 'banking:listReconcilableLines',
+  MARK_LINE_RECONCILED: 'banking:markLineReconciled',
+  MARK_LINE_UNRECONCILED: 'banking:markLineUnreconciled',
+  GET_RECONCILIATION_STATEMENT: 'banking:getReconciliationStatement',
+  PICK_STATEMENT_FILE: 'banking:pickStatementFile',
+  PREVIEW_STATEMENT_CSV: 'banking:previewStatementCsv',
+  IMPORT_STATEMENT_FILE: 'banking:importStatementFile',
+  LIST_STATEMENT_IMPORTS: 'banking:listStatementImports',
+  GET_STATEMENT_IMPORT_LINES: 'banking:getStatementImportLines',
+  RESOLVE_STATEMENT_LINE_MATCH: 'banking:resolveStatementLineMatch',
 } as const;

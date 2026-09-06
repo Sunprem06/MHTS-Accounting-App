@@ -41,6 +41,10 @@ interface Props {
   onManageGstRates: () => void;
   onGstSummary: () => void;
   onGstReturns: () => void;
+  onBankAccounts: () => void;
+  onBankReconciliation: () => void;
+  onBankStatementImport: () => void;
+  onChequeRegister: () => void;
 }
 
 export function DashboardScreen({
@@ -84,6 +88,10 @@ export function DashboardScreen({
   onManageGstRates,
   onGstSummary,
   onGstReturns,
+  onBankAccounts,
+  onBankReconciliation,
+  onBankStatementImport,
+  onChequeRegister,
 }: Props) {
   return (
     <div style={{ padding: 24, fontFamily: 'sans-serif', maxWidth: 480 }}>
@@ -187,6 +195,16 @@ export function DashboardScreen({
           {session.permissions.includes('GST.MANAGE_RATES') && <button onClick={onManageGstRates}>Manage GST rates</button>}{' '}
           {session.permissions.includes('GST.VIEW_REPORTS') && <button onClick={onGstSummary}>GST summary</button>}{' '}
           {session.permissions.includes('GST.VIEW_REPORTS') && <button onClick={onGstReturns}>GST returns (GSTR-1/3B/9/9C)</button>}
+        </p>
+      )}
+      {(session.permissions.includes('BANKING.MANAGE_BANK_ACCOUNTS') ||
+        session.permissions.includes('BANKING.VIEW_REPORTS') ||
+        session.permissions.includes('BANKING.IMPORT_STATEMENT')) && (
+        <p>
+          {session.permissions.includes('BANKING.MANAGE_BANK_ACCOUNTS') && <button onClick={onBankAccounts}>Bank accounts</button>}{' '}
+          {session.permissions.includes('BANKING.VIEW_REPORTS') && <button onClick={onBankReconciliation}>Bank reconciliation</button>}{' '}
+          {session.permissions.includes('BANKING.IMPORT_STATEMENT') && <button onClick={onBankStatementImport}>Import bank statement</button>}{' '}
+          {session.permissions.includes('BANKING.VIEW_REPORTS') && <button onClick={onChequeRegister}>Cheque register</button>}
         </p>
       )}
       <p>

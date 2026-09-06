@@ -1,10 +1,14 @@
 import { useEffect, useState } from 'react';
-import type { LedgerAccountSummary } from '../../../shared/ipc';
+import type { LedgerAccountSummary, PaymentInstrumentInput, SessionInfo } from '../../../shared/ipc';
+import { PaymentInstrumentFields } from './PaymentInstrumentFields';
 
 interface Props {
+  session: SessionInfo;
   onCreated: () => void;
   onBack: () => void;
 }
+
+const BANK_ACCOUNTS_GROUP = 'Bank Accounts';
 
 interface ParticularLine {
   ledgerId: string;
@@ -16,14 +20,18 @@ function emptyParticular(): ParticularLine {
 }
 
 /** Money going out: one "Paid from" ledger (Cash/Bank) is credited automatically for the total; one or more "Paid to" lines are debited — no manual balancing needed. */
-export function PaymentVoucherScreen({ onCreated, onBack }: Props) {
+export function PaymentVoucherScreen({ session, onCreated, onBack }: Props) {
   const [ledgers, setLedgers] = useState<LedgerAccountSummary[]>([]);
   const [paidFromLedgerId, setPaidFromLedgerId] = useState('');
   const [voucherDate, setVoucherDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [narration, setNarration] = useState('');
   const [particulars, setParticulars] = useState<ParticularLine[]>([emptyParticular()]);
+  const [instrument, setInstrument] = useState<PaymentInstrumentInput | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  const paidFromIsBank = ledgers.find((l) => l.id === paidFromLedgerId)?.groupName === BANK_ACCOUNTS_GROUP;
+  const canRecordInstrument = session.permissions.includes('BANKING.RECORD_PAYMENT_INSTRUMENT');
 
   useEffect(() => {
     (async () => {
@@ -50,7 +58,7 @@ export function PaymentVoucherScreen({ onCreated, onBack }: Props) {
       return;
     }
     setSubmitting(true);
-    const result = await window.mhts.createVoucher({
+    const result = await window.mhts.recordBankVoucher({
       voucherType: 'PAYMENT',
       voucherDate,
       narration: narration || undefined,
@@ -58,6 +66,7 @@ export function PaymentVoucherScreen({ onCreated, onBack }: Props) {
         ...particulars.map((p) => ({ ledgerId: p.ledgerId, debitRupees: Number(p.amountRupees) || 0, creditRupees: 0 })),
         { ledgerId: paidFromLedgerId, debitRupees: 0, creditRupees: total },
       ],
+      instrument: paidFromIsBank ? instrument : null,
     });
     setSubmitting(false);
     if (result.ok) {
@@ -90,6 +99,8 @@ export function PaymentVoucherScreen({ onCreated, onBack }: Props) {
           Narration
           <input value={narration} onChange={(e) => setNarration(e.target.value)} style={{ width: '100%' }} />
         </label>
+
+        {paidFromIsBank && canRecordInstrument && <PaymentInstrumentFields value={instrument} onChange={setInstrument} />}
 
         <table style={{ width: '100%', marginTop: 16, borderCollapse: 'collapse' }}>
           <thead>
