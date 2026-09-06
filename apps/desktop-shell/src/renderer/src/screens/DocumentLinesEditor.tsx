@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { DocumentLineInput, GstRatePreviewResult, ItemBatchSummary, ItemSummary, LedgerAccountSummary, WarehouseSummary } from '../../../shared/ipc';
+import { GstHsnPicker } from './GstHsnPicker';
 
 interface Props {
   lines: DocumentLineInput[];
@@ -234,11 +235,9 @@ export function DocumentLinesEditor({ lines, ledgers, ledgerLabel, onChange, ite
                   />
                 </td>
                 <td>
-                  <input
-                    value={line.hsnSacCode ?? ''}
-                    onChange={(e) => update(index, { hsnSacCode: e.target.value || undefined, taxLedgerId: e.target.value ? undefined : line.taxLedgerId, taxAmountRupees: e.target.value ? undefined : line.taxAmountRupees })}
-                    placeholder="e.g. 1006"
-                    style={{ width: 80 }}
+                  <GstHsnPicker
+                    value={line.hsnSacCode}
+                    onChange={(code) => update(index, { hsnSacCode: code, taxLedgerId: code ? undefined : line.taxLedgerId, taxAmountRupees: code ? undefined : line.taxAmountRupees })}
                   />
                 </td>
                 <td>

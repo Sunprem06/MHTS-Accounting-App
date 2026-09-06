@@ -407,6 +407,9 @@ export interface GstRateSummary {
   cessPercent: number;
   effectiveFrom: string;
   sourceReference: string | null;
+  /** Browsing metadata only (e.g. "Electrical & Electronics" / "LED lighting") — no compliance meaning of its own. */
+  category: string | null;
+  description: string | null;
 }
 
 export interface GstRateVersion extends GstRateSummary {
@@ -421,6 +424,8 @@ export interface CreateOrUpdateGstRateInput {
   cessPercent?: number;
   effectiveFrom: string;
   sourceReference?: string;
+  category?: string;
+  description?: string;
 }
 
 export interface GstRatePreviewInput {

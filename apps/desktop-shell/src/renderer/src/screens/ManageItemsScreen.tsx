@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { ItemSummary, ItemType, LedgerAccountSummary, SessionInfo, UnitOfMeasureSummary, ValuationMethod } from '../../../shared/ipc';
+import { GstHsnPicker } from './GstHsnPicker';
 
 interface Props {
   session: SessionInfo;
@@ -155,7 +156,7 @@ export function ManageItemsScreen({ session, onBack }: Props) {
           )}
           <label>
             HSN/SAC code
-            <input value={hsnSacCode} onChange={(e) => setHsnSacCode(e.target.value)} />
+            <GstHsnPicker value={hsnSacCode || undefined} onChange={(code) => setHsnSacCode(code ?? '')} />
           </label>{' '}
           <label>
             Default sales ledger

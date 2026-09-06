@@ -22,7 +22,7 @@ Then paste the latest entry from the **Session Handoff Log** (Section 4 of this 
 | 1 | Accounting Core | Chart of accounts, ledgers, vouchers, double-entry, TB/P&L/BS | ✅ Done | | Every item in the Blueprint's Phase 1 line is built, verified end-to-end, and has a real working UI: Chart of Accounts, ledgers, double-entry vouchers (unbalanced/malformed entries impossible — the exit criterion is a real tested code path), Trial Balance, Profit & Loss, and Balance Sheet (Assets = Liabilities + Equity proven to balance, incl. a Current Earnings roll-up). The two items previously deferred beyond the Blueprint's literal scope are now also done: voucher cancellation (via an auto-generated reversal voucher, not a destructive edit, with a new Voucher Register screen to find and cancel one) and dedicated Payment/Receipt/Contra voucher forms (auto-balancing, alongside the generic Journal form). Still open, not oversights (see Open Questions): opening-balance netting across ledgers. |
 | 2 | Sales + Purchase | Customers, suppliers, invoices, receivables/payables, vendor TDS, 43B(h) flag | ✅ Done | | Customer/supplier master (unified `business_party`, own dedicated ledger under the existing Sundry Debtors/Creditors groups); Sales/Purchase Invoices AND Orders (order→invoice conversion), all posting through the unchanged Phase 1 double-entry engine; vendor TDS (194C/194J/194Q/194I) with threshold-aware deduction, rate resolved from a new versioned rule_set mechanism (never hardcoded); Section 43B(h) MSME due-date stamping + an ageing report. Bill-wise (invoice-level) payment allocation added in a follow-up session: Customer Receipt/Supplier Payment screens link a Receipt/Payment voucher to the specific invoice(s) it settles, so MSME ageing is now exact (not FIFO-estimated) for any invoice paid through them — the generic Payment/Receipt screens still work unchanged for anything not tied to an invoice. Verified end-to-end against real encrypted files. Deferred, tracked in Open Questions: TDS Form 26Q/16A generation, a rate-editing admin UI, 194Q's buyer-turnover eligibility gate. |
 | 3 | Inventory | Items, units, warehouses, batches, valuation | ✅ Done | | Item/Unit/Warehouse/Batch master data; an append-only `stock_movement` ledger with FIFO-layer or weighted-average costing (`core-inventory`); Sales/Purchase invoices wired so a stockable item line moves stock and (on a sale) posts a self-balancing Cost-of-Goods-Sold voucher-line pair on the SAME atomic voucher; Stock Adjustment/Transfer/Opening Stock, Stock Summary, Stock Movement Register, and a Stock Valuation vs Ledger reconciliation view demonstrating the Blueprint's literal exit criterion. Verified end-to-end via real handler calls against a real encrypted company DB (FIFO multi-layer consumption, rounding-remainder absorption, weighted-average costing, batch isolation, insufficient-stock rollback, GL postings, and the invoice/order integration all independently checked). Deliberately deferred, tracked in Open Questions: full stock-aware invoice cancellation (a hard guard blocks it instead), alternate-UOM conversion, auto-batch-selection on issue. |
-| 4 | GST Engine | Rules engine, HSN/SAC, ITC, GSTR-1/3B/9/9C prep | 🟨 In progress | | Increment 1 done: versioned GST rate/HSN-SAC rules engine (via `core-rules-engine`, same mechanism as vendor TDS), CGST/SGST/IGST place-of-supply auto-split wired into Sales/Purchase invoices and orders, new `core-gst-engine` package, Manage GST Rates admin screen, and a GST Summary reconciliation report. Verified end-to-end (18 checks) against a real encrypted company DB, including the Blueprint's literal exit criterion (rate-change simulation, zero code changes). Re-verified current GST slabs (0%/5%/18%/40%, 3% gold/silver) unchanged since the 22 Sept 2025 reform as of this session (2026-09-06). Deliberately deferred to a follow-up increment (see Open Questions): Input Tax Credit eligibility/reversal, GSTR-1/3B/9/9C filing-format prep, composition scheme/reverse charge, cess beyond a flat rate. |
+| 4 | GST Engine | Rules engine, HSN/SAC, ITC, GSTR-1/3B/9/9C prep | 🟨 In progress | | Increment 1 done: versioned GST rate/HSN-SAC rules engine (via `core-rules-engine`, same mechanism as vendor TDS), CGST/SGST/IGST place-of-supply auto-split wired into Sales/Purchase invoices and orders, new `core-gst-engine` package, Manage GST Rates admin screen, and a GST Summary reconciliation report. Verified end-to-end (18 checks) against a real encrypted company DB, including the Blueprint's literal exit criterion (rate-change simulation, zero code changes). Re-verified current GST slabs (0%/5%/18%/40%, 3% gold/silver) unchanged since the 22 Sept 2025 reform as of this session (2026-09-06). Same-day follow-up: expanded the 5-example seed into a ~54-code, 14-category general-purpose starter catalog (Groceries, Hardware, Electrical, Food & Bakery, Hotel/Restaurant, Services, etc.), plus a category-browse HSN/SAC picker (`GstHsnPicker`) wired into Manage Items and the invoice line editor — still fully manually editable per-code, versioned by effective date, so a future rate change is just an edit, not a rebuild. Verified end-to-end (12 more checks): catalog breadth, no duplicate-code collisions, category metadata round-trips, and editing an existing catalog rate correctly versions (old rate stays on record) while preserving category/description. Deliberately deferred to a follow-up increment (see Open Questions): Input Tax Credit eligibility/reversal, GSTR-1/3B/9/9C filing-format prep, composition scheme/reverse charge, cess beyond a flat rate. |
 | 5 | Banking | Accounts, reconciliation, cheque/UTR | ⬜ Not started | | |
 | 6 | Expenses/Travel/Documents | Claims, reimbursements, attachments | ⬜ Not started | | |
 | 7 | Payroll | CTC, salary rules engine, attendance, leave, statutory, payslips | ⬜ Not started | | ⚠️ Re-verify Labour Code final rules before starting |
@@ -95,6 +95,7 @@ Record every architectural or business decision here the moment it's made, so it
 | 2026-09-06 | **Input GST needed a brand-new "Input Tax Credit" account group under Current Assets** (`seedGstLedgers`, `core-gst-engine`) — NOT lumped into the existing "Duties & Taxes" group (Current Liabilities) that output GST (`CGST/SGST/IGST/Cess Payable`) and vendor TDS both already use. | Input tax (paid on purchases, recoverable as future credit) is economically an asset, not a liability — posting it into a LIABILITY-nature group would misclassify recoverable GST on the Balance Sheet the moment a purchase used it, a real correctness bug, not a cosmetic one. No existing Current Assets sub-group (Cash-in-Hand/Bank Accounts/Sundry Debtors) fit, so this is a genuinely new group rather than a reuse. Full ITC eligibility/reversal (Section 17(5) blocked credits, matching against GSTR-2B) is explicitly NOT built this pass — these ledgers just correctly capture and classify the amounts; using them to net against output liability at return time is tracked as an Open Question. | 4 |
 | 2026-09-06 | **`DocumentLineInput` gained an optional `hsnSacCode` field, mutually exclusive with the existing manual `taxLedgerId`/`taxAmount` pair** (enforced in `lineValidation.ts` — supplying both throws). A line with neither posts with no tax, exactly as before this phase (regression-safe). `createSalesInvoiceInTransaction` gained a `systemDb` parameter it didn't need before (sales never needed a system-DB lookup pre-Phase-4; purchase already had one for TDS) — its signature, `createSalesInvoice`'s, and `convertSalesOrderToInvoice`'s all changed to match, mirroring the purchase side exactly. Both `sales_invoice_line`/`purchase_invoice_line` gained four new amount columns (`cgst_amount`/`sgst_amount`/`igst_amount`/`cess_amount`, all `NOT NULL DEFAULT 0`) rather than reusing the existing single `tax_ledger_id`/`tax_amount` pair, since one line can generate up to three simultaneous postings (CGST+SGST, or IGST, plus cess) that the old single pair can't represent; `hsn_sac_code`/`gst_rate_basis_points`/`cess_rate_basis_points` are also stored on the line for audit/display (rate as basis-points integers, not a float — same "integers, never REAL" discipline as money/quantity elsewhere in this schema). New migration `008_gst.ts` — schema-only, no ledger seeding (that stays in `core-gst-engine`, called at company creation, same pattern as every other module). | A caught-and-fixed correctness gap during implementation, not found by testing afterward: `listSalesInvoices`/`listPurchaseInvoices`'s `taxAmount` aggregate originally summed only the old `tax_amount` column, which would have silently UNDER-reported the tax total (missing the new GST columns entirely) for any GST-computed invoice — fixed to `SUM(tax_amount + cgst_amount + sgst_amount + igst_amount + cess_amount)`, safe precisely because the two paths are mutually exclusive per line. `hsnSacCode` was also added to `sales_order_line`/`purchase_order_line` and threaded through both order-to-invoice mapper functions — the exact spot Phase 3's design review flagged as easy to miss (a mapper that doesn't forward unknown fields silently drops them) — verified by converting an order with an HSN/SAC line and confirming the resulting invoice line carries the correct GST split. | 2, 4 |
 | 2026-09-06 | **GST reversal needed zero new code** — cancelling a GST-computed invoice already works correctly through `core-accounting`'s existing generic `cancelVoucherInTransaction`, which reverses every `voucher_line` row (mirror-image debit/credit) regardless of which ledgers they touch. | Confirmed rather than assumed: verified end-to-end that cancelling an intra-state sale credits CGST/SGST Payable back to exactly zero and cancelling a purchase debits CGST/SGST Input back to exactly zero, with no GST-specific reversal logic needed — the same "Trial Balance needed zero changes to support cancellation" pattern already seen in Phase 1's voucher cancellation. | 1, 4 |
+| 2026-09-06 | **Same-day follow-up, user-requested**: the 5-example GST rate seed expanded into a ~54-code, 14-category general-purpose starter catalog (Groceries & Staples, Hardware & Tools, Electrical & Electronics, Food & Bakery, Textiles & Apparel, Furniture, Stationery & Books, Pharma & Healthcare, Agriculture Inputs, Automobiles & Parts, Services (general), Hotel & Restaurant, Sin/Luxury Goods, Precious Metals) — user's own framing was "so if I sell to different businesses they can add their own rate instead of keeping all as 18%." `category`/`description` are new **optional** fields on `GstRatePayload` (no migration — they just ride inside the existing JSON payload already stored in `rule_set`) — pure browsing metadata with zero compliance meaning; the HSN/SAC code + rate are still the only things ever posted to an invoice. New `GstHsnPicker.tsx` (category dropdown → filtered code dropdown, showing "code — description (rate%)", with a "type manually" escape hatch) replaces the bare HSN/SAC text field in Manage Items and the invoice line editor. User explicitly required rates stay editable for future tax changes — unchanged: `createOrUpdateGstRate` still versions by effective date (a rate change is a new dated row, old ones stay on record for historical invoices), and `ManageGstRatesScreen` gained an "Edit" button per row that pre-fills the form (including category/description) so a future change is a quick edit, not a from-scratch re-entry. | Deliberately used 4-digit HSN/SAC *headings* rather than guessing precise 8-digit sub-codes — broader and lower error risk, still fully overridable to a more specific code later. A real bug was caught before it shipped: two draft entries (plain bread / cakes) both used HSN heading 1905, which would have silently overwritten one with the other (`ruleTypeFor` keys purely on the code, and `createRuleSetVersion` supersedes any existing open-ended row for the same key) — merged into one "Bakery products" entry with a note flagging the plain-bread-is-often-Nil nuance, verified with an explicit duplicate-code regression check. Several catalog entries are flagged with an inline note where the real GST rule has a threshold/scheme nuance this single flat rate collapses (restaurant/hotel ITC-dependent slabs, apparel per-piece value bands, GTA's ITC-option-dependent rate) — same "collapsed to one representative rate, CA review required" disclaimer pattern as the original TDS/GST examples, not silently presented as exact. Verified end-to-end (12 checks): catalog breadth (≥50 codes, ≥10 categories), zero duplicate-code collisions, category/description round-tripping through `listActiveGstRates`, a category-picked code resolving correctly through the unchanged `resolveGstRate`/`computeGstSplit` engine, and editing an existing catalog rate correctly creating a new version (old rate still queryable) while preserving category/description — plus a full re-run of the original Phase 4 end-to-end suite (18 checks) confirming zero regression to invoice posting/cancellation/rate-change-simulation. | 4 |
 
 ## 3. Open Questions / Blockers
 
@@ -163,6 +164,75 @@ Next concrete step:
 
 ### Entries:
 ```
+Date: 2026-09-06 (session 14)
+Phase: 4 (GST Engine) — same-day follow-up on Increment 1
+What was completed:
+  - User uploaded a "GST HSN Master India September 2026" PDF and asked
+    whether it had been added to the app. Read it in full: it turned out to
+    be a summary/pointer document, not actual per-code rate data, and
+    contained several numbers inconsistent with what this session had
+    already verified via web search (e.g. a "Schedule VII at 28%" surviving
+    past the 22 Sept 2025 reform, which eliminated 28% at the outset).
+    Reported this back to the user plainly — did not import anything from
+    it — and explained why (CLAUDE.md's own "verify before hardcoding"
+    standard).
+  - User then asked for GST rates configurable per product/category (their
+    framing: "Hardware Items 18%, General groceries 5%, Electrical Items
+    18%... irrespective of business") instead of everything defaulting to
+    18%. Restated understanding back to the user per their own requested
+    process ("give me your understanding, I'll verify, then say go") rather
+    than building immediately — this is tax configuration, same financial-
+    logic gate as the rest of Phase 4. Proposed a concrete ~54-code/14-
+    category starter catalog + a category-browse HSN picker design; user
+    reviewed and said "go, keep it editable so we can edit manually if
+    change in future tax."
+  - Built on the same branch (phase4/gst-rate-engine-invoice-wiring, not yet
+    merged — this is a direct extension of the same increment, not a new
+    unit of work): expanded core-gst-engine's DEFAULT_GST_RATE_SEEDS from 5
+    examples to ~54 codes across 14 categories; added optional
+    category/description fields to GstRatePayload (no migration — they ride
+    inside the existing rule_set JSON payload); new GstHsnPicker.tsx
+    component (category dropdown -> filtered code dropdown -> fills
+    hsnSacCode, with a manual-entry escape hatch) wired into ManageItems and
+    the invoice line editor; ManageGstRatesScreen gained category/
+    description fields plus a per-row "Edit" button that pre-fills the form
+    (satisfies the user's "keep it editable" requirement without adding any
+    new editing mechanism — createOrUpdateGstRate's existing versioning
+    already covered it).
+  - Caught and fixed a real bug before it shipped: two draft catalog entries
+    (plain bread / cakes) both used HSN heading 1905, which would have
+    silently overwritten one with the other (rates key purely on the code).
+    Merged into one "Bakery products" entry with a note on the collapsed
+    nuance; added an explicit duplicate-code regression check to the
+    verification script.
+  - Verified end-to-end (12 new checks, throwaway tsx script against a real
+    encrypted system DB, deleted after): catalog breadth (54 codes, 14
+    categories), zero duplicate-code collisions, category/description
+    round-tripping, a category-picked code resolving correctly through the
+    unchanged resolveGstRate/computeGstSplit engine, and editing an existing
+    catalog rate correctly versioning (old rate stays queryable) while
+    preserving category/description. Also re-ran the full original Phase 4
+    suite (18 checks) to confirm zero regression to invoice posting/
+    cancellation/rate-change-simulation from the type changes.
+  - Build/lint clean across core-gst-engine and desktop-shell; tsc --noEmit
+    clean on both desktop-shell tsconfigs except the same pre-existing
+    unrelated licenseHandlers.ts error flagged in sessions 11-13.
+What's still pending in this phase: same as session 13's handoff — ITC
+  eligibility/reversal, GSTR-1/3B/9/9C filing-format prep, composition
+  scheme/reverse charge, party GST-registration-type. The catalog is still
+  a curated starter (54 codes), not an official master (~21,000 real HSN
+  codes exist) — businesses add their own as needed, same mechanism either way.
+Any decisions made (also add to Section 2): all in Key Decisions Log — the
+  catalog/category design, the optional category/description fields on
+  GstRatePayload, and the 1905 duplicate-code bug found and fixed.
+Any blockers (also add to Section 3): none. Same standing sandboxed-
+  environment limitation as every session.
+Next concrete step: this session's work is an additional commit on the
+  still-open phase4/gst-rate-engine-invoice-wiring branch/PR, pending the
+  user's go-ahead to push. After that: same fork in the road as session 13
+  (a further Phase 4 follow-up, or Phase 5 per Blueprint sequence).
+```
+
 Date: 2026-09-06 (session 13)
 Phase: 4 (GST Engine) — kicked off, scoped to Increment 1
 What was completed:
