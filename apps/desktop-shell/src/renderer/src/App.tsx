@@ -35,6 +35,15 @@ import { SupplierPaymentScreen } from './screens/SupplierPaymentScreen';
 import { ThemeToggle } from './ThemeToggle';
 import { BackupScreen } from './screens/BackupScreen';
 import { ManageRolesScreen } from './screens/ManageRolesScreen';
+import { ManageUnitsScreen } from './screens/ManageUnitsScreen';
+import { ManageWarehousesScreen } from './screens/ManageWarehousesScreen';
+import { ManageItemsScreen } from './screens/ManageItemsScreen';
+import { RecordOpeningStockScreen } from './screens/RecordOpeningStockScreen';
+import { StockAdjustmentScreen } from './screens/StockAdjustmentScreen';
+import { StockTransferScreen } from './screens/StockTransferScreen';
+import { StockSummaryScreen } from './screens/StockSummaryScreen';
+import { StockMovementRegisterScreen } from './screens/StockMovementRegisterScreen';
+import { StockValuationVsLedgerScreen } from './screens/StockValuationVsLedgerScreen';
 
 type View =
   | { name: 'loading' }
@@ -71,7 +80,16 @@ type View =
   | { name: 'customerReceipt' }
   | { name: 'supplierPayment' }
   | { name: 'backup' }
-  | { name: 'manageRoles' };
+  | { name: 'manageRoles' }
+  | { name: 'manageUnits' }
+  | { name: 'manageWarehouses' }
+  | { name: 'manageItems' }
+  | { name: 'recordOpeningStock' }
+  | { name: 'stockAdjustment' }
+  | { name: 'stockTransfer' }
+  | { name: 'stockSummary' }
+  | { name: 'stockMovementRegister' }
+  | { name: 'stockValuationVsLedger' };
 
 export function App() {
   return (
@@ -315,6 +333,42 @@ function AppRoutes() {
     return <ManageRolesScreen onBack={() => setView({ name: 'dashboard' })} />;
   }
 
+  if (view.name === 'manageUnits') {
+    return <ManageUnitsScreen session={session!} onBack={() => setView({ name: 'dashboard' })} />;
+  }
+
+  if (view.name === 'manageWarehouses') {
+    return <ManageWarehousesScreen session={session!} onBack={() => setView({ name: 'dashboard' })} />;
+  }
+
+  if (view.name === 'manageItems') {
+    return <ManageItemsScreen session={session!} onBack={() => setView({ name: 'dashboard' })} />;
+  }
+
+  if (view.name === 'recordOpeningStock') {
+    return <RecordOpeningStockScreen onCreated={() => setView({ name: 'stockSummary' })} onBack={() => setView({ name: 'dashboard' })} />;
+  }
+
+  if (view.name === 'stockAdjustment') {
+    return <StockAdjustmentScreen onCreated={() => setView({ name: 'stockMovementRegister' })} onBack={() => setView({ name: 'dashboard' })} />;
+  }
+
+  if (view.name === 'stockTransfer') {
+    return <StockTransferScreen onCreated={() => setView({ name: 'stockMovementRegister' })} onBack={() => setView({ name: 'dashboard' })} />;
+  }
+
+  if (view.name === 'stockSummary') {
+    return <StockSummaryScreen onBack={() => setView({ name: 'dashboard' })} />;
+  }
+
+  if (view.name === 'stockMovementRegister') {
+    return <StockMovementRegisterScreen onBack={() => setView({ name: 'dashboard' })} />;
+  }
+
+  if (view.name === 'stockValuationVsLedger') {
+    return <StockValuationVsLedgerScreen onBack={() => setView({ name: 'dashboard' })} />;
+  }
+
   return (
     <DashboardScreen
       session={session!}
@@ -344,6 +398,15 @@ function AppRoutes() {
       onSupplierPayment={() => setView({ name: 'supplierPayment' })}
       onBackup={() => setView({ name: 'backup' })}
       onManageRoles={() => setView({ name: 'manageRoles' })}
+      onManageUnits={() => setView({ name: 'manageUnits' })}
+      onManageWarehouses={() => setView({ name: 'manageWarehouses' })}
+      onManageItems={() => setView({ name: 'manageItems' })}
+      onRecordOpeningStock={() => setView({ name: 'recordOpeningStock' })}
+      onStockAdjustment={() => setView({ name: 'stockAdjustment' })}
+      onStockTransfer={() => setView({ name: 'stockTransfer' })}
+      onStockSummary={() => setView({ name: 'stockSummary' })}
+      onStockMovementRegister={() => setView({ name: 'stockMovementRegister' })}
+      onStockValuationVsLedger={() => setView({ name: 'stockValuationVsLedger' })}
       onLogout={async () => {
         await window.mhts.logout();
         setSession(null);

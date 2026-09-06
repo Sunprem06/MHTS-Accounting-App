@@ -7,6 +7,7 @@
   "dependencies": {
     "@mhts/core-accounting": "*",
     "@mhts/core-audit": "*",
+    "@mhts/core-inventory": "*",
     "@mhts/core-rules-engine": "*",
     "@mhts/db-schema": "*",
     "@mhts/shared-types": "*"

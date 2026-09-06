@@ -1,9 +1,10 @@
 import { randomUUID } from 'node:crypto';
 import type { Kysely, Transaction } from 'kysely';
 import type { CompanyDatabase, SystemDatabase } from '@mhts/db-schema';
-import { createVoucherInTransaction } from '@mhts/core-accounting';
+import { cancelVoucher as coreCancelVoucher, createVoucherInTransaction } from '@mhts/core-accounting';
 import type { VoucherLineInput } from '@mhts/core-accounting';
 import { writeAuditLog } from '@mhts/core-audit';
+import { getInventoryLedgerIds, getItemOrThrow, hasStockMovementsForReference, postPurchaseReceiptInTransaction } from '@mhts/core-inventory';
 import { validateDocumentLines } from './lineValidation';
 import { computeTdsAmount, cumulativeTaxableThisFinancialYear, resolveTdsRate } from './tds';
 import type { CreatePurchaseInvoiceInput, DocumentLineInput, PurchaseInvoiceSummary } from './types';
@@ -105,9 +106,44 @@ export async function createPurchaseInvoiceInTransaction(
   const tdsPayableLedger = await trx.selectFrom('ledger_account').select('id').where('name', '=', 'TDS Payable').executeTakeFirst();
   const { voucherLines, taxAmount } = buildPurchaseVoucherLines(party.ledger_account_id, tdsPayableLedger?.id ?? null, tdsAmount, input.lines);
 
+  const invoiceId = randomUUID();
+
+  // A stockable line's debit MUST land on Stock-in-Hand (never an arbitrary
+  // expense ledger the user happened to pick) — otherwise the item-level
+  // stock position and the GL would silently disagree about where the
+  // purchased value went. No extra voucher lines are needed beyond that:
+  // buildPurchaseVoucherLines already debits line.ledgerId, which for a
+  // stockable line now IS the Stock-in-Hand debit.
+  const stockableLines = input.lines.filter((line) => line.itemId);
+  if (stockableLines.length > 0) {
+    const { stockInHandLedgerId } = await getInventoryLedgerIds(trx);
+    for (const line of stockableLines) {
+      const item = await getItemOrThrow(trx, line.itemId!);
+      if (item.item_type !== 'STOCKABLE') continue;
+      if (line.ledgerId !== stockInHandLedgerId) {
+        throw new Error('A stockable item line must post to the Stock-in-Hand ledger');
+      }
+      await postPurchaseReceiptInTransaction(
+        trx,
+        {
+          itemId: line.itemId!,
+          warehouseId: line.warehouseId!,
+          quantityThousandths: line.quantityThousandths!,
+          ratePaise: line.ratePaise!,
+          batchNumber: line.batchNumber,
+          expiryDate: line.expiryDate,
+          manufactureDate: line.manufactureDate,
+          movementDate: input.invoiceDate,
+          referenceType: 'PURCHASE_INVOICE',
+          referenceId: invoiceId,
+        },
+        actorUserId,
+      );
+    }
+  }
+
   const isMsmeVendor = Boolean(party.is_msme_udyam_registered);
   const dueDate = computeDueDate(input.invoiceDate, isMsmeVendor, party.credit_period_days);
-  const invoiceId = randomUUID();
 
   const { voucherId } = await createVoucherInTransaction(
     trx,
@@ -181,6 +217,19 @@ export async function createPurchaseInvoice(
   actorUserId: string | null,
 ): Promise<string> {
   return companyDb.transaction().execute((trx) => createPurchaseInvoiceInTransaction(trx, systemDb, input, actorUserId));
+}
+
+/** Mirror of cancelSalesInvoice's stock-movement guard — see its comment for why full reversal isn't attempted automatically in this pass. */
+export async function cancelPurchaseInvoice(companyDb: Kysely<CompanyDatabase>, invoiceId: string, reversalFinancialYear: string, reversalDate: string, actorUserId: string | null): Promise<string> {
+  const invoice = await companyDb.selectFrom('purchase_invoice').select(['voucher_id']).where('id', '=', invoiceId).executeTakeFirst();
+  if (!invoice) {
+    throw new Error('Purchase invoice not found');
+  }
+  const hasStockMovements = await hasStockMovementsForReference(companyDb, 'PURCHASE_INVOICE', invoiceId);
+  if (hasStockMovements) {
+    throw new Error('This invoice moved stock and cannot be cancelled yet — automatic stock reversal is not supported in this release. Contact support for a manual correction.');
+  }
+  return coreCancelVoucher(companyDb, invoice.voucher_id, reversalFinancialYear, reversalDate, actorUserId);
 }
 
 export async function listPurchaseInvoices(companyDb: Kysely<CompanyDatabase>): Promise<PurchaseInvoiceSummary[]> {

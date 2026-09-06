@@ -29,6 +29,15 @@ interface Props {
   onSupplierPayment: () => void;
   onBackup: () => void;
   onManageRoles: () => void;
+  onManageUnits: () => void;
+  onManageWarehouses: () => void;
+  onManageItems: () => void;
+  onRecordOpeningStock: () => void;
+  onStockAdjustment: () => void;
+  onStockTransfer: () => void;
+  onStockSummary: () => void;
+  onStockMovementRegister: () => void;
+  onStockValuationVsLedger: () => void;
 }
 
 export function DashboardScreen({
@@ -60,6 +69,15 @@ export function DashboardScreen({
   onSupplierPayment,
   onBackup,
   onManageRoles,
+  onManageUnits,
+  onManageWarehouses,
+  onManageItems,
+  onRecordOpeningStock,
+  onStockAdjustment,
+  onStockTransfer,
+  onStockSummary,
+  onStockMovementRegister,
+  onStockValuationVsLedger,
 }: Props) {
   return (
     <div style={{ padding: 24, fontFamily: 'sans-serif', maxWidth: 480 }}>
@@ -133,6 +151,29 @@ export function DashboardScreen({
         <p>
           <button onClick={onPayables}>Payables</button>{' '}
           <button onClick={onMsmeAgeing}>MSME ageing (43B(h))</button>
+        </p>
+      )}
+      {(session.permissions.includes('INVENTORY.MANAGE_ITEMS') ||
+        session.permissions.includes('INVENTORY.MANAGE_WAREHOUSES') ||
+        session.permissions.includes('INVENTORY.MANAGE_UNITS')) && (
+        <p>
+          {session.permissions.includes('INVENTORY.MANAGE_UNITS') && <button onClick={onManageUnits}>Units of measure</button>}{' '}
+          {session.permissions.includes('INVENTORY.MANAGE_WAREHOUSES') && <button onClick={onManageWarehouses}>Warehouses</button>}{' '}
+          {session.permissions.includes('INVENTORY.MANAGE_ITEMS') && <button onClick={onManageItems}>Items</button>}
+        </p>
+      )}
+      {(session.permissions.includes('INVENTORY.RECORD_OPENING_STOCK') || session.permissions.includes('INVENTORY.ADJUST_STOCK') || session.permissions.includes('INVENTORY.TRANSFER_STOCK')) && (
+        <p>
+          {session.permissions.includes('INVENTORY.RECORD_OPENING_STOCK') && <button onClick={onRecordOpeningStock}>Record opening stock</button>}{' '}
+          {session.permissions.includes('INVENTORY.ADJUST_STOCK') && <button onClick={onStockAdjustment}>Stock adjustment</button>}{' '}
+          {session.permissions.includes('INVENTORY.TRANSFER_STOCK') && <button onClick={onStockTransfer}>Stock transfer</button>}
+        </p>
+      )}
+      {session.permissions.includes('INVENTORY.VIEW_REPORTS') && (
+        <p>
+          <button onClick={onStockSummary}>Stock summary</button>{' '}
+          <button onClick={onStockMovementRegister}>Stock movement register</button>{' '}
+          <button onClick={onStockValuationVsLedger}>Stock valuation vs. ledger</button>
         </p>
       )}
       <p>

@@ -186,6 +186,13 @@ export interface SalesOrderLineTable {
   tax_ledger_id: string | null;
   tax_amount: number;
   line_narration: string | null;
+  /** Phase 3 (Inventory) — nullable, all four set together or not at all. Carried into the invoice at conversion time. */
+  item_id: string | null;
+  warehouse_id: string | null;
+  /** Thousandths of a unit. */
+  quantity_thousandths: number | null;
+  /** Paise, per whole unit. */
+  rate_paise: number | null;
 }
 
 export interface PurchaseOrderTable {
@@ -211,6 +218,13 @@ export interface PurchaseOrderLineTable {
   tax_ledger_id: string | null;
   tax_amount: number;
   line_narration: string | null;
+  /** Phase 3 (Inventory) — nullable, all four set together or not at all. Carried into the invoice at conversion time. */
+  item_id: string | null;
+  warehouse_id: string | null;
+  /** Thousandths of a unit. */
+  quantity_thousandths: number | null;
+  /** Paise, per whole unit. */
+  rate_paise: number | null;
 }
 
 export interface SalesInvoiceSettlementTable {
@@ -230,6 +244,90 @@ export interface PurchaseInvoiceSettlementTable {
   voucher_id: string;
   amount_applied: number;
   created_at: ColumnType<string, string | undefined, never>;
+}
+
+export interface UnitOfMeasureTable {
+  id: string;
+  name: string;
+  symbol: string;
+  is_active: ColumnType<boolean, boolean | number, boolean | number>;
+  created_at: ColumnType<string, string | undefined, never>;
+}
+
+export interface WarehouseTable {
+  id: string;
+  name: string;
+  address: string | null;
+  is_active: ColumnType<boolean, boolean | number, boolean | number>;
+  created_at: ColumnType<string, string | undefined, never>;
+}
+
+export interface ItemTable {
+  id: string;
+  item_code: string;
+  name: string;
+  /** 'STOCKABLE' | 'SERVICE' — see @mhts/core-inventory. */
+  item_type: string;
+  unit_id: string | null;
+  /** Captured now, used from Phase 4 (GST engine). */
+  hsn_sac_code: string | null;
+  is_batch_tracked: ColumnType<boolean, boolean | number, boolean | number>;
+  /** 'FIFO' | 'WEIGHTED_AVERAGE' — null for SERVICE items. */
+  valuation_method: string | null;
+  default_sales_ledger_id: string | null;
+  is_active: ColumnType<boolean, boolean | number, boolean | number>;
+  created_at: ColumnType<string, string | undefined, never>;
+}
+
+export interface ItemBatchTable {
+  id: string;
+  item_id: string;
+  batch_number: string;
+  expiry_date: string | null;
+  manufacture_date: string | null;
+  created_at: ColumnType<string, string | undefined, never>;
+}
+
+export interface StockMovementTable {
+  id: string;
+  item_id: string;
+  warehouse_id: string;
+  batch_id: string | null;
+  /** 'OPENING_STOCK' | 'PURCHASE_RECEIPT' | 'SALES_ISSUE' | 'ADJUSTMENT_IN' | 'ADJUSTMENT_OUT' | 'TRANSFER_OUT' | 'TRANSFER_IN'. */
+  movement_type: string;
+  /** Thousandths of a unit. Always positive — direction comes from movement_type. */
+  quantity_thousandths: number;
+  /** Paise, per whole unit. */
+  rate_paise: number;
+  /** Paise. Stored explicitly — this is an append-only historical ledger, never recomputed. */
+  value_paise: number;
+  reference_type: string | null;
+  reference_id: string | null;
+  movement_date: string;
+  created_by: string | null;
+  created_at: ColumnType<string, string | undefined, never>;
+}
+
+export interface StockReceiptLayerTable {
+  id: string;
+  item_id: string;
+  warehouse_id: string;
+  batch_id: string | null;
+  source_movement_id: string;
+  quantity_remaining_thousandths: number;
+  /** Paise. See migration comment — absorbs rounding remainder on the draw that fully drains this layer. */
+  value_remaining_paise: number;
+  rate_paise: number;
+  received_at: string;
+  created_at: ColumnType<string, string | undefined, never>;
+}
+
+export interface StockMovementLayerConsumptionTable {
+  id: string;
+  movement_id: string;
+  layer_id: string;
+  quantity_consumed_thousandths: number;
+  value_consumed_paise: number;
 }
 
 export interface CompanyDatabase {
@@ -252,4 +350,11 @@ export interface CompanyDatabase {
   purchase_order_line: PurchaseOrderLineTable;
   sales_invoice_settlement: SalesInvoiceSettlementTable;
   purchase_invoice_settlement: PurchaseInvoiceSettlementTable;
+  unit_of_measure: UnitOfMeasureTable;
+  warehouse: WarehouseTable;
+  item: ItemTable;
+  item_batch: ItemBatchTable;
+  stock_movement: StockMovementTable;
+  stock_receipt_layer: StockReceiptLayerTable;
+  stock_movement_layer_consumption: StockMovementLayerConsumptionTable;
 }

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { DocumentLineInput, LedgerAccountSummary, PartySummary } from '../../../shared/ipc';
+import type { DocumentLineInput, ItemSummary, LedgerAccountSummary, PartySummary, WarehouseSummary } from '../../../shared/ipc';
 import { DocumentLinesEditor } from './DocumentLinesEditor';
 
 interface Props {
@@ -7,10 +7,12 @@ interface Props {
   onBack: () => void;
 }
 
-/** An order has no ledger impact until it's converted to an invoice — see SalesOrderRegisterScreen. */
+/** An order has no ledger impact until it's converted to an invoice — see SalesOrderRegisterScreen. A stockable line here also has no stock impact until conversion; item/quantity/rate just ride along on the order until then. */
 export function NewSalesOrderScreen({ onCreated, onBack }: Props) {
   const [parties, setParties] = useState<PartySummary[]>([]);
   const [ledgers, setLedgers] = useState<LedgerAccountSummary[]>([]);
+  const [items, setItems] = useState<ItemSummary[]>([]);
+  const [warehouses, setWarehouses] = useState<WarehouseSummary[]>([]);
   const [partyId, setPartyId] = useState('');
   const [orderDate, setOrderDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [narration, setNarration] = useState('');
@@ -20,7 +22,12 @@ export function NewSalesOrderScreen({ onCreated, onBack }: Props) {
 
   useEffect(() => {
     (async () => {
-      const [partiesResult, ledgersResult] = await Promise.all([window.mhts.listParties(), window.mhts.listLedgers()]);
+      const [partiesResult, ledgersResult, itemsResult, warehousesResult] = await Promise.all([
+        window.mhts.listParties(),
+        window.mhts.listLedgers(),
+        window.mhts.listItems(),
+        window.mhts.listWarehouses(),
+      ]);
       if (partiesResult.ok && partiesResult.data) {
         const customers = partiesResult.data.filter((p) => p.partyType === 'CUSTOMER' || p.partyType === 'BOTH');
         setParties(customers);
@@ -31,6 +38,8 @@ export function NewSalesOrderScreen({ onCreated, onBack }: Props) {
         setLedgers(incomeLedgers.length > 0 ? incomeLedgers : ledgersResult.data);
         setLines([{ description: '', ledgerId: (incomeLedgers[0] ?? ledgersResult.data[0])?.id ?? '', amountRupees: 0 }]);
       }
+      if (itemsResult.ok && itemsResult.data) setItems(itemsResult.data);
+      if (warehousesResult.ok && warehousesResult.data) setWarehouses(warehousesResult.data);
     })();
   }, []);
 
@@ -79,7 +88,7 @@ export function NewSalesOrderScreen({ onCreated, onBack }: Props) {
         </label>
 
         <div style={{ marginTop: 16 }}>
-          <DocumentLinesEditor lines={lines} ledgers={ledgers} ledgerLabel="Income ledger" onChange={setLines} />
+          <DocumentLinesEditor lines={lines} ledgers={ledgers} ledgerLabel="Income ledger" onChange={setLines} items={items} warehouses={warehouses} mode="sales" />
         </div>
 
         {error && <p style={{ color: 'crimson' }}>{error}</p>}

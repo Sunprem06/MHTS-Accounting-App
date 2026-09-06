@@ -21,7 +21,7 @@ Then paste the latest entry from the **Session Handoff Log** (Section 4 of this 
 | 0 | Foundation | Shell, DB, auth, RBAC, audit trail, backup framework, theme, license/white-label plumbing | 🟨 In progress | | Electron+React shell (real packaged app relaunch-verified, not just build-verified) with a real IPC boundary; multi-company creation, per-company login credentials, offline account lockout, offline Super Admin password reset, recovery-key-based recovery, and an invite-a-new-user flow, all verified end-to-end against real encrypted files. Backup/restore (raw encrypted file export + a verify-and-rollback restore), a theme engine (light/dark + white-label brand.config.json), and Ed25519-signed offline licensing with local machine-binding (soft-gated: only new company creation is blocked without one) are now built and verified too. Still open: a real manual click-through of the GUI on a normal dev machine — this sandboxed environment has no interactive desktop session, so every session including this one has only verified via real handler calls against real encrypted files, never an actual mouse click. |
 | 1 | Accounting Core | Chart of accounts, ledgers, vouchers, double-entry, TB/P&L/BS | ✅ Done | | Every item in the Blueprint's Phase 1 line is built, verified end-to-end, and has a real working UI: Chart of Accounts, ledgers, double-entry vouchers (unbalanced/malformed entries impossible — the exit criterion is a real tested code path), Trial Balance, Profit & Loss, and Balance Sheet (Assets = Liabilities + Equity proven to balance, incl. a Current Earnings roll-up). The two items previously deferred beyond the Blueprint's literal scope are now also done: voucher cancellation (via an auto-generated reversal voucher, not a destructive edit, with a new Voucher Register screen to find and cancel one) and dedicated Payment/Receipt/Contra voucher forms (auto-balancing, alongside the generic Journal form). Still open, not oversights (see Open Questions): opening-balance netting across ledgers. |
 | 2 | Sales + Purchase | Customers, suppliers, invoices, receivables/payables, vendor TDS, 43B(h) flag | ✅ Done | | Customer/supplier master (unified `business_party`, own dedicated ledger under the existing Sundry Debtors/Creditors groups); Sales/Purchase Invoices AND Orders (order→invoice conversion), all posting through the unchanged Phase 1 double-entry engine; vendor TDS (194C/194J/194Q/194I) with threshold-aware deduction, rate resolved from a new versioned rule_set mechanism (never hardcoded); Section 43B(h) MSME due-date stamping + an ageing report. Bill-wise (invoice-level) payment allocation added in a follow-up session: Customer Receipt/Supplier Payment screens link a Receipt/Payment voucher to the specific invoice(s) it settles, so MSME ageing is now exact (not FIFO-estimated) for any invoice paid through them — the generic Payment/Receipt screens still work unchanged for anything not tied to an invoice. Verified end-to-end against real encrypted files. Deferred, tracked in Open Questions: TDS Form 26Q/16A generation, a rate-editing admin UI, 194Q's buyer-turnover eligibility gate. |
-| 3 | Inventory | Items, units, warehouses, batches, valuation | ⬜ Not started | | |
+| 3 | Inventory | Items, units, warehouses, batches, valuation | ✅ Done | | Item/Unit/Warehouse/Batch master data; an append-only `stock_movement` ledger with FIFO-layer or weighted-average costing (`core-inventory`); Sales/Purchase invoices wired so a stockable item line moves stock and (on a sale) posts a self-balancing Cost-of-Goods-Sold voucher-line pair on the SAME atomic voucher; Stock Adjustment/Transfer/Opening Stock, Stock Summary, Stock Movement Register, and a Stock Valuation vs Ledger reconciliation view demonstrating the Blueprint's literal exit criterion. Verified end-to-end via real handler calls against a real encrypted company DB (FIFO multi-layer consumption, rounding-remainder absorption, weighted-average costing, batch isolation, insufficient-stock rollback, GL postings, and the invoice/order integration all independently checked). Deliberately deferred, tracked in Open Questions: full stock-aware invoice cancellation (a hard guard blocks it instead), alternate-UOM conversion, auto-batch-selection on issue. |
 | 4 | GST Engine | Rules engine, HSN/SAC, ITC, GSTR-1/3B/9/9C prep | ⬜ Not started | | ⚠️ Re-verify current GST slab rules before starting |
 | 5 | Banking | Accounts, reconciliation, cheque/UTR | ⬜ Not started | | |
 | 6 | Expenses/Travel/Documents | Claims, reimbursements, attachments | ⬜ Not started | | |
@@ -85,6 +85,11 @@ Record every architectural or business decision here the moment it's made, so it
 | 2026-09-06 | **Custom role creation/editing** lives in `@mhts/core-identity` (not a new package) — `listAllPermissions` just reads the company DB's shared `permission` table (already populated by every module's own `grant*Permissions` at company creation, so it's always complete with zero extra bookkeeping), and `createRole`/`updateRolePermissions` are plain transactional inserts/replaces into `role`/`role_permission`. The built-in Admin role (`is_system_role = 1`) is hard-blocked from having its permissions edited through this path. | Kept in `core-identity` rather than a new package since it's the existing home of `Role`/`Permission` logic (`seedAdminRole`, `resolvePermissions`) — a new package would just be an arbitrary split of the same concern. Blocking edits to the system Admin role is a deliberate safety rail: accidentally stripping `SYSTEM.MANAGE_USERS`/`SYSTEM.MANAGE_ROLES` from the only role that has them would lock every user in a company out of managing it, with no recovery path short of restoring a backup. Role DELETION was deliberately not built in this pass — a role's id is referenced from `company_access` in the SYSTEM DB, invisible to a company-DB-only safety check, so deleting one safely needs cross-database validation not built yet (flagged in Open Questions, not silently worked around). Verified end-to-end: a custom "Accountant" role with a narrow permission set is created correctly, duplicate names and non-existent permission codes are rejected, editing replaces (not merges) the permission set, and editing the built-in Admin role is rejected. | 0 |
 | 2026-09-06 | **License expiry reminder**: `LicenseStatus` gained `expiresInDays` (null for a perpetual license), computed purely for the UI's "renew soon" banner (≤30 days) — it plays no role in the actual pass/fail validity check, which `checkLicenseStatus` already enforces correctly via `expiresAt` regardless of this field. | A separate, additive field rather than folding the reminder logic into validity checking, so a bug in the reminder threshold could never accidentally affect whether a license is treated as valid. Verified end-to-end: a perpetual (no-expiry) license correctly reports `expiresInDays: null` with no false warning, and a second license signed 10 days from expiry correctly reports `expiresInDays: 10`. | 0 |
 
+| 2026-09-06 | **Phase 3 kicked off and completed in one pass**, scoped via a plan-mode design review before any code was written (per CLAUDE.md's financial-logic gate). Quantities are stored as integers in **thousandths of a unit** everywhere in the schema and in `@mhts/core-inventory`, mirroring the existing paise-not-float rule for money — same class of rounding bug, same fix. New tables: `unit_of_measure`, `warehouse`, `item`, `item_batch`, `stock_movement` (append-only, no UPDATE/DELETE — same convention as `audit_log`/`voucher_line`), `stock_receipt_layer` (the one genuinely stateful piece — FIFO cost-of-goods-sold is an ordered-consumption algorithm, not a derivable aggregate), and `stock_movement_layer_consumption` (records exactly which layer(s) a sale/transfer drew from, so a *future* reversal pass has the data to reverse precisely, without a backfill). Everything else (on-hand position, weighted-average cost) is derived on the fly, mirroring `computeLedgerBalances` — no cached balance table. | The Blueprint's Phase 3 line is one sentence with no further detail ("Items, units, warehouses, batches, valuation (FIFO/weighted avg)", exit criterion "Stock reports reconcile to accounting COGS") — the full design here is this session's own, built from how Phase 1/2 actually work (verified via code exploration) and pressure-tested by a dedicated design-review pass that caught two real defects before any code was written: a rounding bug (naive `qty*rate` exact-equality validation would reject ordinary fractional-quantity lines) and a data-integrity gap (invoice cancellation would silently desync stock from the ledger — see the cancellation-guard decision below). | 3 |
+| 2026-09-06 | **FIFO layer consumption absorbs its own rounding remainder**: `stock_receipt_layer.value_remaining_paise` is decremented by the *actual* rounded cost charged to each partial draw, but the draw that fully drains a layer charges whatever `value_remaining_paise` is left on it rather than a freshly-rounded `qty*rate` — verified end-to-end (a layer received at a non-round rate, drawn down across two separate issues, ends at exactly zero remaining value, never a stray paisa of drift). Weighted-average valuation needs no equivalent trick: it recomputes the average from full movement history on every issue rather than feeding a rounded average back into itself, so only one bounded rounding step happens per issue — verified not to compound across repeated partial issues. | Caught in design review before implementation: an exact-equality or naive-recompute approach would either reject legitimate fractional-quantity/fractional-rate lines (e.g. 0.333 kg at ₹1.50/kg = ₹49.95) or let a FIFO layer's total issued cost silently drift from what it actually cost to receive over many partial draws — both are real correctness bugs a manual click-through would be unlikely to catch. | 3 |
+| 2026-09-06 | **One-directional new package dependency: `core-sales-purchase` → `core-inventory`** (added to `core-sales-purchase/package.json`; no Nx boundary rule restricts core-to-core dependencies, confirmed before adding it). `DocumentLineInput` gained four optional fields (`itemId`, `warehouseId`, `quantityThousandths`, `ratePaise`, all-or-nothing together) plus batch fields — a line with no `itemId` validates and posts exactly as it did before this phase. A stockable purchase line's `ledgerId` is now REQUIRED to equal the well-known Stock-in-Hand ledger (new `seedInventoryLedgers`, called at company creation like `seedChartOfAccounts`) — enforced in `createPurchaseInvoiceInTransaction`, not left to user discipline. A stockable sales line leaves the user's chosen income ledger untouched (revenue recognition doesn't change) and instead appends ONE extra self-balancing `Dr Cost of Goods Sold / Cr Stock-in-Hand` voucher-line pair to the SAME voucher as the sale — invoice, stock movement, and COGS posting are one atomic transaction (Rule #4), never separate steps that could disagree if one failed partway. `convertSalesOrderToInvoice`/`convertPurchaseOrderToInvoice`'s hand-written line-mapper functions were updated to forward the four new fields — caught explicitly in design review as an easy-to-miss spot, since that mapper does not forward unknown fields, so a converted order would otherwise post its invoice successfully on the GL side while silently never moving stock or posting COGS. | This is the direction that made sense structurally (Sales/Purchase is a downstream consumer of the Inventory master + stock-posting functions, same relationship `core-sales-purchase` already has with `core-accounting`), and keeping the ledger-lock server-side (not just a UI convention) prevents a stockable purchase from ever accidentally posting to "Purchase Accounts" and silently breaking stock-to-GL reconciliation. Verified end-to-end: a stockable purchase line to the wrong ledger is rejected; a stockable sale posts one voucher containing the AR/Sales/tax lines AND the COGS pair, with the Stock-in-Hand ledger balance, COGS ledger balance, and item-level stock position all matching hand-calculated expected values; converting a sales order with an item line into an invoice correctly moves stock (proving the mapper fix). | 2, 3 |
+| 2026-09-06 | **Cancellation guard instead of full stock reversal**: cancelling a SALES_INVOICE/PURCHASE_INVOICE voucher that has any linked `stock_movement` row is now rejected outright (new `cancelSalesInvoice`/`cancelPurchaseInvoice` in `core-sales-purchase`, checking a new `hasStockMovementsForReference` in `core-inventory` before delegating to `core-accounting`'s existing generic `cancelVoucher`) — the Sales/Purchase Invoice Register screens now call these instead of the generic `cancelVoucher` IPC path. A plain (non-stockable) invoice cancels exactly as it always has. | Caught in design review as the single biggest gap in an earlier draft of this plan: `core-accounting`'s generic `cancelVoucher` knows nothing about stock — it would correctly reverse every GL line (including the COGS pair, since it's just more voucher lines) but has no way to un-consume FIFO layers or re-credit the stock position, silently leaving stock and the ledger disagreeing on the very first cancelled stockable invoice. Building full automatic reversal correctly (un-consuming layers, handling a purchase receipt that's already been partly issued to a customer) is a real, independently-testable piece of work — building it half-right would be worse than not building it, so this pass adds a hard, loud guard instead and tracks full reversal as an explicit Open Question. The schema already carries `stock_movement_layer_consumption` (which layer(s) a sale drew from) specifically so a future reversal pass won't need a data backfill. Verified end-to-end: cancelling a stock-linked sales invoice is rejected with a clear message; cancelling a plain invoice still works exactly as before. | 2, 3 |
+
 ## 3. Open Questions / Blockers
 
 Track anything unresolved so it surfaces automatically in the next session instead of being forgotten.
@@ -112,6 +117,14 @@ Track anything unresolved so it surfaces automatically in the next session inste
 - [ ] Phase 2: **194Q's buyer-turnover eligibility gate is not enforced** — the section only actually applies when the buyer's own preceding-year turnover exceeds Rs 10 crore, which isn't tracked anywhere on the Company record. Today the app will let a company apply 194Q regardless; the user must know not to select it if ineligible.
 - [ ] Phase 2: **Section 43B(h) MSME due date always assumes a 45-day cap**, never the 15-day fallback that applies when no written supplier agreement exists (this pass has no "agreement exists" flag on a party). A business without agreements in place will be under-flagged by the ageing report for invoices between day 16 and day 45.
 - [ ] Phase 2: **No vendor TDS Form 26Q/16A generation** — `purchase_invoice.tds_section`/`tds_amount` capture what's needed to build these later, but the actual quarterly-return/certificate generation isn't built. Natural to pair with GST's own GSTR prep work in Phase 4, or its own small pass once real invoice volume exists to test against.
+- [x] Phase 3: **Inventory** — **done 2026-09-06**, full Item/Unit/Warehouse/Batch master data, FIFO/weighted-average stock valuation, and Sales/Purchase invoice integration with COGS auto-posting (see Key Decisions Log for the full design). The items below are genuine, explicitly-scoped simplifications within that delivered scope, not oversights.
+- [ ] Phase 3: **No automatic stock reversal on invoice cancellation** — cancelling a SALES_INVOICE/PURCHASE_INVOICE voucher with any linked `stock_movement` is hard-blocked (new `cancelSalesInvoice`/`cancelPurchaseInvoice` guard) rather than un-consuming FIFO layers / re-crediting stock automatically. The schema already carries `stock_movement_layer_consumption` (which layer(s) a sale drew from) so building real reversal later won't need a data backfill — but until it's built, a stockable invoice posted in error can only be corrected with a manual stock adjustment + manual journal, not a clean cancel. Reversing a purchase receipt is additionally hard whenever some of its quantity has already been issued to a customer — that case needs an explicit business rule (e.g. block reversal, same as "a reversal voucher cannot itself be cancelled") when this is eventually built.
+- [ ] Phase 3: **No alternate unit-of-measure conversion** — one base unit per item (e.g. no "1 box = 12 pieces"). A business that buys in one unit and sells in another must currently pick one unit and convert manually outside the app.
+- [ ] Phase 3: **No automatic batch selection on issue** — a sale/adjustment/transfer of a batch-tracked item requires the user (or caller) to explicitly pick which existing batch to draw from; there's no FIFO-by-expiry or FIFO-by-receipt-date auto-selection across batches. `postSalesIssueInTransaction` throws if a batch-tracked item's line omits a `batchId`.
+- [ ] Phase 3: **Sales/Purchase Order lines carry item/quantity/rate but not batch fields** — `sales_order_line`/`purchase_order_line` gained `item_id`/`warehouse_id`/`quantity_thousandths`/`rate_paise` in migration 007, but no batch columns. Converting an order with a batch-tracked item line into an invoice will fail loudly at posting time (`postSalesIssueInTransaction`'s missing-batchId error) rather than silently — a real gap, but one that fails safely; a batch-tracked item is best sold via a direct invoice for now, not via order conversion.
+- [ ] Phase 3: **No automated test harness** — this phase introduced the first genuinely stateful, order-dependent algorithm in the codebase (FIFO layer consumption across partial issues and warehouse transfers). It was verified thoroughly this session via real end-to-end handler calls against a real encrypted company DB (rounding-remainder absorption, multi-layer spanning, batch isolation, insufficient-stock rollback, and the GL/stock reconciliation all independently checked and passing) — but manual end-to-end verification is poorly suited to catching a future regression in this specific math. A minimal `node:test`/`vitest` harness scoped to `core-inventory`'s FIFO/weighted-average functions would be a good investment before this logic is touched again (e.g. when building the deferred stock-reversal work above).
+- [ ] Phase 3: **Item/unit/warehouse list permissions are scoped to their own MANAGE_* permission** (`INVENTORY.MANAGE_ITEMS` etc.), not something broader like a dedicated "pick items for a document" permission — a custom role with only `SALES.CREATE_INVOICE` (no inventory permissions) cannot currently list items to put a stock line on an invoice. Not a problem for the seeded Admin role (which holds every permission), but worth revisiting once custom roles for non-admin staff (e.g. a sales-only role) become a real use case.
+- [ ] Incidental discovery, unrelated to Phase 3: `apps/desktop-shell/src/main/licenseHandlers.ts:49` fails `tsc --noEmit` (`Type 'string' is not assignable to type 'ValueExpression<SystemDatabase, "license_activation", never> | undefined'`) — confirmed via `git diff main` to be a pre-existing latent type error, not something this session's changes touched or introduced. The project's existing verification method (Vite/esbuild build + `eslint` + real end-to-end handler calls) never runs `tsc --noEmit` directly, so this was never caught before. Left unfixed since it's out of scope for this phase; worth a dedicated look next session.
 
 ---
 
@@ -131,6 +144,98 @@ Next concrete step:
 ```
 
 ### Entries:
+```
+Date: 2026-09-06 (session 11)
+Phase: 3 (Inventory) — kicked off AND completed in one session
+What was completed:
+  - User chose to start Phase 3 (offered alongside role deletion and a
+    disaster-recovery backup path as the other live options). Since this
+    phase touches financial logic (stock valuation feeding COGS postings),
+    used plan mode per CLAUDE.md: 3 parallel Explore agents mapped how
+    Phase 1/2 actually work (voucher engine, invoice-line shape, Electron
+    IPC/UI wiring conventions), then a dedicated design-review agent
+    pressure-tested the draft design BEFORE any code was written. That
+    review caught two real defects: (1) a rounding bug — naive exact-
+    equality validation of qty*rate vs. a line's amount would reject
+    ordinary fractional-quantity lines; (2) a data-integrity gap — invoice
+    cancellation would silently desync stock from the ledger, since
+    core-accounting's generic cancelVoucher has no idea stock movements
+    exist. Both were designed around before implementation, not discovered
+    by testing afterward.
+  - Built and verified in 4 stages, each checked end-to-end before the
+    next: (1) schema (migration 007) + Unit/Warehouse/Item/Batch master
+    data + permission/ledger seeding; (2) the standalone FIFO/weighted-
+    average stock engine (receipts, issues, opening stock, adjustments,
+    transfers, on-hand position reporting) with zero invoice wiring yet;
+    (3) Sales/Purchase invoice integration (stockable item lines move
+    stock and, on a sale, post a self-balancing COGS voucher-line pair on
+    the SAME atomic voucher) plus the cancellation guard; (4) UI — Manage
+    Units/Warehouses/Items, Record Opening Stock, Stock Adjustment, Stock
+    Transfer, Stock Summary, Stock Movement Register, a Stock Valuation vs
+    Ledger reconciliation view, and an item-picker mode added to the
+    shared DocumentLinesEditor (used by all 4 sales/purchase invoice/order
+    screens).
+  - Verified end-to-end at every stage via real throwaway scripts calling
+    the actual handler/core functions against a real encrypted company DB
+    (same precedent as every prior session) — NOT just build success.
+    Specifically checked and passing: multi-layer FIFO consumption with
+    exact rounding-remainder absorption (a layer received at a non-round
+    rate, drawn down across two issues, ends at precisely zero remaining
+    value); weighted-average costing's single bounded rounding step;
+    batch isolation (issuing from one batch never touches another);
+    insufficient-stock attempts throw and leave zero partial movement
+    (transaction rollback verified, not just the throw); stock
+    transfers preserving original FIFO received_at across warehouses
+    (destination issues drew the older-dated layer first); a stockable
+    purchase line rejected when posted to the wrong ledger; a stockable
+    sale posting one voucher with the AR/Sales/tax lines AND the COGS
+    pair, with Stock-in-Hand/COGS/Sales ledger balances and item-level
+    stock position all matching hand-calculated expectations; the
+    cancellation guard rejecting a stock-linked invoice while a plain
+    invoice still cancels exactly as before (regression check); and order-
+    to-invoice conversion correctly carrying item/quantity fields through
+    (validating the mapper fix the design review flagged).
+  - Also ran `tsc --noEmit` directly against desktop-shell's node and web
+    tsconfigs (not previously part of this project's verification routine,
+    which relies on Vite/esbuild build success + eslint + real e2e calls —
+    Vite does NOT type-check). This caught one real omission (ipc.ts's
+    renderer-facing VoucherType didn't include the new STOCK_ADJUSTMENT
+    voucher type) and separately surfaced one PRE-EXISTING, unrelated type
+    error in licenseHandlers.ts (confirmed via `git diff main` untouched by
+    this session) — left unfixed as out of scope, flagged in Open
+    Questions rather than silently ignored or silently fixed.
+What's still pending in this phase: nothing blocking; Phase 3 is complete
+  per the Blueprint's stated scope. Genuine, explicitly-scoped deferrals
+  (see Open Questions): no automatic stock reversal on invoice cancellation
+  (hard guard instead — the schema already carries what a future reversal
+  pass needs, no backfill required later); no alternate-UOM conversion; no
+  automatic batch selection on issue (caller must specify); Sales/Purchase
+  Order lines don't carry batch fields (converting a batch-tracked order
+  line fails loudly, not silently); no automated test harness for the
+  FIFO/weighted-average math; item/unit/warehouse list permissions are
+  scoped narrowly (fine for the seeded Admin role, a gap for a future
+  sales-only custom role).
+Any decisions made (also add to Section 2): all in Key Decisions Log —
+  quantity-as-thousandths-of-a-unit convention (mirrors paise-not-float for
+  money); FIFO remainder-absorption technique; one-directional
+  core-sales-purchase → core-inventory package dependency; cancellation-
+  guard-instead-of-full-reversal scope decision.
+Any blockers (also add to Section 3): none for this phase. The pre-existing
+  licenseHandlers.ts type error (unrelated, not introduced this session) is
+  noted in Open Questions for a future look. The standing sandboxed-
+  environment limitation continues to apply: the new UI screens are
+  verified only via real handler calls, not an actual mouse click — same
+  caveat as every module built so far.
+Next concrete step: Phase 4 (GST Engine) is next in Blueprint sequence —
+  the Phase Status Board flags "re-verify current GST slab rules before
+  starting." Phase 3's deferred items (stock reversal, alternate UOM,
+  auto-batch-selection) are the next most concrete Phase-3-adjacent gaps
+  if more inventory work is wanted instead. This session's work is on
+  branch `phase3/inventory-items-warehouses-valuation`, uncommitted as of
+  end of session — pending the user's go-ahead to commit and open a PR
+  (per CLAUDE.md git workflow), not yet requested.
+```
+
 ```
 Date: 2026-09-06 (session 10)
 Phase: 0 (Foundation follow-ups)
