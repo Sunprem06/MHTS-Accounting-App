@@ -25,7 +25,7 @@ Then paste the latest entry from the **Session Handoff Log** (Section 4 of this 
 | 4 | GST Engine | Rules engine, HSN/SAC, ITC, GSTR-1/3B/9/9C prep | ✅ Done | | Increment 1: versioned GST rate/HSN-SAC rules engine (via `core-rules-engine`, same mechanism as vendor TDS), CGST/SGST/IGST place-of-supply auto-split wired into Sales/Purchase invoices and orders, new `core-gst-engine` package, Manage GST Rates admin screen, and a GST Summary reconciliation report — verified end-to-end (18 checks), including the Blueprint's literal exit criterion (rate-change simulation, zero code changes). Same-day follow-up: expanded the 5-example seed into a ~54-code, 14-category general-purpose starter catalog plus a category-browse HSN/SAC picker (`GstHsnPicker`) — verified (12 more checks). Increment 2 (same session, user asked to "complete Phase 4"): Input Tax Credit eligibility (blocked credit folds into cost, not a recoverable asset), reverse charge (self-assessed Dr Input/Cr RCM-Liability pair excluded from the supplier's payable), composition scheme (company-level, forces zero output tax + zero ITC), a standard GST set-off algorithm (`computeGstSetOff`), and all four GSTR-1/3B/9/9C prep reports (CA-facing reference reports + CSV export, not GSTN-upload-schema-exact — a deliberate, confirmed scope choice) — verified end-to-end (27 more checks) plus a full regression re-run of both earlier suites (30 checks, zero regressions). Phase 4 is now functionally complete against the Blueprint's one-line scope; residual simplifications are tracked explicitly in Open Questions, not silently dropped. |
 | 5 | Banking | Accounts, reconciliation, cheque/UTR | ✅ Done | | New `bank_account` master (own dedicated ledger under the existing "Bank Accounts" group, atomic creation — same pattern as Phase 2's `createParty`), cheque/UTR/instrument tracking on Payment/Receipt/Contra vouchers (`voucher_payment_instrument`, one entry point `recordVoucherWithInstrument` degrading to a plain voucher post when no instrument), manual bank reconciliation (`bank_reconciliation`, a pure metadata/tracking layer that never touches `voucher`/`voucher_line`) with a reconciliation-statement report reusing Phase 1's `computeLedgerBalances`, and — per the user's explicit choice over manual-only — a real CSV bank-statement importer (`bank_statement_import`/`bank_statement_line`) with user-driven column mapping and paisa-exact, direction-aware auto-matching within a 7-day window (ambiguous/unmatched lines always left for manual resolution, never guessed). New pure-TS `core-banking` package, same `type:core` Nx boundary as every other module. Verified end-to-end (23 checks) against a real encrypted company DB, including the Blueprint's literal exit criterion (reconciliation statement ties to `computeLedgerBalances` to the paisa) and the CSV importer's direction-flip correctness (bank-statement CREDIT/DEBIT is the opposite sense of the ledger's own debit/credit on this asset account). Full workspace `lint`+`build` (14 projects, cache bypassed) clean. Not yet merged — on branch `phase5/banking`, pending user review. |
 | 6 | Expenses/Travel/Documents | Claims, reimbursements, attachments | ✅ Done | | New `employee` master (own dedicated liability ledger under a new "Employee Reimbursements Payable" group — atomic creation, same pattern as Phase 2's `createParty`). Expense claim lifecycle (DRAFT→SUBMITTED→APPROVED→REIMBURSED, with REJECTED and CANCELLED side paths) mirrors the existing sales/purchase order state-machine pattern: approval posts a real new `EXPENSE_CLAIM` voucher (Dr each line's expense ledger, Cr the employee's ledger — the accrual), reimbursement is a separate `PAYMENT` voucher settling the claim via a new `expense_claim_settlement` table (exact mirror of the existing bill-wise invoice settlement tables, partial reimbursement supported), and a new settlement-aware cancellation guard (no precedent elsewhere in this codebase) blocks cancelling a claim that already has any reimbursement recorded. Travel is just another expense-claim line category (no separate pre-trip advance workflow — confirmed scope choice). Generic, entity-agnostic document attachment (`core-documents`, brand-new package with zero dependency on `core-accounting`) stores files as BLOBs inside the encrypted company DB — the first blob column in this schema — so `backupCompany`'s existing whole-file copy needed zero changes; wired via a reusable `AttachmentsPanel` component into the Expense Claim register plus five other representative screens (Voucher Register, both invoice registers, Parties, Bank Accounts), and a standalone filename/description `DocumentSearchScreen`. Verified end-to-end (29 checks) against a real encrypted company DB, including a byte-for-byte blob round-trip and the full claim lifecycle's voucher Dr/Cr correctness. Full workspace `lint`+`build` (16 projects) clean. Not yet merged — on branch `phase6/expenses-travel-documents`, pending user review. |
-| 7 | Payroll | CTC, salary rules engine, attendance, leave, statutory, payslips | ⬜ Not started | | ⚠️ Re-verify Labour Code final rules before starting |
+| 7 | Payroll | CTC, salary rules engine, attendance, leave, statutory, payslips | ✅ Done | | Full scope in one pass (user's explicit choice over a GST-style increment split): employee payroll profile extends the existing Phase 6 `employee` table (DOB/DOJ/DOL, employment type, PAN, bank details, UAN/ESI numbers, a second dedicated "Salaries Payable" ledger separate from Phase 6's reimbursement ledger); CTC/salary-structure engine (`salary_component_definition`/`salary_structure`/`salary_structure_line`, FLAT/PCT_OF_BASIC/PCT_OF_CTC, append-only supersede-on-raise); the Labour Code's wage-definition cap (allowances above X% of total pay reclassified as wages, X itself RuleSet-driven) implemented in `core-payroll-engine/wageClassification.ts`; PF/ESI/PT/Salary-TDS(192, new-regime slabs; old regime is manual-entry-only by design) all resolved via `core-rules-engine`'s existing RuleSet mechanism, same pattern as GST/vendor-TDS; a new `company_payroll_settings` table with AUTO/ALWAYS/NEVER applicability per scheme (AUTO compares live headcount against the RuleSet threshold; PF needs 20+ employees, ESI/Gratuity need 10+, and Gratuity's AUTO is sticky — once crossed it flips to ALWAYS permanently, per real EPF/ESI/Gratuity Act headcount thresholds); attendance (bulk date-range marking, PRESENT-by-default) and leave (company-configurable leave types, apply/approve/reject, balance tracking) feeding Loss-of-Pay proration into payroll; a payroll run lifecycle (DRAFT→PROCESSED→POSTED) posting one balanced new `PAYROLL` voucher per run, disbursement mirroring Phase 6's settlement pattern exactly; and gratuity — both a formula-based (NOT actuarial AS-15/Ind AS-19) monthly provisioning accrual AND a separation eligibility/formula calculator with a true-up adjustment + direct settlement from the Gratuity Provision ledger (both "do both" per the user's explicit choice). New `core-payroll-engine` package (was an empty Phase-0 stub) and 15 new company-DB tables (migration 012). Verified end-to-end (76 checks, throwaway tsx script against a real encrypted company/system DB pair, deleted after) — including a rate-change simulation (swap PF's rate via a new RuleSet version, zero code change), the wage-cap reclassification's literal Section 3.2 test, headcount-driven applicability at 1/10/20 employees plus the sticky-gratuity-survives-a-headcount-drop case, LOP proration, a two-employee run with PF/ESI/PT/TDS all live and the posted voucher balancing to the paise, and the full gratuity lifecycle (fixed-term-eligible vs permanent-ineligible at the same tenure, provisioning, a zero-adjustment separation, settlement, and settlement correctly refused for an ineligible employee). **Verification caught and fixed a real deadlock bug**: `gratuityRecords.ts` was calling back into the outer `companyDb` handle from inside its own `companyDb.transaction()` callback (instead of using `trx`), which silently deadlocks Kysely's single-connection queue — the awaiting promise never resolves, and since nothing else keeps Node's event loop alive, the process exits silently with no error, no crash, exit code 0. Fixed by resolving ledger IDs before opening the transaction (same pattern `postPayrollRun` already used correctly); grepped the rest of the codebase for the same pattern and found no other occurrence. Full workspace `nx run-many -t build` and `-t lint` (16 projects) clean with cache bypassed; `tsc --noEmit` clean on both the renderer and main-process TS projects (only the pre-existing, already-documented `licenseHandlers.ts` latent error remains, untouched, out of scope). Not yet merged — on branch `phase7/payroll`, pending user review. |
 | 8 | Advanced ERP | Fixed assets (dual depreciation), cost centres, budgets, manufacturing, multi-currency, multi-branch | ⬜ Not started | | |
 | 9 | Print + Templates | Print Centre, native printing, PDF, template designer | ⬜ Not started | | |
 | 10 | Commercialization | Installer, updates, demo mode, setup wizard | ⬜ Not started | | |
@@ -120,6 +120,13 @@ Record every architectural or business decision here the moment it's made, so it
 | 2026-09-06 | **Reimbursement composes `core-accounting`'s `createVoucherInTransaction` + `core-banking`'s `attachPaymentInstrumentInTransaction` directly inside its own transaction, NOT via `core-banking`'s `recordVoucherWithInstrument`** — that function opens its own transaction and has no hook for inserting the `expense_claim_settlement` row, which must commit atomically with the voucher and the status flip (Rule #4). A Plan agent caught this during design validation (the original sketch assumed `recordVoucherWithInstrument` was directly reusable); confirmed by reading its actual implementation before building against it. | 6 |
 | 2026-09-06 | **Generic, entity-agnostic document attachment — new `core-documents` package, deliberately with zero dependency on `core-accounting`.** `document_attachment` has a free-string `entity_type`/`entity_id` pair (same convention as `audit_log.entity_type`), so any current or future record is attachable with zero schema changes — this is what actually satisfies "every transaction type can carry an attached document," not pre-wiring the UI onto every existing screen. Files are stored as BLOBs (`file_data`, the first `'blob'`-typed column in this schema) — confirmed working via a real byte-for-byte round-trip in the verification script, not assumed from general `better-sqlite3` knowledge. A generic `AttachmentsPanel` React component was wired into a representative set of screens (Expense Claim register, Voucher Register, both invoice registers, Parties, Bank Accounts) as an expandable per-row section; extending it to any further screen is the same few-line addition, tracked as a UI-completeness gap in Open Questions, not a missing capability. Search (`searchDocuments`) is a plain `LIKE` match over filename/description — explicitly NOT full-text content extraction or OCR. | 6 |
 
+| 2026-09-07 | **Phase 7 (Payroll) built in full scope in one pass — the user explicitly chose this over the GST-style Increment-1/Increment-2 split** offered as a recommended alternative. All of employee payroll profile, CTC/salary structure, statutory deductions (PF/ESI/PT/salary-TDS), attendance, leave, payroll runs, and gratuity shipped together. | 7 |
+| 2026-09-07 | **`employee` (Phase 6) is extended with payroll fields rather than duplicated** — resolves the gap Phase 6's own handoff flagged ("revisit once Phase 7's employee model exists"). A SECOND dedicated ledger, `salary_payable_ledger_id`, was added rather than reusing Phase 6's `ledger_account_id` (which stays scoped to expense reimbursements) — net salary payable and expense reimbursement are different economic obligations and would otherwise blend on one account. | 7 |
+| 2026-09-07 | **Statutory applicability (PF/ESI/Gratuity) is headcount-driven and RuleSet-configurable, not assumed-always-on** — directly answers a real user question mid-session ("do shops under 5 employees fall under this?"): no, PF needs 20+ employees, ESI/Gratuity need 10+ (both real EPF/ESI/Gratuity Act thresholds), and neither PT nor salary TDS has a headcount gate at all. New `company_payroll_settings` (AUTO/ALWAYS/NEVER per scheme) — AUTO compares live headcount against the RuleSet threshold; Gratuity's AUTO is sticky (flips to ALWAYS permanently once crossed, encoding the Payment of Gratuity Act's own "once covered, stays covered" rule) so a later headcount drop can't silently turn it back off. | 7 |
+| 2026-09-07 | **Salary TDS (Section 192): new-regime slabs are auto-computed from a RuleSet table; old regime is deliberately manual-entry-only, not auto-computed with a wrong number.** The user asked for "both" regimes supported — new regime has almost no exemptions to model, so a slab computation from gross salary alone stays meaningfully accurate; old regime depends on HRA actually paid, 80C/80D investments, home-loan interest, none of which this schema collects, so inventing a number would be actively misleading rather than a reasonable simplification (unlike GST's simplifications, which stay directionally correct). Either way the figure is user-overridable per payslip (`overridePayslipTdsAmount`). | 7 |
+| 2026-09-07 | **Gratuity: both a monthly formula-based provisioning accrual AND a separation eligibility/formula calculator were built (user's explicit "do both")** — clearly labeled everywhere as a formula estimate (15/26 × last-drawn statutory wage base × rounded years of service), NOT an actuarial AS-15/Ind AS-19 valuation. Settlement pays directly out of the Gratuity Provision ledger (Dr Provision, Cr payment ledger) rather than through the employee's salary-payable ledger, since `recordSeparation`'s true-up adjustment voucher already reconciles the provision to exactly the formula amount owed before settlement runs. | 7 |
+| 2026-09-07 | **Real deadlock bug found and fixed during verification**: `gratuityRecords.ts` called back into the outer `companyDb` handle from inside its own `companyDb.transaction()` callback (should have used `trx`) — this silently deadlocks Kysely's single-connection queue (the transaction holds the only connection; the nested query waits forever for one that will never free up). The awaiting promise never resolves, and since nothing else keeps Node's event loop alive, the process just exits silently — no crash, no error, no stack trace, exit code 0 — which is exactly why it wasn't caught by `build`/`lint` and needed a real end-to-end run to surface. Fixed by resolving ledger IDs before opening the transaction, the same pattern `postPayrollRun` already used correctly; grepped the rest of the codebase for the same anti-pattern and found no other occurrence. Worth remembering as a class of bug for future core-* work: never call the outer `Kysely` handle from inside its own open transaction's callback. | 7 |
+
 ## 3. Open Questions / Blockers
 
 Track anything unresolved so it surfaces automatically in the next session instead of being forgotten.
@@ -180,7 +187,17 @@ Track anything unresolved so it surfaces automatically in the next session inste
 - [ ] Phase 6: **Travel has no separate pre-trip advance/disbursement workflow** (confirmed scope choice) — a future pass would need its own "advance to employee" ledger and a settle-against-advance mechanism, materially different from the after-the-fact reimbursement flow built here.
 - [ ] Phase 6: **Document search is filename/description substring match only** — no OCR or full-text content extraction from the attached files themselves (confirmed out of scope).
 - [ ] Phase 6: **`AttachmentsPanel` is wired into a representative set of screens (Expense Claim register, Voucher Register, both invoice registers, Parties, Bank Accounts), not literally every transaction-type screen** — the generic capability (any `entity_type`/`entity_id` pair is attachable with zero schema changes) satisfies the exit criterion; extending the UI to remaining screens is the same few-line addition, tracked as incremental follow-up, not a missing capability.
-- [ ] Phase 6: **No employee self-service / login concept** — an expense claim's `employeeId` is independent of the system's `AppUser`/login identity; an employee doesn't need an app account to be reimbursed, and today only an already-logged-in user (with `EXPENSE.CREATE_CLAIM`) files a claim on their behalf. Revisit once Phase 7 Payroll's employee model (and any self-service login) exists.
+- [x] Phase 6: **No employee self-service / login concept** — Phase 7's employee model is now built (payroll profile extends the same `employee` table), but employee self-service login itself was NOT in Phase 7's Blueprint one-liner and remains genuinely out of scope — still no `AppUser` link for an employee; every payroll action (leave application included) is filed by an already-logged-in staff member on the employee's behalf, not by the employee themselves.
+- [ ] Phase 7: **PCT_OF_BASIC resolves against "the sum of already-flagged-wage-base FLAT/PCT_OF_CTC components,"** not a specifically-designated "Basic" component — this schema has no separate "designate this one component as Basic" concept. Works correctly as long as a company's actual Basic component is flagged `isStatutoryWageBase` and defined as FLAT or PCT_OF_CTC (the normal case), but a company that defines Basic itself as PCT_OF_BASIC of something else would get an unexpected result. Documented in `salaryStructure.ts`, not silently assumed.
+- [ ] Phase 7: **No admin UI for editing/deleting a salary component once created**, and no way to remove a component from an employee's structure individually — only a full re-`assignSalaryStructure` (which reapplies every active component) revises anything. A company that mis-configures a component must deactivate it (no deactivate toggle exists either yet) rather than fix it in place.
+- [ ] Phase 7: **Leave entitlement is a flat annual number granted upfront each financial year**, not accrued month-by-month and not pro-rated for a mid-year joiner. A company with a strict monthly-accrual leave policy will see a new joiner's balance over-stated until their first full year.
+- [ ] Phase 7: **No half-day leave applications** — `leave_application.days` is always a whole-day count; only attendance's own HALF_DAY status (a direct attendance mark, not a leave application) introduces a fractional (tenths-of-a-day) LOP adjustment.
+- [ ] Phase 7: **TDS regime is a company-wide setting, not per-employee** — a company where some employees choose the old regime and others the new (allowed under current law, employee's own annual choice) isn't modeled; today one regime setting applies to everyone on that company's payroll.
+- [ ] Phase 7: **194Q-style buyer/company-level eligibility gates don't exist for payroll** (unlike Phase 2's flagged 194Q gap) — PF/ESI/Gratuity applicability is headcount-only; a business exempted for some OTHER statutory reason (e.g. specific industry carve-outs) has no override beyond the existing ALWAYS/NEVER company settings, which do cover that case manually.
+- [ ] Phase 7: **No Form 16/Form 24Q generation** — same deliberate deferral pattern as Phase 2's vendor 26Q/16A gap; `payslip`/`payslip_line` capture what's needed to build these later, but the actual annual TDS certificate/return generation isn't built.
+- [ ] Phase 7: **No PF/ESI government e-filing (ECR/challan) integration** — PF/ESI/PT amounts are correctly computed and posted to their own payable ledgers, but remitting them to the actual government portal and recording the challan reference is a manual step outside the app today, same scoping as GST's own "prep reports, not upload-ready files" deferral.
+- [ ] Phase 7: **Existing (pre-Phase-7) companies don't get Payroll permissions/ledgers/settings retroactively** — `grantPayrollPermissions`/`seedPayrollLedgers`/`seedDefaultCompanyPayrollSettings` only run at NEW company creation, the same characteristic every prior module's additions have had.
+- [ ] Phase 7: **`ManagePayrollRulesScreen` uses a raw JSON payload editor** rather than six bespoke forms for the six different rule-payload shapes (PF/ESI/PT/wage-cap/gratuity-eligibility/TDS-slab) — a deliberate scope choice for an admin-only screen (amounts must be entered in paise), same underlying gap Phase 2 flagged ("no admin UI for rate versions... worth solving once, generically, rather than three times per-module") — still not solved generically, now present a third time (TDS/GST/Payroll).
 
 ---
 
@@ -200,6 +217,115 @@ Next concrete step:
 ```
 
 ### Entries:
+```
+Date: 2026-09-07 (session 18)
+Phase: 7 (Payroll) — kicked off and completed in one pass
+What was completed:
+  - User said "Start Phase 7" — read this file's Phase Status Board (Phase 6
+    merged via PR #14, Phase 7 next per the Blueprint sequence) and the
+    Blueprint's Phase 7 one-liner + Section 3.2 (the rules-as-data
+    requirement for the salary/wage formula layer).
+  - Explored the existing employee model (Phase 6's `employee` table — bare
+    code/name/department/ledger, flagged by that session's own handoff as
+    needing revisit once Payroll's model exists), core-rules-engine's
+    RuleSet mechanism (already generic — GST rates and vendor TDS both
+    already consume it, so Payroll needed zero new mechanism, only new
+    payloads), and confirmed `core-payroll-engine` existed only as an empty
+    Phase-0 stub.
+  - Used plan mode (financial-logic gate): surfaced three real scope forks
+    via AskUserQuestion before drafting a plan — (1) split into GST-style
+    Increment-1/Increment-2 vs. build the full scope in one pass — user
+    chose the full pass (not the recommended split); (2) gratuity scope
+    (eligibility/formula calculator only vs. also monthly provisioning) —
+    user chose "do both"; (3) salary TDS scope (new-regime slab estimator
+    only vs. also old-regime, vs. manual-only) — user chose "create both",
+    while also asking directly whether shops under 5 employees are even
+    subject to these schemes. Answered that directly in the plan's Context
+    section (PF needs 20+ employees, ESI/Gratuity need 10+, PT/TDS have no
+    headcount gate at all — all real EPF/ESI/Gratuity Act thresholds) and
+    built it into the design as RuleSet-configurable, headcount-compared
+    applicability rather than assuming payroll always applies.
+  - Built (see Key Decisions Log for the full design): `employee` extended
+    in-place with payroll fields + a second `salary_payable_ledger_id`
+    (kept separate from Phase 6's reimbursement ledger); new
+    `core-payroll-engine` package (types, permissions, ledgers,
+    company-payroll-settings, applicability, wage classification — the
+    literal 50%-allowance-cap-reclassification implementation, PF/ESI/PT/
+    salary-TDS pure compute functions, gratuity eligibility/formula/
+    provisioning math, employees/salaryComponents/salaryStructure/leave/
+    attendance/payrollRun/gratuityRecords DB-facing modules); new company-DB
+    migration 012_payroll.ts (15 new tables + the employee ALTER); two new
+    `VOUCHER_TYPES` (`PAYROLL`, `GRATUITY_PROVISION`); ~30 new IPC channels
+    (`payrollHandlers.ts`, `ipc.ts`, `main/index.ts`, `preload/index.ts`,
+    all following the established requireSessionWithCompanyDb + paise<->
+    rupee-at-the-boundary pattern exactly); 9 new renderer screens
+    (EmployeePayrollProfileScreen, SalaryComponentsScreen,
+    SalaryStructureScreen, PayrollSettingsScreen, ManagePayrollRulesScreen,
+    AttendanceScreen, LeaveScreen, PayrollRunScreen, GratuityScreen), wired
+    into App.tsx/DashboardScreen.tsx behind new PAYROLL.* permissions.
+  - Verified end-to-end (76 checks, throwaway tsx script run from repo root
+    against a real encrypted system+company DB pair, deleted after): every
+    pure compute function against hand-verified numbers (including a full
+    progressive-slab TDS calculation with cess), a rate-change simulation
+    for PF (zero code change), the wage-cap reclassification's literal
+    Section 3.2 test, applicability at headcount 1/10/20 plus the
+    sticky-gratuity-survives-a-headcount-drop case, LOP-prorated payroll
+    with a zero-deduction payslip, a two-employee run with PF/ESI/PT/TDS
+    all live where the posted voucher's Dr and Cr totals were independently
+    hand-computed and matched to the paise, salary-structure revision being
+    append-only (2 rows, one ACTIVE one SUPERSEDED), and the full gratuity
+    lifecycle (fixed-term-eligible vs. permanent-ineligible at identical
+    400-days tenure, a provisioning run, a same-tenure separation correctly
+    producing a zero true-up adjustment, settlement, and settlement
+    correctly refused for an ineligible employee).
+  - **Verification caught and fixed a real deadlock bug** (not a logic bug —
+    a hang): `gratuityRecords.ts`'s `runGratuityProvisioning` and
+    `recordSeparation` both called `getPayrollLedgerIds(companyDb)` — the
+    OUTER handle — from inside their own `companyDb.transaction()`
+    callback, instead of using `trx`. This deadlocks Kysely's
+    single-connection queue (the transaction holds the only connection; the
+    nested call waits forever for one that will never free up) — and
+    because nothing else was keeping Node's event loop alive, the process
+    just exited silently with no crash, no thrown error, no stack trace,
+    exit code 0, right after printing the section header and before any of
+    that section's checks ran. This is exactly why `build`/`lint` never
+    caught it and a real end-to-end run was needed. Fixed by resolving
+    ledger IDs before opening the transaction (the pattern `postPayrollRun`
+    already used correctly); grepped every other `companyDb.transaction()`
+    block in every core-* package for the same anti-pattern and found no
+    other occurrence.
+  - Full workspace `nx run-many -t build` and `-t lint` (16 projects) clean
+    with the Nx cache bypassed on both. Additionally ran `tsc --noEmit`
+    directly against both the desktop-shell renderer and main-process TS
+    projects (something this codebase's own verification method normally
+    skips, per a standing Open Question since Phase 3) — clean except the
+    already-documented, pre-existing `licenseHandlers.ts` latent error,
+    confirmed untouched by this session's diff.
+What's still pending in this phase: functionally complete against the
+  Blueprint's one-line scope, full pass as the user chose. Explicit, flagged
+  (not silent) simplifications — see Open Questions: PCT_OF_BASIC resolves
+  against flagged-wage-base components rather than a designated "Basic"
+  component; no salary-component edit/delete UI; leave entitlement is a flat
+  annual grant, not accrued or pro-rated; no half-day leave applications; TDS
+  regime is company-wide, not per-employee; no Form 16/24Q generation; no
+  PF/ESI e-filing integration; no retroactive permissions/ledgers for
+  pre-existing companies (same characteristic every prior module has had);
+  the payroll-rules admin screen uses a raw JSON payload editor (the
+  generic-rule-admin-UI gap Phase 2 first flagged, now present a third time).
+Any decisions made (also add to Section 2): see Key Decisions Log entries
+  dated 2026-09-07 — full-scope-in-one-pass, employee-table extension +
+  second ledger, headcount-driven RuleSet-configurable applicability with
+  sticky gratuity, new-regime-auto/old-regime-manual TDS, both gratuity
+  calculators, and the deadlock bug/fix.
+Any blockers (also add to Section 3): none. All Open Questions added this
+  session are flagged simplifications, not blockers.
+Next concrete step: this session's work is on a new branch
+  (phase7/payroll, off `main` which already has Phase 6 fully merged), not
+  yet committed/PR'd as of end of session, pending the user's go-ahead to
+  commit and open the PR. Phase 8 (Advanced ERP: fixed assets with dual
+  depreciation, cost centres, budgets, manufacturing, multi-currency,
+  multi-branch) is next per the Blueprint sequence once Phase 7 is reviewed
+  and merged.
 ```
 Date: 2026-09-06 (session 17)
 Phase: 6 (Expenses, Travel, Documents) — kicked off and completed in one pass

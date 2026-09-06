@@ -438,6 +438,204 @@ export interface EmployeeTable {
   ledger_account_id: string;
   is_active: ColumnType<boolean, boolean | number, boolean | number>;
   created_at: ColumnType<string, string | undefined, never>;
+  /** Phase 7 (Payroll) — payroll profile fields added onto the same identity Phase 6 anchored, not a new employee concept. */
+  date_of_birth: string | null;
+  date_of_joining: string | null;
+  date_of_leaving: string | null;
+  /** 'PERMANENT' | 'FIXED_TERM' | 'CONTRACTUAL' | 'CONSULTANT' — see @mhts/core-payroll-engine. Drives gratuity's 1yr-vs-5yr eligibility rule. */
+  employment_type: string | null;
+  pan: string | null;
+  bank_account_number: string | null;
+  bank_ifsc: string | null;
+  uan: string | null;
+  esi_number: string | null;
+  /** DB default 0 — optional on insert so Phase 6's existing createEmployee (which never set this) still type-checks. */
+  pf_voluntary_opt_out: ColumnType<boolean, boolean | number | undefined, boolean | number>;
+  /** A SECOND dedicated ledger, distinct from ledger_account_id (which stays scoped to expense reimbursements) — under "Salaries Payable". Null until a salary structure is first assigned. */
+  salary_payable_ledger_id: string | null;
+}
+
+export interface CompanyPayrollSettingsTable {
+  id: string;
+  /** 'AUTO' | 'ALWAYS' | 'NEVER' — see @mhts/core-payroll-engine's applicability.ts. */
+  pf_applicability: string;
+  esi_applicability: string;
+  gratuity_applicability: string;
+  pt_jurisdiction: string | null;
+  /** 'NEW' | 'OLD'. */
+  tds_regime: string;
+  updated_at: ColumnType<string, string | undefined, string | undefined>;
+}
+
+export interface SalaryComponentDefinitionTable {
+  id: string;
+  name: string;
+  /** 'EARNING' | 'DEDUCTION'. */
+  component_type: string;
+  /** 'FLAT' | 'PCT_OF_BASIC' | 'PCT_OF_CTC'. */
+  calculation_type: string;
+  /** Paise. Set only when calculation_type = 'FLAT'. */
+  flat_amount_paise: number | null;
+  /** Basis points (e.g. 4000 = 40.00%). Set only for the PCT_* calculation types. */
+  percent_basis_points: number | null;
+  is_statutory_wage_base: ColumnType<boolean, boolean | number, boolean | number>;
+  display_order: number;
+  /** Null defaults to the shared "Salaries & Wages" ledger. */
+  expense_ledger_id: string | null;
+  is_active: ColumnType<boolean, boolean | number, boolean | number>;
+  created_at: ColumnType<string, string | undefined, never>;
+}
+
+export interface SalaryStructureTable {
+  id: string;
+  employee_id: string;
+  effective_from: string;
+  effective_to: string | null;
+  /** Paise. */
+  annual_ctc: number;
+  /** 'ACTIVE' | 'SUPERSEDED'. */
+  status: string;
+  created_by: string | null;
+  created_at: ColumnType<string, string | undefined, never>;
+}
+
+export interface SalaryStructureLineTable {
+  id: string;
+  salary_structure_id: string;
+  component_id: string;
+  /** Paise. Resolved and frozen at structure-creation time. */
+  monthly_amount: number;
+}
+
+export interface LeaveTypeTable {
+  id: string;
+  name: string;
+  is_paid: ColumnType<boolean, boolean | number, boolean | number>;
+  annual_entitlement_days: number;
+  is_active: ColumnType<boolean, boolean | number, boolean | number>;
+}
+
+export interface LeaveApplicationTable {
+  id: string;
+  employee_id: string;
+  leave_type_id: string;
+  from_date: string;
+  to_date: string;
+  days: number;
+  /** 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED'. */
+  status: string;
+  reason: string | null;
+  approved_by: string | null;
+  created_at: ColumnType<string, string | undefined, never>;
+}
+
+export interface LeaveBalanceTable {
+  id: string;
+  employee_id: string;
+  leave_type_id: string;
+  financial_year: string;
+  opening_balance_days: number;
+  accrued_days: number;
+  availed_days: number;
+}
+
+export interface AttendanceRecordTable {
+  id: string;
+  employee_id: string;
+  attendance_date: string;
+  /** 'PRESENT' | 'ABSENT' | 'HALF_DAY' | 'ON_LEAVE' | 'HOLIDAY' | 'WEEKLY_OFF'. */
+  status: string;
+  leave_application_id: string | null;
+  created_at: ColumnType<string, string | undefined, never>;
+}
+
+export interface PayrollRunTable {
+  id: string;
+  financial_year: string;
+  period_month: number;
+  period_year: number;
+  /** 'DRAFT' | 'PROCESSED' | 'POSTED' | 'CANCELLED'. */
+  status: string;
+  /** The one balanced 'PAYROLL' voucher for the whole run — set at POSTED time. */
+  voucher_id: string | null;
+  processed_at: string | null;
+  posted_at: string | null;
+  created_by: string | null;
+  created_at: ColumnType<string, string | undefined, never>;
+}
+
+export interface PayslipTable {
+  id: string;
+  payroll_run_id: string;
+  employee_id: string;
+  /** Tenths of a day (e.g. 305 = 30.5 days) — see migration 012's doc comment. */
+  paid_days: number;
+  lop_days: number;
+  /** Paise. */
+  gross_earnings: number;
+  total_deductions: number;
+  /** Paise. Informational only — not deducted from net pay. */
+  employer_contributions: number;
+  net_pay: number;
+  created_at: ColumnType<string, string | undefined, never>;
+}
+
+export interface PayslipLineTable {
+  id: string;
+  payslip_id: string;
+  /** 'EARNING' | 'DEDUCTION' | 'EMPLOYER_CONTRIBUTION'. */
+  line_type: string;
+  label: string;
+  component_id: string | null;
+  /** Paise. */
+  amount: number;
+}
+
+export interface PayslipSettlementTable {
+  id: string;
+  payslip_id: string;
+  /** The PAYMENT voucher disbursing this amount to the employee. */
+  voucher_id: string;
+  amount_applied: number;
+  created_at: ColumnType<string, string | undefined, never>;
+}
+
+export interface GratuityProvisionRunTable {
+  id: string;
+  period_year: number;
+  period_month: number;
+  voucher_id: string | null;
+  created_at: ColumnType<string, string | undefined, never>;
+}
+
+export interface GratuityProvisionLineTable {
+  id: string;
+  gratuity_provision_run_id: string;
+  employee_id: string;
+  days_of_service_snapshot: number;
+  /** Paise. */
+  provisioned_amount: number;
+  cumulative_provision_after: number;
+}
+
+export interface GratuityRecordTable {
+  id: string;
+  employee_id: string;
+  separation_date: string;
+  is_eligible: ColumnType<boolean, boolean | number, boolean | number>;
+  eligibility_reason: string;
+  years_of_service_days: number;
+  /** Paise. Formula estimate (15/26 x last-drawn wage-base x years of service) — not an actuarial valuation. */
+  formula_amount: number;
+  cumulative_provision_at_separation: number;
+  /** Paise. Positive = top-up booked before settlement; negative = release of excess provision. */
+  adjustment_amount: number;
+  adjustment_voucher_id: string | null;
+  settlement_voucher_id: string | null;
+  /** 'DRAFT' | 'SETTLED'. */
+  status: string;
+  created_by: string | null;
+  created_at: ColumnType<string, string | undefined, never>;
 }
 
 export interface ExpenseClaimTable {
@@ -528,4 +726,19 @@ export interface CompanyDatabase {
   expense_claim_line: ExpenseClaimLineTable;
   expense_claim_settlement: ExpenseClaimSettlementTable;
   document_attachment: DocumentAttachmentTable;
+  company_payroll_settings: CompanyPayrollSettingsTable;
+  salary_component_definition: SalaryComponentDefinitionTable;
+  salary_structure: SalaryStructureTable;
+  salary_structure_line: SalaryStructureLineTable;
+  leave_type: LeaveTypeTable;
+  leave_application: LeaveApplicationTable;
+  leave_balance: LeaveBalanceTable;
+  attendance_record: AttendanceRecordTable;
+  payroll_run: PayrollRunTable;
+  payslip: PayslipTable;
+  payslip_line: PayslipLineTable;
+  payslip_settlement: PayslipSettlementTable;
+  gratuity_provision_run: GratuityProvisionRunTable;
+  gratuity_provision_line: GratuityProvisionLineTable;
+  gratuity_record: GratuityRecordTable;
 }

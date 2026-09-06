@@ -56,6 +56,15 @@ import { NewExpenseClaimScreen } from './screens/NewExpenseClaimScreen';
 import { ExpenseClaimRegisterScreen } from './screens/ExpenseClaimRegisterScreen';
 import { OutstandingReimbursementsScreen } from './screens/OutstandingReimbursementsScreen';
 import { DocumentSearchScreen } from './screens/DocumentSearchScreen';
+import { EmployeePayrollProfileScreen } from './screens/EmployeePayrollProfileScreen';
+import { SalaryComponentsScreen } from './screens/SalaryComponentsScreen';
+import { SalaryStructureScreen } from './screens/SalaryStructureScreen';
+import { PayrollSettingsScreen } from './screens/PayrollSettingsScreen';
+import { ManagePayrollRulesScreen } from './screens/ManagePayrollRulesScreen';
+import { AttendanceScreen } from './screens/AttendanceScreen';
+import { LeaveScreen } from './screens/LeaveScreen';
+import { PayrollRunScreen } from './screens/PayrollRunScreen';
+import { GratuityScreen } from './screens/GratuityScreen';
 
 type View =
   | { name: 'loading' }
@@ -113,7 +122,16 @@ type View =
   | { name: 'newExpenseClaim' }
   | { name: 'expenseClaimRegister' }
   | { name: 'outstandingReimbursements' }
-  | { name: 'documentSearch' };
+  | { name: 'documentSearch' }
+  | { name: 'employeePayrollProfile' }
+  | { name: 'salaryComponents' }
+  | { name: 'salaryStructure' }
+  | { name: 'payrollSettings' }
+  | { name: 'managePayrollRules' }
+  | { name: 'attendance' }
+  | { name: 'leave' }
+  | { name: 'payrollRuns' }
+  | { name: 'gratuity' };
 
 export function App() {
   return (
@@ -441,6 +459,42 @@ function AppRoutes() {
     return <DocumentSearchScreen onBack={() => setView({ name: 'dashboard' })} />;
   }
 
+  if (view.name === 'employeePayrollProfile') {
+    return <EmployeePayrollProfileScreen session={session!} onBack={() => setView({ name: 'dashboard' })} />;
+  }
+
+  if (view.name === 'salaryComponents') {
+    return <SalaryComponentsScreen session={session!} onBack={() => setView({ name: 'dashboard' })} />;
+  }
+
+  if (view.name === 'salaryStructure') {
+    return <SalaryStructureScreen session={session!} onBack={() => setView({ name: 'dashboard' })} />;
+  }
+
+  if (view.name === 'payrollSettings') {
+    return <PayrollSettingsScreen session={session!} onBack={() => setView({ name: 'dashboard' })} />;
+  }
+
+  if (view.name === 'managePayrollRules') {
+    return <ManagePayrollRulesScreen session={session!} onBack={() => setView({ name: 'dashboard' })} />;
+  }
+
+  if (view.name === 'attendance') {
+    return <AttendanceScreen session={session!} onBack={() => setView({ name: 'dashboard' })} />;
+  }
+
+  if (view.name === 'leave') {
+    return <LeaveScreen session={session!} onBack={() => setView({ name: 'dashboard' })} />;
+  }
+
+  if (view.name === 'payrollRuns') {
+    return <PayrollRunScreen session={session!} onBack={() => setView({ name: 'dashboard' })} />;
+  }
+
+  if (view.name === 'gratuity') {
+    return <GratuityScreen session={session!} onBack={() => setView({ name: 'dashboard' })} />;
+  }
+
   return (
     <DashboardScreen
       session={session!}
@@ -491,6 +545,15 @@ function AppRoutes() {
       onExpenseClaimRegister={() => setView({ name: 'expenseClaimRegister' })}
       onOutstandingReimbursements={() => setView({ name: 'outstandingReimbursements' })}
       onDocumentSearch={() => setView({ name: 'documentSearch' })}
+      onEmployeePayrollProfile={() => setView({ name: 'employeePayrollProfile' })}
+      onSalaryComponents={() => setView({ name: 'salaryComponents' })}
+      onSalaryStructure={() => setView({ name: 'salaryStructure' })}
+      onPayrollSettings={() => setView({ name: 'payrollSettings' })}
+      onManagePayrollRules={() => setView({ name: 'managePayrollRules' })}
+      onAttendance={() => setView({ name: 'attendance' })}
+      onLeave={() => setView({ name: 'leave' })}
+      onPayrollRuns={() => setView({ name: 'payrollRuns' })}
+      onGratuity={() => setView({ name: 'gratuity' })}
       onLogout={async () => {
         await window.mhts.logout();
         setSession(null);

@@ -2,6 +2,7 @@ import { join } from 'node:path';
 import { app, BrowserWindow, ipcMain } from 'electron';
 import { seedDefaultTdsRates } from '@mhts/core-sales-purchase';
 import { seedDefaultGstRates } from '@mhts/core-gst-engine';
+import { seedDefaultPayrollRules } from '@mhts/core-payroll-engine';
 import { resolveAppPaths, openAndMigrateSystemDb } from './db';
 import {
   listCompanies,
@@ -103,6 +104,39 @@ import {
   listOutstandingReimbursements,
 } from './expenseHandlers';
 import { pickAttachmentFile, uploadDocument, listDocumentsForEntity, downloadDocument, deleteDocument, searchDocuments } from './documentHandlers';
+import {
+  listEmployeePayrollProfiles,
+  updateEmployeePayrollProfile,
+  createSalaryComponent,
+  listSalaryComponents,
+  assignSalaryStructure,
+  listSalaryStructuresForEmployee,
+  getCompanyPayrollSettings,
+  updateCompanyPayrollSettings,
+  createOrUpdatePayrollRule,
+  listActivePayrollRules,
+  listPayrollRuleVersions,
+  createLeaveType,
+  listLeaveTypes,
+  applyLeave,
+  listLeaveApplications,
+  approveLeave,
+  rejectLeave,
+  listLeaveBalances,
+  markAttendance,
+  listAttendanceForEmployee,
+  createPayrollRun,
+  processPayrollRun,
+  overridePayslipTds,
+  getPayrollRun,
+  listPayrollRuns,
+  postPayrollRun,
+  disbursePayslip,
+  runGratuityProvisioning,
+  recordSeparation,
+  settleGratuity,
+  listGratuityRecords,
+} from './payrollHandlers';
 import { session } from './session';
 import {
   IPC,
@@ -155,6 +189,22 @@ import {
   type UploadDocumentInput,
   type SearchDocumentsInput,
   type ListDocumentsForEntityInput,
+  type UpdateEmployeePayrollProfileInput,
+  type SalaryComponentDefinitionInput,
+  type AssignSalaryStructureInput,
+  type UpdateCompanyPayrollSettingsInput,
+  type CreateOrUpdatePayrollRuleInput,
+  type LeaveTypeInput,
+  type ApplyLeaveInput,
+  type RejectLeaveInput,
+  type ListAttendanceForEmployeeInput,
+  type MarkAttendanceInput,
+  type CreatePayrollRunInput,
+  type OverridePayslipTdsInput,
+  type DisbursePayslipInput,
+  type RunGratuityProvisioningInput,
+  type RecordSeparationInput,
+  type SettleGratuityInput,
 } from '../shared/ipc';
 
 function handle<T>(channel: string, fn: () => Promise<T>): void {
@@ -187,6 +237,7 @@ async function bootstrap(): Promise<void> {
   // never per-company (createCompany must not re-seed/duplicate/version-bump this).
   await seedDefaultTdsRates(systemDb);
   await seedDefaultGstRates(systemDb);
+  await seedDefaultPayrollRules(systemDb);
 
   handle(IPC.LIST_COMPANIES, () => listCompanies(systemDb));
   handleWithArg(IPC.CREATE_COMPANY, (input: CreateCompanyInput) => createCompany(systemDb, paths, input));
@@ -310,6 +361,38 @@ async function bootstrap(): Promise<void> {
   handleWithArg(IPC.DOWNLOAD_DOCUMENT, (documentId: string) => downloadDocument(documentId));
   handleWithArg(IPC.DELETE_DOCUMENT, (documentId: string) => deleteDocument(documentId));
   handleWithArg(IPC.SEARCH_DOCUMENTS, (input: SearchDocumentsInput) => searchDocuments(input));
+
+  handle(IPC.LIST_EMPLOYEE_PAYROLL_PROFILES, () => listEmployeePayrollProfiles());
+  handleWithArg(IPC.UPDATE_EMPLOYEE_PAYROLL_PROFILE, (input: UpdateEmployeePayrollProfileInput) => updateEmployeePayrollProfile(input));
+  handleWithArg(IPC.CREATE_SALARY_COMPONENT, (input: SalaryComponentDefinitionInput) => createSalaryComponent(input));
+  handle(IPC.LIST_SALARY_COMPONENTS, () => listSalaryComponents());
+  handleWithArg(IPC.ASSIGN_SALARY_STRUCTURE, (input: AssignSalaryStructureInput) => assignSalaryStructure(input));
+  handleWithArg(IPC.LIST_SALARY_STRUCTURES_FOR_EMPLOYEE, (employeeId: string) => listSalaryStructuresForEmployee(systemDb, employeeId));
+  handle(IPC.GET_COMPANY_PAYROLL_SETTINGS, () => getCompanyPayrollSettings(systemDb));
+  handleWithArg(IPC.UPDATE_COMPANY_PAYROLL_SETTINGS, (input: UpdateCompanyPayrollSettingsInput) => updateCompanyPayrollSettings(input));
+  handleWithArg(IPC.CREATE_OR_UPDATE_PAYROLL_RULE, (input: CreateOrUpdatePayrollRuleInput) => createOrUpdatePayrollRule(systemDb, input));
+  handle(IPC.LIST_ACTIVE_PAYROLL_RULES, () => listActivePayrollRules(systemDb));
+  handleWithArg(IPC.LIST_PAYROLL_RULE_VERSIONS, (ruleType: string) => listPayrollRuleVersions(systemDb, ruleType));
+  handleWithArg(IPC.CREATE_LEAVE_TYPE, (input: LeaveTypeInput) => createLeaveType(input));
+  handle(IPC.LIST_LEAVE_TYPES, () => listLeaveTypes());
+  handleWithArg(IPC.APPLY_LEAVE, (input: ApplyLeaveInput) => applyLeave(input));
+  handleWithArg(IPC.LIST_LEAVE_APPLICATIONS, (employeeId: string | undefined) => listLeaveApplications(employeeId));
+  handleWithArg(IPC.APPROVE_LEAVE, (leaveApplicationId: string) => approveLeave(systemDb, leaveApplicationId));
+  handleWithArg(IPC.REJECT_LEAVE, (input: RejectLeaveInput) => rejectLeave(input));
+  handleWithArg(IPC.LIST_LEAVE_BALANCES, (employeeId: string) => listLeaveBalances(systemDb, employeeId));
+  handleWithArg(IPC.MARK_ATTENDANCE, (input: MarkAttendanceInput) => markAttendance(input));
+  handleWithArg(IPC.LIST_ATTENDANCE_FOR_EMPLOYEE, (input: ListAttendanceForEmployeeInput) => listAttendanceForEmployee(input));
+  handleWithArg(IPC.CREATE_PAYROLL_RUN, (input: CreatePayrollRunInput) => createPayrollRun(systemDb, input));
+  handleWithArg(IPC.PROCESS_PAYROLL_RUN, (payrollRunId: string) => processPayrollRun(systemDb, payrollRunId));
+  handleWithArg(IPC.OVERRIDE_PAYSLIP_TDS, (input: OverridePayslipTdsInput) => overridePayslipTds(input));
+  handleWithArg(IPC.GET_PAYROLL_RUN, (payrollRunId: string) => getPayrollRun(payrollRunId));
+  handle(IPC.LIST_PAYROLL_RUNS, () => listPayrollRuns());
+  handleWithArg(IPC.POST_PAYROLL_RUN, (payrollRunId: string) => postPayrollRun(payrollRunId));
+  handleWithArg(IPC.DISBURSE_PAYSLIP, (input: DisbursePayslipInput) => disbursePayslip(systemDb, input));
+  handleWithArg(IPC.RUN_GRATUITY_PROVISIONING, (input: RunGratuityProvisioningInput) => runGratuityProvisioning(systemDb, input));
+  handleWithArg(IPC.RECORD_SEPARATION, (input: RecordSeparationInput) => recordSeparation(systemDb, input));
+  handleWithArg(IPC.SETTLE_GRATUITY, (input: SettleGratuityInput) => settleGratuity(systemDb, input));
+  handle(IPC.LIST_GRATUITY_RECORDS, () => listGratuityRecords());
 
   createWindow();
 }

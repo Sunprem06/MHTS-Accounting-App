@@ -113,7 +113,7 @@ export interface InviteUserResult {
 
 export type AccountNature = 'ASSET' | 'LIABILITY' | 'EQUITY' | 'INCOME' | 'EXPENSE';
 export type BalanceSide = 'DEBIT' | 'CREDIT';
-export type VoucherType = 'JOURNAL' | 'PAYMENT' | 'RECEIPT' | 'CONTRA' | 'SALES_INVOICE' | 'PURCHASE_INVOICE' | 'STOCK_ADJUSTMENT' | 'EXPENSE_CLAIM';
+export type VoucherType = 'JOURNAL' | 'PAYMENT' | 'RECEIPT' | 'CONTRA' | 'SALES_INVOICE' | 'PURCHASE_INVOICE' | 'STOCK_ADJUSTMENT' | 'EXPENSE_CLAIM' | 'PAYROLL' | 'GRATUITY_PROVISION';
 
 export interface AccountGroupSummary {
   id: string;
@@ -1081,6 +1081,319 @@ export interface SearchDocumentsInput {
   entityType?: string;
 }
 
+// --- Phase 7: Payroll ---
+
+export type EmploymentType = 'PERMANENT' | 'FIXED_TERM' | 'CONTRACTUAL' | 'CONSULTANT';
+export type ComponentType = 'EARNING' | 'DEDUCTION';
+export type CalculationType = 'FLAT' | 'PCT_OF_BASIC' | 'PCT_OF_CTC';
+export type ApplicabilityMode = 'AUTO' | 'ALWAYS' | 'NEVER';
+export type TdsRegime = 'NEW' | 'OLD';
+export type LeaveApplicationStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED';
+export type AttendanceStatus = 'PRESENT' | 'ABSENT' | 'HALF_DAY' | 'ON_LEAVE' | 'HOLIDAY' | 'WEEKLY_OFF';
+export type PayrollRunStatus = 'DRAFT' | 'PROCESSED' | 'POSTED' | 'CANCELLED';
+export type PayslipLineType = 'EARNING' | 'DEDUCTION' | 'EMPLOYER_CONTRIBUTION';
+export type GratuityRecordStatus = 'DRAFT' | 'SETTLED';
+
+export interface EmployeePayrollProfileSummary {
+  id: string;
+  employeeCode: string;
+  name: string;
+  isActive: boolean;
+  dateOfBirth: string | null;
+  dateOfJoining: string | null;
+  dateOfLeaving: string | null;
+  employmentType: EmploymentType | null;
+  pan: string | null;
+  bankAccountNumber: string | null;
+  bankIfsc: string | null;
+  uan: string | null;
+  esiNumber: string | null;
+  pfVoluntaryOptOut: boolean;
+  salaryPayableLedgerId: string | null;
+}
+
+export interface UpdateEmployeePayrollProfileInput {
+  employeeId: string;
+  dateOfBirth?: string;
+  dateOfJoining?: string;
+  dateOfLeaving?: string;
+  employmentType?: EmploymentType;
+  pan?: string;
+  bankAccountNumber?: string;
+  bankIfsc?: string;
+  uan?: string;
+  esiNumber?: string;
+  pfVoluntaryOptOut?: boolean;
+}
+
+export interface SalaryComponentDefinitionInput {
+  name: string;
+  componentType: ComponentType;
+  calculationType: CalculationType;
+  /** Rupees. Only for calculationType 'FLAT'. */
+  flatAmountRupees?: number;
+  /** e.g. 40 for 40%. Only for the PCT_* calculation types. */
+  percent?: number;
+  isStatutoryWageBase: boolean;
+  displayOrder?: number;
+  expenseLedgerId?: string;
+}
+
+export interface SalaryComponentDefinitionSummary {
+  id: string;
+  name: string;
+  componentType: ComponentType;
+  calculationType: CalculationType;
+  /** Rupees, for display. Null unless calculationType is 'FLAT'. */
+  flatAmountRupees: number | null;
+  /** e.g. 40 for 40%. Null unless calculationType is a PCT_* type. */
+  percent: number | null;
+  isStatutoryWageBase: boolean;
+  displayOrder: number;
+  expenseLedgerId: string | null;
+  isActive: boolean;
+}
+
+export interface AssignSalaryStructureInput {
+  employeeId: string;
+  effectiveFrom: string;
+  /** Rupees/year, as typed by the user — converted to paise at the IPC boundary. */
+  annualCtcRupees: number;
+}
+
+export interface SalaryStructureLineSummary {
+  componentId: string;
+  componentName: string;
+  componentType: ComponentType;
+  isStatutoryWageBase: boolean;
+  /** Rupees/month, for display. */
+  monthlyAmount: number;
+}
+
+export interface SalaryStructureSummary {
+  id: string;
+  employeeId: string;
+  effectiveFrom: string;
+  effectiveTo: string | null;
+  /** Rupees/year, for display. */
+  annualCtc: number;
+  status: 'ACTIVE' | 'SUPERSEDED';
+  lines: SalaryStructureLineSummary[];
+  /** Rupees/month, for display. */
+  monthlyStatutoryWageBase: number;
+}
+
+export interface CompanyPayrollSettingsSummary {
+  pfApplicability: ApplicabilityMode;
+  esiApplicability: ApplicabilityMode;
+  gratuityApplicability: ApplicabilityMode;
+  ptJurisdiction: string | null;
+  tdsRegime: TdsRegime;
+  /** Not persisted — computed live for display alongside the settings (see @mhts/core-payroll-engine's ResolvedApplicability). */
+  resolvedApplicability?: {
+    pfApplies: boolean;
+    esiApplies: boolean;
+    gratuityApplies: boolean;
+    activeEmployeeCount: number;
+    pfThreshold: number | null;
+    esiThreshold: number | null;
+    gratuityThreshold: number | null;
+  };
+}
+
+export interface UpdateCompanyPayrollSettingsInput {
+  pfApplicability?: ApplicabilityMode;
+  esiApplicability?: ApplicabilityMode;
+  gratuityApplicability?: ApplicabilityMode;
+  ptJurisdiction?: string | null;
+  tdsRegime?: TdsRegime;
+}
+
+export interface PayrollRuleVersionSummary {
+  id: string;
+  ruleType: string;
+  jurisdiction: string | null;
+  effectiveFrom: string;
+  effectiveTo: string | null;
+  version: number;
+  /** Shape depends on ruleType — see @mhts/core-payroll-engine's rules.ts payload types. Passed through as-is; the Manage Payroll Rules screen knows the shape for the ruleType it's editing. */
+  payload: unknown;
+  sourceReference: string | null;
+}
+
+export interface CreateOrUpdatePayrollRuleInput {
+  ruleType: string;
+  jurisdiction?: string | null;
+  effectiveFrom: string;
+  payload: unknown;
+  sourceReference?: string;
+}
+
+export interface LeaveTypeInput {
+  name: string;
+  isPaid: boolean;
+  annualEntitlementDays: number;
+}
+
+export interface LeaveTypeSummary {
+  id: string;
+  name: string;
+  isPaid: boolean;
+  annualEntitlementDays: number;
+  isActive: boolean;
+}
+
+export interface ApplyLeaveInput {
+  employeeId: string;
+  leaveTypeId: string;
+  fromDate: string;
+  toDate: string;
+  reason?: string;
+}
+
+export interface LeaveApplicationSummary {
+  id: string;
+  employeeId: string;
+  employeeName: string;
+  leaveTypeId: string;
+  leaveTypeName: string;
+  fromDate: string;
+  toDate: string;
+  days: number;
+  status: LeaveApplicationStatus;
+  reason: string | null;
+}
+
+export interface RejectLeaveInput {
+  leaveApplicationId: string;
+  reason: string;
+}
+
+export interface LeaveBalanceSummary {
+  employeeId: string;
+  leaveTypeId: string;
+  leaveTypeName: string;
+  financialYear: string;
+  openingBalanceDays: number;
+  accruedDays: number;
+  availedDays: number;
+  balanceDays: number;
+}
+
+export interface MarkAttendanceInput {
+  employeeIds: string[];
+  fromDate: string;
+  toDate: string;
+  status: Exclude<AttendanceStatus, 'ON_LEAVE'>;
+}
+
+export interface AttendanceRecordSummary {
+  employeeId: string;
+  attendanceDate: string;
+  status: AttendanceStatus;
+}
+
+export interface ListAttendanceForEmployeeInput {
+  employeeId: string;
+  periodYear: number;
+  periodMonth: number;
+}
+
+export interface CreatePayrollRunInput {
+  periodMonth: number;
+  periodYear: number;
+}
+
+export interface PayslipLineSummary {
+  lineType: PayslipLineType;
+  label: string;
+  componentId: string | null;
+  /** Rupees, for display. */
+  amount: number;
+}
+
+export interface PayslipSummary {
+  id: string;
+  payrollRunId: string;
+  employeeId: string;
+  employeeName: string;
+  /** Days (already converted from the internal tenths-of-a-day storage). */
+  paidDays: number;
+  lopDays: number;
+  /** Rupees, for display. */
+  grossEarnings: number;
+  totalDeductions: number;
+  employerContributions: number;
+  netPay: number;
+  lines: PayslipLineSummary[];
+  outstandingAmount: number;
+}
+
+export interface PayrollRunSummary {
+  id: string;
+  financialYear: string;
+  periodMonth: number;
+  periodYear: number;
+  status: PayrollRunStatus;
+  voucherId: string | null;
+  payslips: PayslipSummary[];
+}
+
+export interface DisbursePayslipInput {
+  payslipId: string;
+  paymentLedgerId: string;
+  paymentDate: string;
+  narration?: string;
+  /** Rupees, as typed by the user. */
+  amountRupees: number;
+  instrument?: PaymentInstrumentInput;
+}
+
+export interface OverridePayslipTdsInput {
+  payslipId: string;
+  /** Rupees. */
+  amountRupees: number;
+}
+
+export interface GratuityEligibilityResult {
+  isEligible: boolean;
+  reason: string;
+  yearsOfServiceDays: number;
+}
+
+export interface RecordSeparationInput {
+  employeeId: string;
+  separationDate: string;
+}
+
+export interface GratuityRecordSummary {
+  id: string;
+  employeeId: string;
+  employeeName: string;
+  separationDate: string;
+  isEligible: boolean;
+  eligibilityReason: string;
+  yearsOfServiceDays: number;
+  /** Rupees, for display. */
+  formulaAmount: number;
+  cumulativeProvisionAtSeparation: number;
+  adjustmentAmount: number;
+  status: GratuityRecordStatus;
+  settlementVoucherId: string | null;
+}
+
+export interface SettleGratuityInput {
+  gratuityRecordId: string;
+  paymentLedgerId: string;
+  paymentDate: string;
+  narration?: string;
+}
+
+export interface RunGratuityProvisioningInput {
+  periodMonth: number;
+  periodYear: number;
+}
+
 export interface IpcResult<T> {
   ok: boolean;
   data?: T;
@@ -1202,4 +1515,37 @@ export const IPC = {
   DOWNLOAD_DOCUMENT: 'documents:downloadDocument',
   DELETE_DOCUMENT: 'documents:deleteDocument',
   SEARCH_DOCUMENTS: 'documents:searchDocuments',
+
+  // Phase 7: Payroll
+  LIST_EMPLOYEE_PAYROLL_PROFILES: 'payroll:listEmployeePayrollProfiles',
+  UPDATE_EMPLOYEE_PAYROLL_PROFILE: 'payroll:updateEmployeePayrollProfile',
+  CREATE_SALARY_COMPONENT: 'payroll:createSalaryComponent',
+  LIST_SALARY_COMPONENTS: 'payroll:listSalaryComponents',
+  ASSIGN_SALARY_STRUCTURE: 'payroll:assignSalaryStructure',
+  LIST_SALARY_STRUCTURES_FOR_EMPLOYEE: 'payroll:listSalaryStructuresForEmployee',
+  GET_COMPANY_PAYROLL_SETTINGS: 'payroll:getCompanyPayrollSettings',
+  UPDATE_COMPANY_PAYROLL_SETTINGS: 'payroll:updateCompanyPayrollSettings',
+  CREATE_OR_UPDATE_PAYROLL_RULE: 'payroll:createOrUpdateRule',
+  LIST_ACTIVE_PAYROLL_RULES: 'payroll:listActiveRules',
+  LIST_PAYROLL_RULE_VERSIONS: 'payroll:listRuleVersions',
+  CREATE_LEAVE_TYPE: 'payroll:createLeaveType',
+  LIST_LEAVE_TYPES: 'payroll:listLeaveTypes',
+  APPLY_LEAVE: 'payroll:applyLeave',
+  LIST_LEAVE_APPLICATIONS: 'payroll:listLeaveApplications',
+  APPROVE_LEAVE: 'payroll:approveLeave',
+  REJECT_LEAVE: 'payroll:rejectLeave',
+  LIST_LEAVE_BALANCES: 'payroll:listLeaveBalances',
+  MARK_ATTENDANCE: 'payroll:markAttendance',
+  LIST_ATTENDANCE_FOR_EMPLOYEE: 'payroll:listAttendanceForEmployee',
+  CREATE_PAYROLL_RUN: 'payroll:createPayrollRun',
+  PROCESS_PAYROLL_RUN: 'payroll:processPayrollRun',
+  OVERRIDE_PAYSLIP_TDS: 'payroll:overridePayslipTds',
+  GET_PAYROLL_RUN: 'payroll:getPayrollRun',
+  LIST_PAYROLL_RUNS: 'payroll:listPayrollRuns',
+  POST_PAYROLL_RUN: 'payroll:postPayrollRun',
+  DISBURSE_PAYSLIP: 'payroll:disbursePayslip',
+  RUN_GRATUITY_PROVISIONING: 'payroll:runGratuityProvisioning',
+  RECORD_SEPARATION: 'payroll:recordSeparation',
+  SETTLE_GRATUITY: 'payroll:settleGratuity',
+  LIST_GRATUITY_RECORDS: 'payroll:listGratuityRecords',
 } as const;
