@@ -26,6 +26,7 @@ export function EmployeePayrollProfileScreen({ session, onBack }: Props) {
     uan: '',
     esiNumber: '',
     pfVoluntaryOptOut: false,
+    designation: '',
   });
 
   const canManage = session.permissions.includes('PAYROLL.MANAGE_EMPLOYEE_PROFILE');
@@ -56,6 +57,7 @@ export function EmployeePayrollProfileScreen({ session, onBack }: Props) {
       uan: employee.uan ?? '',
       esiNumber: employee.esiNumber ?? '',
       pfVoluntaryOptOut: employee.pfVoluntaryOptOut,
+      designation: employee.designation ?? '',
     });
   }
 
@@ -76,6 +78,7 @@ export function EmployeePayrollProfileScreen({ session, onBack }: Props) {
       uan: form.uan || undefined,
       esiNumber: form.esiNumber || undefined,
       pfVoluntaryOptOut: form.pfVoluntaryOptOut,
+      designation: form.designation || undefined,
     });
     setSaving(false);
     if (result.ok) {
@@ -121,6 +124,10 @@ export function EmployeePayrollProfileScreen({ session, onBack }: Props) {
       {canManage && selectedId && (
         <form onSubmit={handleSave} style={{ marginBottom: 24, border: '1px solid #ccc', padding: 12 }}>
           <h2>Edit payroll profile</h2>
+          <label>
+            Designation
+            <input value={form.designation} onChange={(e) => setForm({ ...form, designation: e.target.value })} />
+          </label>{' '}
           <label>
             Date of birth
             <input type="date" value={form.dateOfBirth} onChange={(e) => setForm({ ...form, dateOfBirth: e.target.value })} />

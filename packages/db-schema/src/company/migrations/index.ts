@@ -16,6 +16,7 @@ import * as m014FixedAssets from './014_fixed_assets';
 import * as m015MultiCurrency from './015_multi_currency';
 import * as m016MultiBranch from './016_multi_branch';
 import * as m017Manufacturing from './017_manufacturing';
+import * as m018PrintTemplates from './018_print_templates';
 
 export const migrations: Record<string, Migration> = {
   '001_init': m001Init,
@@ -35,4 +36,5 @@ export const migrations: Record<string, Migration> = {
   '015_multi_currency': m015MultiCurrency,
   '016_multi_branch': m016MultiBranch,
   '017_manufacturing': m017Manufacturing,
+  '018_print_templates': m018PrintTemplates,
 };

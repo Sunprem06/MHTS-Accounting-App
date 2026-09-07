@@ -19,7 +19,10 @@ export function PartiesScreen({ session, onBack }: Props) {
   const [isMsme, setIsMsme] = useState(false);
   const [udyamNumber, setUdyamNumber] = useState('');
   const [creditPeriodDays, setCreditPeriodDays] = useState('');
+  const [address, setAddress] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [addressDraft, setAddressDraft] = useState('');
+  const [savingAddress, setSavingAddress] = useState(false);
 
   const canManage = session.permissions.includes('SALES.MANAGE_PARTIES');
 
@@ -48,6 +51,7 @@ export function PartiesScreen({ session, onBack }: Props) {
       isMsmeUdyamRegistered: isMsme,
       udyamRegistrationNumber: isMsme ? udyamNumber || undefined : undefined,
       creditPeriodDays: creditPeriodDays ? Number(creditPeriodDays) : undefined,
+      address: address || undefined,
     });
     setSubmitting(false);
     if (result.ok) {
@@ -57,9 +61,22 @@ export function PartiesScreen({ session, onBack }: Props) {
       setIsMsme(false);
       setUdyamNumber('');
       setCreditPeriodDays('');
+      setAddress('');
       await refresh();
     } else {
       setError(result.error ?? 'Failed to create party');
+    }
+  }
+
+  async function handleSaveAddress(partyId: string) {
+    setError(null);
+    setSavingAddress(true);
+    const result = await window.mhts.updateBusinessPartyAddress({ partyId, address: addressDraft || null });
+    setSavingAddress(false);
+    if (result.ok) {
+      await refresh();
+    } else {
+      setError(result.error ?? 'Failed to save address');
     }
   }
 
@@ -92,14 +109,33 @@ export function PartiesScreen({ session, onBack }: Props) {
                   <td>{party.isMsmeUdyamRegistered ? `Yes (${party.udyamRegistrationNumber ?? 'no number'})` : 'No'}</td>
                   <td>{party.creditPeriodDays ? `${party.creditPeriodDays} days` : '—'}</td>
                   <td>
-                    <button type="button" onClick={() => setExpandedId(expandedId === party.id ? null : party.id)}>
-                      {expandedId === party.id ? 'Hide' : 'Attachments'}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAddressDraft(party.address ?? '');
+                        setExpandedId(expandedId === party.id ? null : party.id);
+                      }}
+                    >
+                      {expandedId === party.id ? 'Hide' : 'Details'}
                     </button>
                   </td>
                 </tr>
                 {expandedId === party.id && (
                   <tr>
                     <td colSpan={6}>
+                      {canManage && (
+                        <div style={{ marginBottom: 12 }}>
+                          <label>
+                            Address (Bill To, shown on printed invoices)
+                            <br />
+                            <textarea value={addressDraft} onChange={(e) => setAddressDraft(e.target.value)} rows={2} style={{ width: '100%' }} />
+                          </label>
+                          <br />
+                          <button type="button" disabled={savingAddress} onClick={() => handleSaveAddress(party.id)}>
+                            {savingAddress ? 'Saving…' : 'Save address'}
+                          </button>
+                        </div>
+                      )}
                       <AttachmentsPanel session={session} entityType="BusinessParty" entityId={party.id} />
                     </td>
                   </tr>
@@ -137,6 +173,12 @@ export function PartiesScreen({ session, onBack }: Props) {
           <label>
             Credit period (days)
             <input type="number" min="0" value={creditPeriodDays} onChange={(e) => setCreditPeriodDays(e.target.value)} style={{ width: 60 }} />
+          </label>
+          <br />
+          <label>
+            Address (Bill To, shown on printed invoices)
+            <br />
+            <textarea value={address} onChange={(e) => setAddress(e.target.value)} rows={2} style={{ width: '100%' }} />
           </label>
           <br />
           <label>

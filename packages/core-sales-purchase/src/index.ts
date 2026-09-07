@@ -15,6 +15,8 @@ export type {
   CreateSalesInvoiceInput,
   CreatePurchaseInvoiceInput,
   InvoiceSummary,
+  InvoiceForPrint,
+  InvoiceForPrintLine,
   PurchaseInvoiceSummary,
   CreateSalesOrderInput,
   CreatePurchaseOrderInput,
@@ -23,11 +25,11 @@ export type {
   MsmeAgeingRow,
 } from './types';
 
-export { SALES_PURCHASE_PERMISSIONS, grantSalesPurchasePermissions, seedSalesPurchaseLedgers, createParty, listParties } from './parties';
+export { SALES_PURCHASE_PERMISSIONS, grantSalesPurchasePermissions, seedSalesPurchaseLedgers, createParty, listParties, updateBusinessPartyAddress } from './parties';
 
 export { seedDefaultTdsRates, resolveTdsRate, computeTdsAmount, cumulativeTaxableThisFinancialYear } from './tds';
 
-export { createSalesInvoice, listSalesInvoices, cancelSalesInvoice } from './salesInvoices';
+export { createSalesInvoice, listSalesInvoices, cancelSalesInvoice, getSalesInvoiceForPrint } from './salesInvoices';
 export { createPurchaseInvoice, listPurchaseInvoices, computeDueDate, cancelPurchaseInvoice } from './purchaseInvoices';
 
 export { createSalesOrder, listSalesOrders, confirmSalesOrder, cancelSalesOrder, convertSalesOrderToInvoice } from './salesOrders';

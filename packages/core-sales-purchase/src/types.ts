@@ -39,6 +39,8 @@ export interface BusinessPartySummary {
   creditPeriodDays: number | null;
   ledgerAccountId: string;
   isActive: boolean;
+  /** Phase 9 Increment 1 (Print + Templates) — the printed "Bill To" address. */
+  address: string | null;
 }
 
 export interface CreatePartyInput {
@@ -49,6 +51,7 @@ export interface CreatePartyInput {
   isMsmeUdyamRegistered: boolean;
   udyamRegistrationNumber?: string;
   creditPeriodDays?: number;
+  address?: string;
 }
 
 /**
@@ -176,6 +179,49 @@ export interface InvoiceSummary {
   taxAmount: number;
   totalAmount: number;
   cancelledAt: string | null;
+}
+
+/** Phase 9 Increment 1 (Print + Templates) — everything a Sales Invoice template needs, assembled fresh from sales_invoice/sales_invoice_line/business_party/voucher/item/unit_of_measure (InvoiceSummary above is header+aggregate totals only, built for the register screen, not printing). */
+export interface InvoiceForPrintLine {
+  description: string;
+  hsnSacCode: string | null;
+  /** Null for a non-stockable (service) line, which has no item/quantity/rate at all. */
+  itemName: string | null;
+  /** Thousandths of a unit — same fixed-point convention as everywhere else in core-inventory; converted to a display quantity at the IPC boundary. */
+  quantityThousandths: number | null;
+  unitSymbol: string | null;
+  /** Paise, per whole unit. */
+  ratePaise: number | null;
+  /** Paise. Taxable value. */
+  taxableAmount: number;
+  gstRatePercent: number | null;
+  cgstAmount: number;
+  sgstAmount: number;
+  igstAmount: number;
+  cessAmount: number;
+  /** Paise. Manual-tax path only (pre-GST-engine lines) — mutually exclusive with the GST fields above. */
+  manualTaxAmount: number;
+}
+
+export interface InvoiceForPrint {
+  voucherNumber: number;
+  financialYear: string;
+  invoiceDate: string;
+  narration: string | null;
+  cancelledAt: string | null;
+  partyName: string;
+  partyGstin: string | null;
+  partyStateCode: string | null;
+  partyAddress: string | null;
+  currency: string | null;
+  lines: InvoiceForPrintLine[];
+  taxableAmount: number;
+  cgstAmount: number;
+  sgstAmount: number;
+  igstAmount: number;
+  cessAmount: number;
+  manualTaxAmount: number;
+  totalAmount: number;
 }
 
 export interface PurchaseInvoiceSummary extends InvoiceSummary {

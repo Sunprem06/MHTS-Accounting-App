@@ -25,6 +25,7 @@ export async function listEmployeePayrollProfiles(companyDb: Kysely<CompanyDatab
       'esi_number as esiNumber',
       'pf_voluntary_opt_out as pfVoluntaryOptOut',
       'salary_payable_ledger_id as salaryPayableLedgerId',
+      'designation',
     ])
     .orderBy('name')
     .execute();
@@ -68,6 +69,7 @@ export async function updateEmployeePayrollProfile(
         uan: input.uan ?? employee.uan,
         esi_number: input.esiNumber ?? employee.esi_number,
         pf_voluntary_opt_out: input.pfVoluntaryOptOut !== undefined ? ((input.pfVoluntaryOptOut ? 1 : 0) as unknown as boolean) : employee.pf_voluntary_opt_out,
+        designation: input.designation ?? employee.designation,
       })
       .where('id', '=', employeeId)
       .execute();

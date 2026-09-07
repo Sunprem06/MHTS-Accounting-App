@@ -12,8 +12,10 @@ export function SalesInvoiceRegisterScreen({ session, onBack }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [cancellingId, setCancellingId] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [printingId, setPrintingId] = useState<string | null>(null);
 
   const canCreate = session.permissions.includes('SALES.CREATE_INVOICE');
+  const canPrint = session.permissions.includes('PRINT.PRINT_DOCUMENTS');
 
   async function refresh() {
     const result = await window.mhts.listSalesInvoices();
@@ -43,6 +45,26 @@ export function SalesInvoiceRegisterScreen({ session, onBack }: Props) {
     }
   }
 
+  async function handlePrint(invoiceId: string) {
+    setError(null);
+    setPrintingId(invoiceId);
+    const result = await window.mhts.printSalesInvoice(invoiceId);
+    setPrintingId(null);
+    if (!result.ok) {
+      setError(result.error ?? 'Failed to print invoice');
+    }
+  }
+
+  async function handleSavePdf(invoiceId: string) {
+    setError(null);
+    setPrintingId(invoiceId);
+    const result = await window.mhts.saveSalesInvoicePdf(invoiceId);
+    setPrintingId(null);
+    if (!result.ok) {
+      setError(result.error ?? 'Failed to save invoice as PDF');
+    }
+  }
+
   return (
     <div style={{ padding: 24, fontFamily: 'sans-serif', maxWidth: 900 }}>
       <h1>Sales invoice register</h1>
@@ -61,6 +83,7 @@ export function SalesInvoiceRegisterScreen({ session, onBack }: Props) {
               <th style={{ textAlign: 'right' }}>Total (₹)</th>
               <th style={{ textAlign: 'left' }}>Status</th>
               <th />
+              {canPrint && <th />}
               {canCreate && <th />}
             </tr>
           </thead>
@@ -80,6 +103,16 @@ export function SalesInvoiceRegisterScreen({ session, onBack }: Props) {
                       {expandedId === invoice.id ? 'Hide' : 'Attachments'}
                     </button>
                   </td>
+                  {canPrint && (
+                    <td>
+                      <button type="button" disabled={printingId === invoice.id} onClick={() => handlePrint(invoice.id)}>
+                        {printingId === invoice.id ? 'Working…' : 'Print'}
+                      </button>{' '}
+                      <button type="button" disabled={printingId === invoice.id} onClick={() => handleSavePdf(invoice.id)}>
+                        Save PDF
+                      </button>
+                    </td>
+                  )}
                   {canCreate && (
                     <td>
                       {!invoice.cancelledAt && (
@@ -92,7 +125,7 @@ export function SalesInvoiceRegisterScreen({ session, onBack }: Props) {
                 </tr>
                 {expandedId === invoice.id && (
                   <tr>
-                    <td colSpan={canCreate ? 9 : 8}>
+                    <td colSpan={(canPrint ? 1 : 0) + (canCreate ? 9 : 8)}>
                       <AttachmentsPanel session={session} entityType="SalesInvoice" entityId={invoice.id} />
                     </td>
                   </tr>

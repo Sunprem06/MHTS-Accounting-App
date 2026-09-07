@@ -31,6 +31,7 @@ import {
 import {
   createParty,
   listParties,
+  updateBusinessPartyAddress,
   createSalesInvoice,
   listSalesInvoices,
   cancelSalesInvoice,
@@ -172,6 +173,17 @@ import {
   listFxRevaluationRuns,
 } from './multiCurrencyHandlers';
 import { createBillOfMaterial, listBillsOfMaterial, postManufacturingJournal, listManufacturingJournals, getManufacturingJournalMovements } from './manufacturingHandlers';
+import {
+  getCompanyLetterheadProfile,
+  updateCompanyLetterheadProfile,
+  pickLogoFile,
+  uploadCompanyLogo,
+  clearCompanyLogo,
+  printSalesInvoice,
+  saveSalesInvoicePdf,
+  printPayslip,
+  savePayslipPdf,
+} from './printHandlers';
 import { session } from './session';
 import {
   IPC,
@@ -258,6 +270,9 @@ import {
   type RunFxRevaluationInput,
   type CreateBillOfMaterialInput,
   type PostManufacturingJournalInput,
+  type UpdateCompanyLetterheadProfileInput,
+  type UploadCompanyLogoInput,
+  type UpdateBusinessPartyAddressInput,
 } from '../shared/ipc';
 
 function handle<T>(channel: string, fn: () => Promise<T>): void {
@@ -320,6 +335,7 @@ async function bootstrap(): Promise<void> {
 
   handleWithArg(IPC.CREATE_PARTY, (input: CreatePartyInput) => createParty(input));
   handle(IPC.LIST_PARTIES, () => listParties());
+  handleWithArg(IPC.UPDATE_BUSINESS_PARTY_ADDRESS, (input: UpdateBusinessPartyAddressInput) => updateBusinessPartyAddress(input));
   handleWithArg(IPC.CREATE_SALES_INVOICE, (input: CreateSalesInvoiceInput) => createSalesInvoice(systemDb, input));
   handle(IPC.LIST_SALES_INVOICES, () => listSalesInvoices());
   handleWithArg(IPC.CANCEL_SALES_INVOICE, (invoiceId: string) => cancelSalesInvoice(systemDb, invoiceId));
@@ -487,6 +503,16 @@ async function bootstrap(): Promise<void> {
   handleWithArg(IPC.POST_MANUFACTURING_JOURNAL, (input: PostManufacturingJournalInput) => postManufacturingJournal(systemDb, input));
   handle(IPC.LIST_MANUFACTURING_JOURNALS, () => listManufacturingJournals());
   handleWithArg(IPC.GET_MANUFACTURING_JOURNAL_MOVEMENTS, (journalId: string) => getManufacturingJournalMovements(journalId));
+
+  handle(IPC.GET_COMPANY_LETTERHEAD_PROFILE, () => getCompanyLetterheadProfile());
+  handleWithArg(IPC.UPDATE_COMPANY_LETTERHEAD_PROFILE, (input: UpdateCompanyLetterheadProfileInput) => updateCompanyLetterheadProfile(input));
+  handle(IPC.PICK_LOGO_FILE, () => pickLogoFile());
+  handleWithArg(IPC.UPLOAD_COMPANY_LOGO, (input: UploadCompanyLogoInput) => uploadCompanyLogo(input));
+  handle(IPC.CLEAR_COMPANY_LOGO, () => clearCompanyLogo());
+  handleWithArg(IPC.PRINT_SALES_INVOICE, (invoiceId: string) => printSalesInvoice(systemDb, invoiceId));
+  handleWithArg(IPC.SAVE_SALES_INVOICE_PDF, (invoiceId: string) => saveSalesInvoicePdf(systemDb, invoiceId));
+  handleWithArg(IPC.PRINT_PAYSLIP, (payslipId: string) => printPayslip(systemDb, payslipId));
+  handleWithArg(IPC.SAVE_PAYSLIP_PDF, (payslipId: string) => savePayslipPdf(systemDb, payslipId));
 
   createWindow();
 }

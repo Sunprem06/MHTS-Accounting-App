@@ -27,6 +27,7 @@ import { grantPayrollPermissions, seedPayrollLedgers, seedDefaultCompanyPayrollS
 import { grantFixedAssetsPermissions, seedFixedAssetLedgers } from '@mhts/core-fixed-assets';
 import { grantMultiCurrencyPermissions, seedMultiCurrencyLedgers } from '@mhts/core-multi-currency';
 import { grantManufacturingPermissions } from '@mhts/core-manufacturing';
+import { grantPrintPermissions, seedDefaultCompanyLetterheadProfile } from '@mhts/core-company-profile';
 import type { AppPaths } from './db';
 import { companyDbFilePath, createAndMigrateCompanyDb, openExistingCompanyDb } from './db';
 import { checkLicenseStatus } from './licenseHandlers';
@@ -148,6 +149,8 @@ export async function createCompany(
   await grantMultiCurrencyPermissions(companyDb, adminRoleId);
   await seedMultiCurrencyLedgers(companyDb);
   await grantManufacturingPermissions(companyDb, adminRoleId);
+  await grantPrintPermissions(companyDb, adminRoleId);
+  await seedDefaultCompanyLetterheadProfile(companyDb);
   await companyDb.destroy();
 
   await systemDb
