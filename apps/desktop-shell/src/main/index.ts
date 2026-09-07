@@ -183,6 +183,17 @@ import {
   saveSalesInvoicePdf,
   printPayslip,
   savePayslipPdf,
+  printPurchaseInvoice,
+  savePurchaseInvoicePdf,
+  printSalesOrder,
+  saveSalesOrderPdf,
+  printPurchaseOrder,
+  savePurchaseOrderPdf,
+  printVoucher,
+  saveVoucherPdf,
+  printExpenseClaim,
+  saveExpenseClaimPdf,
+  listPayslipsForPrint,
 } from './printHandlers';
 import { session } from './session';
 import {
@@ -513,6 +524,17 @@ async function bootstrap(): Promise<void> {
   handleWithArg(IPC.SAVE_SALES_INVOICE_PDF, (invoiceId: string) => saveSalesInvoicePdf(systemDb, invoiceId));
   handleWithArg(IPC.PRINT_PAYSLIP, (payslipId: string) => printPayslip(systemDb, payslipId));
   handleWithArg(IPC.SAVE_PAYSLIP_PDF, (payslipId: string) => savePayslipPdf(systemDb, payslipId));
+  handleWithArg(IPC.PRINT_PURCHASE_INVOICE, (invoiceId: string) => printPurchaseInvoice(systemDb, invoiceId));
+  handleWithArg(IPC.SAVE_PURCHASE_INVOICE_PDF, (invoiceId: string) => savePurchaseInvoicePdf(systemDb, invoiceId));
+  handleWithArg(IPC.PRINT_SALES_ORDER, (orderId: string) => printSalesOrder(systemDb, orderId));
+  handleWithArg(IPC.SAVE_SALES_ORDER_PDF, (orderId: string) => saveSalesOrderPdf(systemDb, orderId));
+  handleWithArg(IPC.PRINT_PURCHASE_ORDER, (orderId: string) => printPurchaseOrder(systemDb, orderId));
+  handleWithArg(IPC.SAVE_PURCHASE_ORDER_PDF, (orderId: string) => savePurchaseOrderPdf(systemDb, orderId));
+  handleWithArg(IPC.PRINT_VOUCHER, (voucherId: string) => printVoucher(systemDb, voucherId));
+  handleWithArg(IPC.SAVE_VOUCHER_PDF, (voucherId: string) => saveVoucherPdf(systemDb, voucherId));
+  handleWithArg(IPC.PRINT_EXPENSE_CLAIM, (expenseClaimId: string) => printExpenseClaim(systemDb, expenseClaimId));
+  handleWithArg(IPC.SAVE_EXPENSE_CLAIM_PDF, (expenseClaimId: string) => saveExpenseClaimPdf(systemDb, expenseClaimId));
+  handle(IPC.LIST_PAYSLIPS_FOR_PRINT, () => listPayslipsForPrint());
 
   createWindow();
 }

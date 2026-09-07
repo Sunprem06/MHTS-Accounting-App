@@ -74,6 +74,7 @@ interface Props {
   onManufacturingJournal: () => void;
   onManufacturingJournalRegister: () => void;
   onCompanyLetterhead: () => void;
+  onPrintCentre: () => void;
 }
 
 export function DashboardScreen({
@@ -150,6 +151,7 @@ export function DashboardScreen({
   onManufacturingJournal,
   onManufacturingJournalRegister,
   onCompanyLetterhead,
+  onPrintCentre,
 }: Props) {
   return (
     <div style={{ padding: 24, fontFamily: 'sans-serif', maxWidth: 480 }}>
@@ -334,9 +336,10 @@ export function DashboardScreen({
           {session.permissions.includes('MANUFACTURING.POST_JOURNAL') && <button onClick={onManufacturingJournalRegister}>Manufacturing journal register</button>}
         </p>
       )}
-      {session.permissions.includes('PRINT.MANAGE_LETTERHEAD') && (
+      {(session.permissions.includes('PRINT.MANAGE_LETTERHEAD') || session.permissions.includes('PRINT.PRINT_DOCUMENTS')) && (
         <p>
-          <button onClick={onCompanyLetterhead}>Company letterhead</button>
+          {session.permissions.includes('PRINT.MANAGE_LETTERHEAD') && <button onClick={onCompanyLetterhead}>Company letterhead</button>}{' '}
+          {session.permissions.includes('PRINT.PRINT_DOCUMENTS') && <button onClick={onPrintCentre}>Print Centre</button>}
         </p>
       )}
       <p>

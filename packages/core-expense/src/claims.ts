@@ -4,7 +4,7 @@ import type { CompanyDatabase } from '@mhts/db-schema';
 import { writeAuditLog } from '@mhts/core-audit';
 import { createVoucherInTransaction, cancelVoucherInTransaction } from '@mhts/core-accounting';
 import type { VoucherLineInput } from '@mhts/core-accounting';
-import type { CreateExpenseClaimInput, ExpenseClaimStatus, ExpenseClaimSummary } from './types';
+import type { CreateExpenseClaimInput, ExpenseClaimLineSummary, ExpenseClaimStatus, ExpenseClaimSummary } from './types';
 
 async function validateExpenseLedgers(companyDb: Kysely<CompanyDatabase>, ledgerIds: string[]): Promise<void> {
   const uniqueIds = [...new Set(ledgerIds)];
@@ -158,6 +158,62 @@ export async function listExpenseClaims(companyDb: Kysely<CompanyDatabase>): Pro
       lines: claimLines.map(({ expenseClaimId, ...line }) => line),
     };
   });
+}
+
+/** Phase 9 Increment 2 (Print + Templates) — single-claim-scoped version of listExpenseClaims's own header+lines join, for a printed claim. Reuses ExpenseClaimSummary as-is (already exactly the shape a print template needs — employee name, lines with ledger names, purpose, status, totals). */
+export async function getExpenseClaimForPrint(companyDb: Kysely<CompanyDatabase>, expenseClaimId: string): Promise<ExpenseClaimSummary> {
+  const claim = await companyDb
+    .selectFrom('expense_claim')
+    .innerJoin('employee', 'employee.id', 'expense_claim.employee_id')
+    .select([
+      'expense_claim.id as id',
+      'expense_claim.employee_id as employeeId',
+      'employee.name as employeeName',
+      'expense_claim.financial_year as financialYear',
+      'expense_claim.claim_number as claimNumber',
+      'expense_claim.claim_date as claimDate',
+      'expense_claim.purpose as purpose',
+      'expense_claim.status as status',
+      'expense_claim.voucher_id as voucherId',
+      'expense_claim.rejected_reason as rejectedReason',
+    ])
+    .where('expense_claim.id', '=', expenseClaimId)
+    .executeTakeFirst();
+  if (!claim) {
+    throw new Error('Expense claim not found');
+  }
+
+  const lineRows = await companyDb
+    .selectFrom('expense_claim_line')
+    .innerJoin('ledger_account', 'ledger_account.id', 'expense_claim_line.expense_ledger_id')
+    .select([
+      'expense_claim_line.id as id',
+      'expense_claim_line.expense_ledger_id as expenseLedgerId',
+      'ledger_account.name as expenseLedgerName',
+      'expense_claim_line.description as description',
+      'expense_claim_line.expense_date as expenseDate',
+      'expense_claim_line.amount as amount',
+      'expense_claim_line.line_narration as lineNarration',
+    ])
+    .where('expense_claim_line.expense_claim_id', '=', expenseClaimId)
+    .execute();
+
+  const lines: ExpenseClaimLineSummary[] = lineRows;
+
+  return {
+    id: claim.id,
+    employeeId: claim.employeeId,
+    employeeName: claim.employeeName,
+    financialYear: claim.financialYear,
+    claimNumber: claim.claimNumber,
+    claimDate: claim.claimDate,
+    purpose: claim.purpose,
+    status: claim.status as ExpenseClaimStatus,
+    voucherId: claim.voucherId,
+    rejectedReason: claim.rejectedReason,
+    totalAmount: lines.reduce((sum, line) => sum + line.amount, 0),
+    lines,
+  };
 }
 
 async function transitionStatus(companyDb: Kysely<CompanyDatabase>, claimId: string, from: ExpenseClaimStatus[], to: ExpenseClaimStatus, actorUserId: string | null): Promise<void> {

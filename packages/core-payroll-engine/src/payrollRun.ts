@@ -16,7 +16,7 @@ import { resolveEsiRule, resolvePfRule, resolvePtRule, resolveTdsSlabNewRegime, 
 import { computeMonthlyTdsNewRegime } from './salaryTds';
 import { getActiveSalaryStructure } from './salaryStructure';
 import { getCompanyPayrollSettings } from './companySettings';
-import type { CreatePayrollRunInput, DisbursePayslipInput, PayrollRunSummary, PayrollRunStatus, PayslipForPrint, PayslipLineSummary, PayslipLineType, PayslipSummary } from './types';
+import type { CreatePayrollRunInput, DisbursePayslipInput, PayrollRunSummary, PayrollRunStatus, PayslipForPrint, PayslipLineSummary, PayslipLineType, PayslipListItemForPrint, PayslipSummary } from './types';
 
 const IS_ACTIVE = 1 as unknown as boolean; // better-sqlite3 only binds numbers/strings/bigints/buffers/null, not JS booleans.
 
@@ -356,6 +356,30 @@ export async function getPayslipForPrint(companyDb: Kysely<CompanyDatabase>, pay
   const lines: PayslipLineSummary[] = lineRows.map((l) => ({ lineType: l.lineType as PayslipLineType, label: l.label, componentId: l.componentId, amount: l.amount }));
 
   return { ...row, lines };
+}
+
+/** Phase 9 Increment 2 (Print + Templates) — a flat cross-run payslip listing for the Print Centre (PayrollRunScreen's own listing is scoped to one selected run at a time). */
+export async function listPayslipsForPrint(companyDb: Kysely<CompanyDatabase>): Promise<PayslipListItemForPrint[]> {
+  const rows = await companyDb
+    .selectFrom('payslip')
+    .innerJoin('employee', 'employee.id', 'payslip.employee_id')
+    .innerJoin('payroll_run', 'payroll_run.id', 'payslip.payroll_run_id')
+    .select([
+      'payslip.id as id',
+      'employee.name as employeeName',
+      'employee.employee_code as employeeCode',
+      'payroll_run.financial_year as financialYear',
+      'payroll_run.period_month as periodMonth',
+      'payroll_run.period_year as periodYear',
+      'payslip.net_pay as netPay',
+      'payroll_run.status as runStatus',
+    ])
+    .orderBy('payroll_run.period_year', 'desc')
+    .orderBy('payroll_run.period_month', 'desc')
+    .orderBy('employee.name', 'asc')
+    .execute();
+
+  return rows.map((r) => ({ ...r, runStatus: r.runStatus as PayrollRunStatus }));
 }
 
 export async function listPayrollRuns(companyDb: Kysely<CompanyDatabase>): Promise<PayrollRunSummary[]> {

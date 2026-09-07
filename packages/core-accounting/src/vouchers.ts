@@ -4,7 +4,7 @@ import type { CompanyDatabase } from '@mhts/db-schema';
 import { writeAuditLog } from '@mhts/core-audit';
 import { convertForeignToBase } from './fx';
 import { VOUCHER_TYPES } from './types';
-import type { CreateVoucherInput, VoucherLineInput, VoucherSummary, VoucherType } from './types';
+import type { CreateVoucherInput, VoucherForPrint, VoucherForPrintLine, VoucherLineInput, VoucherSummary, VoucherType } from './types';
 
 function validateLines(lines: VoucherLineInput[]): { totalDebit: number; totalCredit: number } {
   if (lines.length < 2) {
@@ -198,6 +198,60 @@ export async function listVouchers(companyDb: Kysely<CompanyDatabase>): Promise<
     .execute();
 
   return rows.map((row) => ({ ...row, voucherType: row.voucherType as VoucherType, totalAmount: Number(row.totalAmount) }));
+}
+
+/**
+ * Phase 9 Increment 2 (Print + Templates) — full header+Dr/Cr-lines assembly
+ * for a printed Journal/Payment/Receipt/Contra voucher. listVouchers (above)
+ * only aggregates a totalAmount for the register table; a printed voucher
+ * needs every line's ledger name and amount, so this is a separate,
+ * dedicated query rather than an extension of listVouchers.
+ */
+export async function getVoucherForPrint(companyDb: Kysely<CompanyDatabase>, voucherId: string): Promise<VoucherForPrint> {
+  const header = await companyDb
+    .selectFrom('voucher')
+    .select(['voucher_type as voucherType', 'voucher_number as voucherNumber', 'financial_year as financialYear', 'voucher_date as voucherDate', 'narration as narration', 'cancelled_at as cancelledAt'])
+    .where('id', '=', voucherId)
+    .executeTakeFirst();
+  if (!header) {
+    throw new Error('Voucher not found');
+  }
+
+  const lineRows = await companyDb
+    .selectFrom('voucher_line')
+    .innerJoin('ledger_account', 'ledger_account.id', 'voucher_line.ledger_id')
+    .leftJoin('cost_centre', 'cost_centre.id', 'voucher_line.cost_centre_id')
+    .leftJoin('branch', 'branch.id', 'voucher_line.branch_id')
+    .select([
+      'ledger_account.name as ledgerName',
+      'voucher_line.debit_amount as debitAmount',
+      'voucher_line.credit_amount as creditAmount',
+      'voucher_line.line_narration as lineNarration',
+      'cost_centre.name as costCentreName',
+      'branch.name as branchName',
+    ])
+    .where('voucher_line.voucher_id', '=', voucherId)
+    .execute();
+
+  const lines: VoucherForPrintLine[] = lineRows.map((l) => ({
+    ledgerName: l.ledgerName,
+    debitAmount: l.debitAmount,
+    creditAmount: l.creditAmount,
+    lineNarration: l.lineNarration,
+    costCentreName: l.costCentreName,
+    branchName: l.branchName,
+  }));
+
+  return {
+    voucherType: header.voucherType as VoucherType,
+    voucherNumber: header.voucherNumber,
+    financialYear: header.financialYear,
+    voucherDate: header.voucherDate,
+    narration: header.narration,
+    cancelledAt: header.cancelledAt,
+    lines,
+    totalAmount: lines.reduce((sum, l) => sum + l.debitAmount, 0),
+  };
 }
 
 /**

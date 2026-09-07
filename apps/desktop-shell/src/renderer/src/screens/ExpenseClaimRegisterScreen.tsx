@@ -15,6 +15,7 @@ export function ExpenseClaimRegisterScreen({ session, onBack }: Props) {
   const [ledgers, setLedgers] = useState<LedgerAccountSummary[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [printingId, setPrintingId] = useState<string | null>(null);
 
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [reimbursingClaimId, setReimbursingClaimId] = useState<string | null>(null);
@@ -26,6 +27,7 @@ export function ExpenseClaimRegisterScreen({ session, onBack }: Props) {
   const canApprove = session.permissions.includes('EXPENSE.APPROVE_CLAIM');
   const canReimburse = session.permissions.includes('EXPENSE.REIMBURSE_CLAIM');
   const canRecordInstrument = session.permissions.includes('BANKING.RECORD_PAYMENT_INSTRUMENT');
+  const canPrint = session.permissions.includes('PRINT.PRINT_DOCUMENTS');
   const paymentLedgerIsBank = ledgers.find((l) => l.id === paymentLedgerId)?.groupName === BANK_ACCOUNTS_GROUP;
 
   async function refresh() {
@@ -130,6 +132,26 @@ export function ExpenseClaimRegisterScreen({ session, onBack }: Props) {
     }
   }
 
+  async function handlePrint(claimId: string) {
+    setError(null);
+    setPrintingId(claimId);
+    const result = await window.mhts.printExpenseClaim(claimId);
+    setPrintingId(null);
+    if (!result.ok) {
+      setError(result.error ?? 'Failed to print claim');
+    }
+  }
+
+  async function handleSavePdf(claimId: string) {
+    setError(null);
+    setPrintingId(claimId);
+    const result = await window.mhts.saveExpenseClaimPdf(claimId);
+    setPrintingId(null);
+    if (!result.ok) {
+      setError(result.error ?? 'Failed to save claim as PDF');
+    }
+  }
+
   return (
     <div style={{ padding: 24, fontFamily: 'sans-serif', maxWidth: 960 }}>
       <h1>Expense claim register</h1>
@@ -148,6 +170,7 @@ export function ExpenseClaimRegisterScreen({ session, onBack }: Props) {
               <th style={{ textAlign: 'right' }}>Amount (₹)</th>
               <th style={{ textAlign: 'left' }}>Status</th>
               <th />
+              {canPrint && <th />}
               <th />
             </tr>
           </thead>
@@ -191,6 +214,16 @@ export function ExpenseClaimRegisterScreen({ session, onBack }: Props) {
                       </button>
                     )}
                   </td>
+                  {canPrint && (
+                    <td>
+                      <button type="button" disabled={printingId === claim.id} onClick={() => handlePrint(claim.id)}>
+                        {printingId === claim.id ? 'Working…' : 'Print'}
+                      </button>{' '}
+                      <button type="button" disabled={printingId === claim.id} onClick={() => handleSavePdf(claim.id)}>
+                        Save PDF
+                      </button>
+                    </td>
+                  )}
                   <td>
                     <button type="button" onClick={() => setExpandedId(expandedId === claim.id ? null : claim.id)}>
                       {expandedId === claim.id ? 'Hide' : 'Attachments'}
@@ -199,7 +232,7 @@ export function ExpenseClaimRegisterScreen({ session, onBack }: Props) {
                 </tr>
                 {expandedId === claim.id && (
                   <tr>
-                    <td colSpan={8}>
+                    <td colSpan={8 + (canPrint ? 1 : 0)}>
                       <AttachmentsPanel session={session} entityType="ExpenseClaim" entityId={claim.id} />
                     </td>
                   </tr>

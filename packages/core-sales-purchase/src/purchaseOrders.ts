@@ -5,7 +5,7 @@ import type { GstRegistrationType } from '@mhts/core-gst-engine';
 import { writeAuditLog } from '@mhts/core-audit';
 import { validateDocumentLines } from './lineValidation';
 import { createPurchaseInvoiceInTransaction } from './purchaseInvoices';
-import type { CreatePurchaseInvoiceInput, CreatePurchaseOrderInput, OrderStatus, OrderSummary } from './types';
+import type { CreatePurchaseInvoiceInput, CreatePurchaseOrderInput, OrderForPrint, OrderForPrintLine, OrderStatus, OrderSummary } from './types';
 
 export async function createPurchaseOrder(companyDb: Kysely<CompanyDatabase>, input: CreatePurchaseOrderInput, actorUserId: string | null): Promise<string> {
   validateDocumentLines(input.lines);
@@ -199,4 +199,76 @@ export async function convertPurchaseOrderToInvoice(
 
     return invoiceId;
   });
+}
+
+/** Phase 9 Increment 2 (Print + Templates) — mirror of getSalesOrderForPrint. */
+export async function getPurchaseOrderForPrint(companyDb: Kysely<CompanyDatabase>, orderId: string): Promise<OrderForPrint> {
+  const header = await companyDb
+    .selectFrom('purchase_order')
+    .innerJoin('business_party', 'business_party.id', 'purchase_order.party_id')
+    .select([
+      'purchase_order.order_number as orderNumber',
+      'purchase_order.financial_year as financialYear',
+      'purchase_order.order_date as orderDate',
+      'purchase_order.narration as narration',
+      'purchase_order.status as status',
+      'purchase_order.converted_to_invoice_id as convertedToInvoiceId',
+      'business_party.name as partyName',
+      'business_party.gstin as partyGstin',
+      'business_party.state_code as partyStateCode',
+      'business_party.address as partyAddress',
+    ])
+    .where('purchase_order.id', '=', orderId)
+    .executeTakeFirst();
+  if (!header) {
+    throw new Error('Purchase order not found');
+  }
+
+  const lineRows = await companyDb
+    .selectFrom('purchase_order_line')
+    .leftJoin('item', 'item.id', 'purchase_order_line.item_id')
+    .leftJoin('unit_of_measure', 'unit_of_measure.id', 'item.unit_id')
+    .select([
+      'purchase_order_line.description as description',
+      'purchase_order_line.hsn_sac_code as hsnSacCode',
+      'item.name as itemName',
+      'purchase_order_line.quantity_thousandths as quantityThousandths',
+      'unit_of_measure.symbol as unitSymbol',
+      'purchase_order_line.rate_paise as ratePaise',
+      'purchase_order_line.amount as amount',
+      'purchase_order_line.tax_amount as taxAmount',
+    ])
+    .where('purchase_order_line.purchase_order_id', '=', orderId)
+    .execute();
+
+  const lines: OrderForPrintLine[] = lineRows.map((l) => ({
+    description: l.description,
+    hsnSacCode: l.hsnSacCode,
+    itemName: l.itemName,
+    quantityThousandths: l.quantityThousandths,
+    unitSymbol: l.unitSymbol,
+    ratePaise: l.ratePaise,
+    amount: l.amount,
+    taxAmount: l.taxAmount,
+  }));
+
+  const taxableAmount = lines.reduce((sum, l) => sum + l.amount, 0);
+  const taxAmount = lines.reduce((sum, l) => sum + l.taxAmount, 0);
+
+  return {
+    orderNumber: header.orderNumber,
+    financialYear: header.financialYear,
+    orderDate: header.orderDate,
+    narration: header.narration,
+    status: header.status as OrderStatus,
+    convertedToInvoiceId: header.convertedToInvoiceId,
+    partyName: header.partyName,
+    partyGstin: header.partyGstin,
+    partyStateCode: header.partyStateCode,
+    partyAddress: header.partyAddress,
+    lines,
+    taxableAmount,
+    taxAmount,
+    totalAmount: taxableAmount + taxAmount,
+  };
 }

@@ -171,6 +171,7 @@ import {
   type PickedLogoFile,
   type UploadCompanyLogoInput,
   type PrintDocumentResult,
+  type PayslipPrintListItem,
   type UpdateBusinessPartyAddressInput,
 } from '../shared/ipc';
 
@@ -372,6 +373,17 @@ const api = {
   saveSalesInvoicePdf: (invoiceId: string): Promise<IpcResult<PrintDocumentResult>> => ipcRenderer.invoke(IPC.SAVE_SALES_INVOICE_PDF, invoiceId),
   printPayslip: (payslipId: string): Promise<IpcResult<PrintDocumentResult>> => ipcRenderer.invoke(IPC.PRINT_PAYSLIP, payslipId),
   savePayslipPdf: (payslipId: string): Promise<IpcResult<PrintDocumentResult>> => ipcRenderer.invoke(IPC.SAVE_PAYSLIP_PDF, payslipId),
+  printPurchaseInvoice: (invoiceId: string): Promise<IpcResult<PrintDocumentResult>> => ipcRenderer.invoke(IPC.PRINT_PURCHASE_INVOICE, invoiceId),
+  savePurchaseInvoicePdf: (invoiceId: string): Promise<IpcResult<PrintDocumentResult>> => ipcRenderer.invoke(IPC.SAVE_PURCHASE_INVOICE_PDF, invoiceId),
+  printSalesOrder: (orderId: string): Promise<IpcResult<PrintDocumentResult>> => ipcRenderer.invoke(IPC.PRINT_SALES_ORDER, orderId),
+  saveSalesOrderPdf: (orderId: string): Promise<IpcResult<PrintDocumentResult>> => ipcRenderer.invoke(IPC.SAVE_SALES_ORDER_PDF, orderId),
+  printPurchaseOrder: (orderId: string): Promise<IpcResult<PrintDocumentResult>> => ipcRenderer.invoke(IPC.PRINT_PURCHASE_ORDER, orderId),
+  savePurchaseOrderPdf: (orderId: string): Promise<IpcResult<PrintDocumentResult>> => ipcRenderer.invoke(IPC.SAVE_PURCHASE_ORDER_PDF, orderId),
+  printVoucher: (voucherId: string): Promise<IpcResult<PrintDocumentResult>> => ipcRenderer.invoke(IPC.PRINT_VOUCHER, voucherId),
+  saveVoucherPdf: (voucherId: string): Promise<IpcResult<PrintDocumentResult>> => ipcRenderer.invoke(IPC.SAVE_VOUCHER_PDF, voucherId),
+  printExpenseClaim: (expenseClaimId: string): Promise<IpcResult<PrintDocumentResult>> => ipcRenderer.invoke(IPC.PRINT_EXPENSE_CLAIM, expenseClaimId),
+  saveExpenseClaimPdf: (expenseClaimId: string): Promise<IpcResult<PrintDocumentResult>> => ipcRenderer.invoke(IPC.SAVE_EXPENSE_CLAIM_PDF, expenseClaimId),
+  listPayslipsForPrint: (): Promise<IpcResult<PayslipPrintListItem[]>> => ipcRenderer.invoke(IPC.LIST_PAYSLIPS_FOR_PRINT),
 };
 
 export type MhtsApi = typeof api;
