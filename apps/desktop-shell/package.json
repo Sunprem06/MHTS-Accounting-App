@@ -18,6 +18,7 @@
     "@mhts/core-identity": "*",
     "@mhts/core-inventory": "*",
     "@mhts/core-licensing": "*",
+    "@mhts/core-manufacturing": "*",
     "@mhts/core-payroll-engine": "*",
     "@mhts/core-rules-engine": "*",
     "@mhts/core-sales-purchase": "*",

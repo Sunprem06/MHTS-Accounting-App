@@ -1,0 +1,17 @@
+{
+  "name": "core-manufacturing",
+  "sourceRoot": "packages/core-manufacturing/src",
+  "projectType": "library",
+  "tags": ["type:core"],
+  "targets": {
+    "build": {
+      "executor": "@nx/js:tsc",
+      "outputs": ["{options.outputPath}"],
+      "options": {
+        "outputPath": "dist/packages/core-manufacturing",
+        "main": "packages/core-manufacturing/src/index.ts",
+        "tsConfig": "packages/core-manufacturing/tsconfig.json"
+      }
+    }
+  }
+}

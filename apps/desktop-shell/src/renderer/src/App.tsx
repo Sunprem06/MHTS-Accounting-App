@@ -76,6 +76,9 @@ import { AttendanceScreen } from './screens/AttendanceScreen';
 import { LeaveScreen } from './screens/LeaveScreen';
 import { PayrollRunScreen } from './screens/PayrollRunScreen';
 import { GratuityScreen } from './screens/GratuityScreen';
+import { BillOfMaterialsScreen } from './screens/BillOfMaterialsScreen';
+import { ManufacturingJournalScreen } from './screens/ManufacturingJournalScreen';
+import { ManufacturingJournalRegisterScreen } from './screens/ManufacturingJournalRegisterScreen';
 
 type View =
   | { name: 'loading' }
@@ -153,7 +156,10 @@ type View =
   | { name: 'interBranchTransfer' }
   | { name: 'branchReports' }
   | { name: 'manageExchangeRates' }
-  | { name: 'runFxRevaluation' };
+  | { name: 'runFxRevaluation' }
+  | { name: 'billsOfMaterial' }
+  | { name: 'manufacturingJournal' }
+  | { name: 'manufacturingJournalRegister' };
 
 export function App() {
   return (
@@ -561,6 +567,18 @@ function AppRoutes() {
     return <RunFxRevaluationScreen session={session!} onBack={() => setView({ name: 'dashboard' })} />;
   }
 
+  if (view.name === 'billsOfMaterial') {
+    return <BillOfMaterialsScreen session={session!} onBack={() => setView({ name: 'dashboard' })} />;
+  }
+
+  if (view.name === 'manufacturingJournal') {
+    return <ManufacturingJournalScreen onCreated={() => setView({ name: 'dashboard' })} onBack={() => setView({ name: 'dashboard' })} />;
+  }
+
+  if (view.name === 'manufacturingJournalRegister') {
+    return <ManufacturingJournalRegisterScreen onBack={() => setView({ name: 'dashboard' })} />;
+  }
+
   return (
     <DashboardScreen
       session={session!}
@@ -631,6 +649,9 @@ function AppRoutes() {
       onBranchReports={() => setView({ name: 'branchReports' })}
       onManageExchangeRates={() => setView({ name: 'manageExchangeRates' })}
       onRunFxRevaluation={() => setView({ name: 'runFxRevaluation' })}
+      onBillsOfMaterial={() => setView({ name: 'billsOfMaterial' })}
+      onManufacturingJournal={() => setView({ name: 'manufacturingJournal' })}
+      onManufacturingJournalRegister={() => setView({ name: 'manufacturingJournalRegister' })}
       onLogout={async () => {
         await window.mhts.logout();
         setSession(null);

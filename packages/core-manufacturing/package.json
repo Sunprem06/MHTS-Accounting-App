@@ -1,0 +1,14 @@
+{
+  "name": "@mhts/core-manufacturing",
+  "version": "0.0.0",
+  "private": true,
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "dependencies": {
+    "@mhts/core-accounting": "*",
+    "@mhts/core-audit": "*",
+    "@mhts/core-inventory": "*",
+    "@mhts/db-schema": "*",
+    "@mhts/shared-types": "*"
+  }
+}

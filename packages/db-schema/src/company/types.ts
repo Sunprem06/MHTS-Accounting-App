@@ -834,6 +834,39 @@ export interface BranchTable {
   created_at: ColumnType<string, string | undefined, never>;
 }
 
+export interface BillOfMaterialTable {
+  id: string;
+  output_item_id: string;
+  output_quantity_thousandths: number;
+  is_active: ColumnType<boolean, boolean | number, boolean | number>;
+  created_by: string | null;
+  created_at: ColumnType<string, string | undefined, never>;
+}
+
+export interface BillOfMaterialLineTable {
+  id: string;
+  bom_id: string;
+  component_item_id: string;
+  quantity_thousandths: number;
+}
+
+export interface ManufacturingJournalTable {
+  id: string;
+  bom_id: string;
+  output_item_id: string;
+  warehouse_id: string;
+  quantity_produced_thousandths: number;
+  /** Paise. */
+  total_cost_paise: number;
+  /** The MANUFACTURING_JOURNAL voucher — see @mhts/core-manufacturing. */
+  voucher_id: string;
+  financial_year: string;
+  journal_date: string;
+  narration: string | null;
+  created_by: string | null;
+  created_at: ColumnType<string, string | undefined, never>;
+}
+
 export interface CompanyDatabase {
   role: RoleTable;
   permission: PermissionTable;
@@ -895,4 +928,7 @@ export interface CompanyDatabase {
   fx_revaluation_run: FxRevaluationRunTable;
   fx_revaluation_line: FxRevaluationLineTable;
   branch: BranchTable;
+  bill_of_material: BillOfMaterialTable;
+  bill_of_material_line: BillOfMaterialLineTable;
+  manufacturing_journal: ManufacturingJournalTable;
 }

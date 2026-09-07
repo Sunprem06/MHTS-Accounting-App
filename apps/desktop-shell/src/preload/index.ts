@@ -161,6 +161,11 @@ import {
   type FxRevaluationPreviewResult,
   type RunFxRevaluationInput,
   type FxRevaluationRunResult,
+  type BillOfMaterialSummary,
+  type CreateBillOfMaterialInput,
+  type PostManufacturingJournalInput,
+  type ManufacturingJournalSummary,
+  type ManufacturingJournalMovementSummary,
 } from '../shared/ipc';
 
 const api = {
@@ -344,6 +349,12 @@ const api = {
   previewFxRevaluation: (input: RunFxRevaluationInput): Promise<IpcResult<FxRevaluationPreviewResult>> => ipcRenderer.invoke(IPC.PREVIEW_FX_REVALUATION, input),
   postFxRevaluation: (input: RunFxRevaluationInput): Promise<IpcResult<FxRevaluationRunResult>> => ipcRenderer.invoke(IPC.POST_FX_REVALUATION, input),
   listFxRevaluationRuns: (): Promise<IpcResult<{ id: string; runDate: string; financialYear: string; voucherId: string | null }[]>> => ipcRenderer.invoke(IPC.LIST_FX_REVALUATION_RUNS),
+
+  createBillOfMaterial: (input: CreateBillOfMaterialInput): Promise<IpcResult<string>> => ipcRenderer.invoke(IPC.CREATE_BILL_OF_MATERIAL, input),
+  listBillsOfMaterial: (): Promise<IpcResult<BillOfMaterialSummary[]>> => ipcRenderer.invoke(IPC.LIST_BILLS_OF_MATERIAL),
+  postManufacturingJournal: (input: PostManufacturingJournalInput): Promise<IpcResult<string>> => ipcRenderer.invoke(IPC.POST_MANUFACTURING_JOURNAL, input),
+  listManufacturingJournals: (): Promise<IpcResult<ManufacturingJournalSummary[]>> => ipcRenderer.invoke(IPC.LIST_MANUFACTURING_JOURNALS),
+  getManufacturingJournalMovements: (journalId: string): Promise<IpcResult<ManufacturingJournalMovementSummary[]>> => ipcRenderer.invoke(IPC.GET_MANUFACTURING_JOURNAL_MOVEMENTS, journalId),
 };
 
 export type MhtsApi = typeof api;

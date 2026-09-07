@@ -70,6 +70,9 @@ interface Props {
   onBranchReports: () => void;
   onManageExchangeRates: () => void;
   onRunFxRevaluation: () => void;
+  onBillsOfMaterial: () => void;
+  onManufacturingJournal: () => void;
+  onManufacturingJournalRegister: () => void;
 }
 
 export function DashboardScreen({
@@ -142,6 +145,9 @@ export function DashboardScreen({
   onBranchReports,
   onManageExchangeRates,
   onRunFxRevaluation,
+  onBillsOfMaterial,
+  onManufacturingJournal,
+  onManufacturingJournalRegister,
 }: Props) {
   return (
     <div style={{ padding: 24, fontFamily: 'sans-serif', maxWidth: 480 }}>
@@ -317,6 +323,13 @@ export function DashboardScreen({
           {session.permissions.includes('ACCOUNTING.VIEW_REPORTS') && <button onClick={onBranchReports}>Branch-wise reports</button>}{' '}
           {session.permissions.includes('MULTI_CURRENCY.MANAGE_EXCHANGE_RATES') && <button onClick={onManageExchangeRates}>Manage exchange rates</button>}{' '}
           {session.permissions.includes('MULTI_CURRENCY.RUN_REVALUATION') && <button onClick={onRunFxRevaluation}>Run FX revaluation</button>}
+        </p>
+      )}
+      {(session.permissions.includes('MANUFACTURING.MANAGE_BOM') || session.permissions.includes('MANUFACTURING.POST_JOURNAL')) && (
+        <p>
+          {session.permissions.includes('MANUFACTURING.MANAGE_BOM') && <button onClick={onBillsOfMaterial}>Bills of material</button>}{' '}
+          {session.permissions.includes('MANUFACTURING.POST_JOURNAL') && <button onClick={onManufacturingJournal}>Manufacturing journal</button>}{' '}
+          {session.permissions.includes('MANUFACTURING.POST_JOURNAL') && <button onClick={onManufacturingJournalRegister}>Manufacturing journal register</button>}
         </p>
       )}
       <p>
