@@ -14,8 +14,23 @@ import react from '@vitejs/plugin-react';
  *     (no build step of its own gets consumed by this app — see each
  *     package's package.json). A plain `require('@mhts/foo')` resolves to a
  *     .ts file Node can't execute. Discovered automatically below by reading
- *     packages/*\/package.json, so a *new* core-* package can never quietly
- *     regress this the way a hand-maintained list could.
+ *     every workspace package's package.json, so a *new* core-* (or apps/*)
+ *     package can never quietly regress this the way a hand-maintained list
+ *     could.
+ *
+ *     2026-09-08 correction: this originally only scanned `packages/*`, which
+ *     missed `@mhts/print-templates` — a real workspace package, but one that
+ *     lives under `apps/` (it's `desktop-shell`'s print-rendering library, not
+ *     a `core-*` business-logic package; see Phase 9's Key Decisions Log for
+ *     why it's tagged `type:app` rather than `type:core`). It stayed a real
+ *     external `require()` the entire time, silently working in `electron-vite
+ *     dev` (a plain Node process can resolve the workspace symlink and load
+ *     .ts source directly there) but throwing `Cannot find module
+ *     '@mhts/print-templates'` in a real packaged build, since the packaged
+ *     app ships no such module at all. Now scans BOTH `packages/*` and
+ *     `apps/*`, explicitly skipping this app's own directory (structurally,
+ *     by comparing paths — not by hardcoding the name "desktop-shell") since
+ *     the entry point obviously can't bundle itself.
  *  2. `kysely` (a real dependency, not a workspace package) ships ESM-only —
  *     `require()` of it throws ERR_REQUIRE_ESM. There's no reliable generic
  *     way to detect "ESM-only" from a package.json without false positives
@@ -28,10 +43,15 @@ import react from '@vitejs/plugin-react';
  * compiled .node binary from node_modules at its real path, not a bundled one.
  */
 function workspacePackageNames(): string[] {
-  const packagesDir = join(__dirname, '../../packages');
-  return readdirSync(packagesDir, { withFileTypes: true })
-    .filter((entry) => entry.isDirectory())
-    .map((entry) => JSON.parse(readFileSync(join(packagesDir, entry.name, 'package.json'), 'utf8')).name as string);
+  const workspaceRoot = join(__dirname, '../..');
+  return ['packages', 'apps'].flatMap((dir) => {
+    const scanDir = join(workspaceRoot, dir);
+    return readdirSync(scanDir, { withFileTypes: true })
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => join(scanDir, entry.name))
+      .filter((entryPath) => entryPath !== __dirname) // never bundle this app into itself
+      .map((entryPath) => JSON.parse(readFileSync(join(entryPath, 'package.json'), 'utf8')).name as string);
+  });
 }
 
 const esmOnlyDeps = ['kysely'];
