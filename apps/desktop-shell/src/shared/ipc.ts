@@ -1918,6 +1918,112 @@ export interface PayslipPrintListItem {
   runStatus: PayrollRunStatus;
 }
 
+// --- Phase 9 Increment 3: Print + Templates (drag-and-drop template designer) ---
+
+/** The 6 groupings @mhts/print-templates already shares one renderer for. */
+export type TemplateFamily = 'SALES_INVOICE' | 'PURCHASE_INVOICE' | 'ORDER' | 'VOUCHER' | 'EXPENSE_CLAIM' | 'PAYSLIP';
+
+export interface TemplateElementStyle {
+  fontSizePx?: number;
+  fontWeight?: 'normal' | 'bold';
+  align?: 'left' | 'center' | 'right';
+  colorHex?: string;
+}
+
+export type TemplateValueFormat = 'plain' | 'currency';
+
+export interface TextTemplateElement {
+  id: string;
+  type: 'text';
+  xMm: number;
+  yMm: number;
+  widthMm: number;
+  heightMm: number;
+  fieldPath?: string;
+  staticText?: string;
+  format?: TemplateValueFormat;
+  style?: TemplateElementStyle;
+}
+
+export interface ImageTemplateElement {
+  id: string;
+  type: 'image';
+  xMm: number;
+  yMm: number;
+  widthMm: number;
+  heightMm: number;
+  source: 'logo';
+}
+
+export interface LineTemplateElement {
+  id: string;
+  type: 'line';
+  xMm: number;
+  yMm: number;
+  widthMm: number;
+  colorHex?: string;
+}
+
+export interface TemplateTableColumn {
+  headerLabel: string;
+  fieldPath: string;
+  widthMm: number;
+  align?: 'left' | 'center' | 'right';
+  format?: TemplateValueFormat;
+}
+
+export interface TableTemplateElement {
+  id: string;
+  type: 'table';
+  xMm: number;
+  yMm: number;
+  widthMm: number;
+  heightMm: number;
+  rowSource: string;
+  columns: TemplateTableColumn[];
+  style?: TemplateElementStyle;
+}
+
+export type TemplateElement = TextTemplateElement | ImageTemplateElement | LineTemplateElement | TableTemplateElement;
+
+export interface TemplateLayoutDocument {
+  version: 1;
+  pageSize: { widthMm: number; heightMm: number };
+  elements: TemplateElement[];
+}
+
+export type TemplateFieldKind = 'text' | 'currency' | 'date' | 'image' | 'table';
+
+export interface TemplateFieldCatalogEntry {
+  path: string;
+  label: string;
+  kind: TemplateFieldKind;
+  columns?: { path: string; label: string; kind: 'text' | 'currency' }[];
+}
+
+export interface PrintTemplateLayoutSummary {
+  id: string;
+  documentFamily: TemplateFamily;
+  version: number;
+  name: string | null;
+  layout: TemplateLayoutDocument;
+  isActive: boolean;
+  createdBy: string | null;
+  createdAt: string;
+}
+
+export interface SaveTemplateLayoutInput {
+  documentFamily: TemplateFamily;
+  name: string | null;
+  layout: TemplateLayoutDocument;
+}
+
+/** A real (or, absent any document of that family yet, placeholder) assembled *TemplateData object for the designer's live preview — shape varies by family, so it's deliberately loose here (the designer canvas only ever reads it via field paths, same as the print-path interpreter). */
+export interface TemplatePreviewData {
+  data: Record<string, unknown>;
+  isPlaceholder: boolean;
+}
+
 export interface IpcResult<T> {
   ok: boolean;
   data?: T;
@@ -2139,4 +2245,12 @@ export const IPC = {
   PRINT_EXPENSE_CLAIM: 'print:printExpenseClaim',
   SAVE_EXPENSE_CLAIM_PDF: 'print:saveExpenseClaimPdf',
   LIST_PAYSLIPS_FOR_PRINT: 'print:listPayslipsForPrint',
+
+  // Phase 9 Increment 3: Print + Templates (drag-and-drop template designer)
+  GET_TEMPLATE_LAYOUT: 'print:getTemplateLayout',
+  SAVE_TEMPLATE_LAYOUT: 'print:saveTemplateLayout',
+  REVERT_TEMPLATE_LAYOUT: 'print:revertTemplateLayout',
+  LIST_TEMPLATE_LAYOUT_VERSIONS: 'print:listTemplateLayoutVersions',
+  GET_TEMPLATE_PREVIEW_DATA: 'print:getTemplatePreviewData',
+  GET_TEMPLATE_FIELD_CATALOG: 'print:getTemplateFieldCatalog',
 } as const;

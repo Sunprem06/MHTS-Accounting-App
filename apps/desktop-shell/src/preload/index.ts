@@ -173,6 +173,11 @@ import {
   type PrintDocumentResult,
   type PayslipPrintListItem,
   type UpdateBusinessPartyAddressInput,
+  type TemplateFamily,
+  type PrintTemplateLayoutSummary,
+  type SaveTemplateLayoutInput,
+  type TemplatePreviewData,
+  type TemplateFieldCatalogEntry,
 } from '../shared/ipc';
 
 const api = {
@@ -384,6 +389,12 @@ const api = {
   printExpenseClaim: (expenseClaimId: string): Promise<IpcResult<PrintDocumentResult>> => ipcRenderer.invoke(IPC.PRINT_EXPENSE_CLAIM, expenseClaimId),
   saveExpenseClaimPdf: (expenseClaimId: string): Promise<IpcResult<PrintDocumentResult>> => ipcRenderer.invoke(IPC.SAVE_EXPENSE_CLAIM_PDF, expenseClaimId),
   listPayslipsForPrint: (): Promise<IpcResult<PayslipPrintListItem[]>> => ipcRenderer.invoke(IPC.LIST_PAYSLIPS_FOR_PRINT),
+  getTemplateLayout: (documentFamily: TemplateFamily): Promise<IpcResult<PrintTemplateLayoutSummary | null>> => ipcRenderer.invoke(IPC.GET_TEMPLATE_LAYOUT, documentFamily),
+  saveTemplateLayout: (input: SaveTemplateLayoutInput): Promise<IpcResult<void>> => ipcRenderer.invoke(IPC.SAVE_TEMPLATE_LAYOUT, input),
+  revertTemplateLayout: (documentFamily: TemplateFamily): Promise<IpcResult<void>> => ipcRenderer.invoke(IPC.REVERT_TEMPLATE_LAYOUT, documentFamily),
+  listTemplateLayoutVersions: (documentFamily: TemplateFamily): Promise<IpcResult<PrintTemplateLayoutSummary[]>> => ipcRenderer.invoke(IPC.LIST_TEMPLATE_LAYOUT_VERSIONS, documentFamily),
+  getTemplatePreviewData: (documentFamily: TemplateFamily): Promise<IpcResult<TemplatePreviewData>> => ipcRenderer.invoke(IPC.GET_TEMPLATE_PREVIEW_DATA, documentFamily),
+  getTemplateFieldCatalog: (documentFamily: TemplateFamily): Promise<IpcResult<TemplateFieldCatalogEntry[]>> => ipcRenderer.invoke(IPC.GET_TEMPLATE_FIELD_CATALOG, documentFamily),
 };
 
 export type MhtsApi = typeof api;

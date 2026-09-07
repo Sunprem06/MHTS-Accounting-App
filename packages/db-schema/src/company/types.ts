@@ -905,6 +905,18 @@ export interface ManufacturingJournalTable {
   created_at: ColumnType<string, string | undefined, never>;
 }
 
+/** Phase 9 Increment 3 (Print + Templates) — the drag-and-drop template designer's versioned storage. `document_family` is one of the 6 groupings @mhts/print-templates already shares one renderer for (SALES_INVOICE/PURCHASE_INVOICE/ORDER/VOUCHER/EXPENSE_CLAIM/PAYSLIP). `layout_json` is opaque here — its shape (TemplateLayoutDocument) is owned entirely by @mhts/print-templates, same "payload is caller-owned" precedent as rule_set.rule_payload. Append-only supersede-on-new-version via is_active, same pattern as BillOfMaterialTable. */
+export interface PrintTemplateLayoutTable {
+  id: string;
+  document_family: string;
+  version: number;
+  name: string | null;
+  layout_json: string;
+  is_active: ColumnType<boolean, boolean | number, boolean | number>;
+  created_by: string | null;
+  created_at: ColumnType<string, string | undefined, never>;
+}
+
 export interface CompanyDatabase {
   role: RoleTable;
   permission: PermissionTable;
@@ -970,4 +982,5 @@ export interface CompanyDatabase {
   bill_of_material_line: BillOfMaterialLineTable;
   manufacturing_journal: ManufacturingJournalTable;
   company_letterhead_profile: CompanyLetterheadProfileTable;
+  print_template_layout: PrintTemplateLayoutTable;
 }
