@@ -1763,6 +1763,79 @@ export interface FxRevaluationRunResult {
   lines: FxRevaluationLineDetail[];
 }
 
+// --- Phase 8 Increment 3: Advanced ERP (Manufacturing) ---
+
+export interface BillOfMaterialLineInput {
+  componentItemId: string;
+  /** Units, as typed by the user — needed per outputQuantityUnits of output. */
+  quantityUnits: number;
+}
+
+export interface CreateBillOfMaterialInput {
+  outputItemId: string;
+  /** Units. The quantity of output this recipe's lines are expressed against. */
+  outputQuantityUnits: number;
+  lines: BillOfMaterialLineInput[];
+}
+
+export interface BillOfMaterialLineSummary {
+  id: string;
+  componentItemId: string;
+  componentItemName: string;
+  quantityUnits: number;
+}
+
+export interface BillOfMaterialSummary {
+  id: string;
+  outputItemId: string;
+  outputItemName: string;
+  outputQuantityUnits: number;
+  isActive: boolean;
+  lines: BillOfMaterialLineSummary[];
+}
+
+export interface PostManufacturingJournalInput {
+  bomId: string;
+  warehouseId: string;
+  quantityProducedUnits: number;
+  /** Required if the output item is batch-tracked. */
+  outputBatchNumber?: string;
+  expiryDate?: string;
+  manufactureDate?: string;
+  /** Which existing batch to consume from, per batch-tracked component — keyed by componentItemId. */
+  componentBatchIds?: Record<string, string>;
+  journalDate: string;
+  narration?: string;
+}
+
+export interface ManufacturingJournalSummary {
+  id: string;
+  bomId: string;
+  outputItemId: string;
+  outputItemName: string;
+  warehouseId: string;
+  warehouseName: string;
+  quantityProducedUnits: number;
+  /** Rupees, for display. */
+  totalCost: number;
+  voucherId: string;
+  financialYear: string;
+  journalDate: string;
+  narration: string | null;
+}
+
+export interface ManufacturingJournalMovementSummary {
+  itemId: string;
+  itemName: string;
+  /** 'MANUFACTURING_CONSUME' | 'MANUFACTURING_PRODUCE'. */
+  movementType: string;
+  quantityUnits: number;
+  /** Rupees, for display. */
+  ratePerUnit: number;
+  value: number;
+  batchNumber: string | null;
+}
+
 export interface IpcResult<T> {
   ok: boolean;
   data?: T;
@@ -1952,4 +2025,11 @@ export const IPC = {
   PREVIEW_FX_REVALUATION: 'multiCurrency:previewFxRevaluation',
   POST_FX_REVALUATION: 'multiCurrency:postFxRevaluation',
   LIST_FX_REVALUATION_RUNS: 'multiCurrency:listFxRevaluationRuns',
+
+  // Phase 8 Increment 3: Advanced ERP (Manufacturing)
+  CREATE_BILL_OF_MATERIAL: 'manufacturing:createBillOfMaterial',
+  LIST_BILLS_OF_MATERIAL: 'manufacturing:listBillsOfMaterial',
+  POST_MANUFACTURING_JOURNAL: 'manufacturing:postManufacturingJournal',
+  LIST_MANUFACTURING_JOURNALS: 'manufacturing:listManufacturingJournals',
+  GET_MANUFACTURING_JOURNAL_MOVEMENTS: 'manufacturing:getManufacturingJournalMovements',
 } as const;

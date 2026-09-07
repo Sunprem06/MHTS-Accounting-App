@@ -171,6 +171,7 @@ import {
   postFxRevaluation,
   listFxRevaluationRuns,
 } from './multiCurrencyHandlers';
+import { createBillOfMaterial, listBillsOfMaterial, postManufacturingJournal, listManufacturingJournals, getManufacturingJournalMovements } from './manufacturingHandlers';
 import { session } from './session';
 import {
   IPC,
@@ -255,6 +256,8 @@ import {
   type BranchReportInput,
   type SetExchangeRateInput,
   type RunFxRevaluationInput,
+  type CreateBillOfMaterialInput,
+  type PostManufacturingJournalInput,
 } from '../shared/ipc';
 
 function handle<T>(channel: string, fn: () => Promise<T>): void {
@@ -478,6 +481,12 @@ async function bootstrap(): Promise<void> {
   handleWithArg(IPC.PREVIEW_FX_REVALUATION, (input: RunFxRevaluationInput) => previewFxRevaluation(systemDb, input));
   handleWithArg(IPC.POST_FX_REVALUATION, (input: RunFxRevaluationInput) => postFxRevaluation(systemDb, input));
   handle(IPC.LIST_FX_REVALUATION_RUNS, () => listFxRevaluationRuns());
+
+  handleWithArg(IPC.CREATE_BILL_OF_MATERIAL, (input: CreateBillOfMaterialInput) => createBillOfMaterial(input));
+  handle(IPC.LIST_BILLS_OF_MATERIAL, () => listBillsOfMaterial());
+  handleWithArg(IPC.POST_MANUFACTURING_JOURNAL, (input: PostManufacturingJournalInput) => postManufacturingJournal(systemDb, input));
+  handle(IPC.LIST_MANUFACTURING_JOURNALS, () => listManufacturingJournals());
+  handleWithArg(IPC.GET_MANUFACTURING_JOURNAL_MOVEMENTS, (journalId: string) => getManufacturingJournalMovements(journalId));
 
   createWindow();
 }

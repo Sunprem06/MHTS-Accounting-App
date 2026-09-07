@@ -84,6 +84,9 @@ export const MOVEMENT_TYPES = [
   'PURCHASE_RECEIPT_REVERSAL',
   'ADJUSTMENT_IN_REVERSAL',
   'ADJUSTMENT_OUT_REVERSAL',
+  /** Phase 8 Increment 3 (Manufacturing) — see @mhts/core-manufacturing. No reversal types yet: cancelling a posted manufacturing journal is deliberately out of scope this pass. */
+  'MANUFACTURING_CONSUME',
+  'MANUFACTURING_PRODUCE',
 ] as const;
 export type MovementType = (typeof MOVEMENT_TYPES)[number];
 
@@ -94,8 +97,8 @@ export type MovementType = (typeof MOVEMENT_TYPES)[number];
  * both the running weighted-average pool and the on-hand quantity/value is
  * determined purely by which of these two lists it's in.
  */
-const INBOUND_MOVEMENT_TYPES_TYPED: readonly MovementType[] = ['OPENING_STOCK', 'PURCHASE_RECEIPT', 'ADJUSTMENT_IN', 'TRANSFER_IN', 'SALES_ISSUE_REVERSAL', 'ADJUSTMENT_OUT_REVERSAL'];
-const OUTBOUND_MOVEMENT_TYPES_TYPED: readonly MovementType[] = ['SALES_ISSUE', 'ADJUSTMENT_OUT', 'TRANSFER_OUT', 'PURCHASE_RECEIPT_REVERSAL', 'ADJUSTMENT_IN_REVERSAL'];
+const INBOUND_MOVEMENT_TYPES_TYPED: readonly MovementType[] = ['OPENING_STOCK', 'PURCHASE_RECEIPT', 'ADJUSTMENT_IN', 'TRANSFER_IN', 'SALES_ISSUE_REVERSAL', 'ADJUSTMENT_OUT_REVERSAL', 'MANUFACTURING_PRODUCE'];
+const OUTBOUND_MOVEMENT_TYPES_TYPED: readonly MovementType[] = ['SALES_ISSUE', 'ADJUSTMENT_OUT', 'TRANSFER_OUT', 'PURCHASE_RECEIPT_REVERSAL', 'ADJUSTMENT_IN_REVERSAL', 'MANUFACTURING_CONSUME'];
 /** Typed as readonly string[] (not MovementType[]) at the exported boundary — every call site checks a raw movement_type string read back from the DB, not a value already known to be a MovementType. The *_TYPED consts above exist only so this list itself is checked against MovementType at compile time. */
 export const INBOUND_MOVEMENT_TYPES: readonly string[] = INBOUND_MOVEMENT_TYPES_TYPED;
 export const OUTBOUND_MOVEMENT_TYPES: readonly string[] = OUTBOUND_MOVEMENT_TYPES_TYPED;
