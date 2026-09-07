@@ -84,6 +84,7 @@ async function insertVoucherWithLines(trx: Transaction<CompanyDatabase>, options
         debit_amount: line.debitAmount,
         credit_amount: line.creditAmount,
         line_narration: line.lineNarration ?? null,
+        cost_centre_id: line.costCentreId ?? null,
       })
       .execute();
   }
@@ -213,6 +214,7 @@ export async function cancelVoucherInTransaction(
     debitAmount: line.credit_amount,
     creditAmount: line.debit_amount,
     lineNarration: line.line_narration ?? undefined,
+    costCentreId: line.cost_centre_id ?? undefined,
   }));
 
   const reversalId = randomUUID();

@@ -84,6 +84,7 @@ export async function createVoucher(systemDb: Kysely<SystemDatabase>, input: Cre
         debitAmount: rupeesToPaise(line.debitRupees),
         creditAmount: rupeesToPaise(line.creditRupees),
         lineNarration: line.lineNarration,
+        costCentreId: line.costCentreId,
       })),
     },
     info.userId,

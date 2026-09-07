@@ -59,6 +59,12 @@ interface Props {
   onLeave: () => void;
   onPayrollRuns: () => void;
   onGratuity: () => void;
+  onCostCentres: () => void;
+  onBudgets: () => void;
+  onAssetClasses: () => void;
+  onFixedAssetRegister: () => void;
+  onRunDepreciation: () => void;
+  onManageFixedAssetRates: () => void;
 }
 
 export function DashboardScreen({
@@ -120,6 +126,12 @@ export function DashboardScreen({
   onLeave,
   onPayrollRuns,
   onGratuity,
+  onCostCentres,
+  onBudgets,
+  onAssetClasses,
+  onFixedAssetRegister,
+  onRunDepreciation,
+  onManageFixedAssetRates,
 }: Props) {
   return (
     <div style={{ padding: 24, fontFamily: 'sans-serif', maxWidth: 480 }}>
@@ -268,6 +280,21 @@ export function DashboardScreen({
           {(session.permissions.includes('PAYROLL.APPLY_LEAVE') || session.permissions.includes('PAYROLL.APPROVE_LEAVE')) && <button onClick={onLeave}>Leave</button>}{' '}
           {(session.permissions.includes('PAYROLL.RUN_PAYROLL') || session.permissions.includes('PAYROLL.VIEW_REPORTS')) && <button onClick={onPayrollRuns}>Payroll runs</button>}{' '}
           {(session.permissions.includes('PAYROLL.MANAGE_GRATUITY') || session.permissions.includes('PAYROLL.VIEW_REPORTS')) && <button onClick={onGratuity}>Gratuity</button>}
+        </p>
+      )}
+      {(session.permissions.includes('ACCOUNTING.MANAGE_COST_CENTRES') ||
+        session.permissions.includes('ACCOUNTING.VIEW_REPORTS') ||
+        session.permissions.includes('ACCOUNTING.MANAGE_BUDGETS') ||
+        session.permissions.includes('FIXED_ASSETS.MANAGE_ASSET_CLASSES') ||
+        session.permissions.includes('FIXED_ASSETS.MANAGE_ASSETS') ||
+        session.permissions.includes('FIXED_ASSETS.RUN_DEPRECIATION')) && (
+        <p>
+          {session.permissions.includes('ACCOUNTING.VIEW_REPORTS') && <button onClick={onCostCentres}>Cost centres</button>}{' '}
+          {session.permissions.includes('ACCOUNTING.MANAGE_BUDGETS') && <button onClick={onBudgets}>Budgets</button>}{' '}
+          {session.permissions.includes('FIXED_ASSETS.MANAGE_ASSET_CLASSES') && <button onClick={onAssetClasses}>Fixed asset classes</button>}{' '}
+          {session.permissions.includes('FIXED_ASSETS.MANAGE_ASSETS') && <button onClick={onFixedAssetRegister}>Fixed asset register</button>}{' '}
+          {session.permissions.includes('FIXED_ASSETS.RUN_DEPRECIATION') && <button onClick={onRunDepreciation}>Run depreciation</button>}{' '}
+          {session.permissions.includes('FIXED_ASSETS.MANAGE_ASSET_CLASSES') && <button onClick={onManageFixedAssetRates}>Manage fixed asset rates</button>}
         </p>
       )}
       <p>

@@ -26,7 +26,7 @@ Then paste the latest entry from the **Session Handoff Log** (Section 4 of this 
 | 5 | Banking | Accounts, reconciliation, cheque/UTR | ✅ Done | | New `bank_account` master (own dedicated ledger under the existing "Bank Accounts" group, atomic creation — same pattern as Phase 2's `createParty`), cheque/UTR/instrument tracking on Payment/Receipt/Contra vouchers (`voucher_payment_instrument`, one entry point `recordVoucherWithInstrument` degrading to a plain voucher post when no instrument), manual bank reconciliation (`bank_reconciliation`, a pure metadata/tracking layer that never touches `voucher`/`voucher_line`) with a reconciliation-statement report reusing Phase 1's `computeLedgerBalances`, and — per the user's explicit choice over manual-only — a real CSV bank-statement importer (`bank_statement_import`/`bank_statement_line`) with user-driven column mapping and paisa-exact, direction-aware auto-matching within a 7-day window (ambiguous/unmatched lines always left for manual resolution, never guessed). New pure-TS `core-banking` package, same `type:core` Nx boundary as every other module. Verified end-to-end (23 checks) against a real encrypted company DB, including the Blueprint's literal exit criterion (reconciliation statement ties to `computeLedgerBalances` to the paisa) and the CSV importer's direction-flip correctness (bank-statement CREDIT/DEBIT is the opposite sense of the ledger's own debit/credit on this asset account). Full workspace `lint`+`build` (14 projects, cache bypassed) clean. Not yet merged — on branch `phase5/banking`, pending user review. |
 | 6 | Expenses/Travel/Documents | Claims, reimbursements, attachments | ✅ Done | | New `employee` master (own dedicated liability ledger under a new "Employee Reimbursements Payable" group — atomic creation, same pattern as Phase 2's `createParty`). Expense claim lifecycle (DRAFT→SUBMITTED→APPROVED→REIMBURSED, with REJECTED and CANCELLED side paths) mirrors the existing sales/purchase order state-machine pattern: approval posts a real new `EXPENSE_CLAIM` voucher (Dr each line's expense ledger, Cr the employee's ledger — the accrual), reimbursement is a separate `PAYMENT` voucher settling the claim via a new `expense_claim_settlement` table (exact mirror of the existing bill-wise invoice settlement tables, partial reimbursement supported), and a new settlement-aware cancellation guard (no precedent elsewhere in this codebase) blocks cancelling a claim that already has any reimbursement recorded. Travel is just another expense-claim line category (no separate pre-trip advance workflow — confirmed scope choice). Generic, entity-agnostic document attachment (`core-documents`, brand-new package with zero dependency on `core-accounting`) stores files as BLOBs inside the encrypted company DB — the first blob column in this schema — so `backupCompany`'s existing whole-file copy needed zero changes; wired via a reusable `AttachmentsPanel` component into the Expense Claim register plus five other representative screens (Voucher Register, both invoice registers, Parties, Bank Accounts), and a standalone filename/description `DocumentSearchScreen`. Verified end-to-end (29 checks) against a real encrypted company DB, including a byte-for-byte blob round-trip and the full claim lifecycle's voucher Dr/Cr correctness. Full workspace `lint`+`build` (16 projects) clean. Not yet merged — on branch `phase6/expenses-travel-documents`, pending user review. |
 | 7 | Payroll | CTC, salary rules engine, attendance, leave, statutory, payslips | ✅ Done | | Full scope in one pass (user's explicit choice over a GST-style increment split): employee payroll profile extends the existing Phase 6 `employee` table (DOB/DOJ/DOL, employment type, PAN, bank details, UAN/ESI numbers, a second dedicated "Salaries Payable" ledger separate from Phase 6's reimbursement ledger); CTC/salary-structure engine (`salary_component_definition`/`salary_structure`/`salary_structure_line`, FLAT/PCT_OF_BASIC/PCT_OF_CTC, append-only supersede-on-raise); the Labour Code's wage-definition cap (allowances above X% of total pay reclassified as wages, X itself RuleSet-driven) implemented in `core-payroll-engine/wageClassification.ts`; PF/ESI/PT/Salary-TDS(192, new-regime slabs; old regime is manual-entry-only by design) all resolved via `core-rules-engine`'s existing RuleSet mechanism, same pattern as GST/vendor-TDS; a new `company_payroll_settings` table with AUTO/ALWAYS/NEVER applicability per scheme (AUTO compares live headcount against the RuleSet threshold; PF needs 20+ employees, ESI/Gratuity need 10+, and Gratuity's AUTO is sticky — once crossed it flips to ALWAYS permanently, per real EPF/ESI/Gratuity Act headcount thresholds); attendance (bulk date-range marking, PRESENT-by-default) and leave (company-configurable leave types, apply/approve/reject, balance tracking) feeding Loss-of-Pay proration into payroll; a payroll run lifecycle (DRAFT→PROCESSED→POSTED) posting one balanced new `PAYROLL` voucher per run, disbursement mirroring Phase 6's settlement pattern exactly; and gratuity — both a formula-based (NOT actuarial AS-15/Ind AS-19) monthly provisioning accrual AND a separation eligibility/formula calculator with a true-up adjustment + direct settlement from the Gratuity Provision ledger (both "do both" per the user's explicit choice). New `core-payroll-engine` package (was an empty Phase-0 stub) and 15 new company-DB tables (migration 012). Verified end-to-end (76 checks, throwaway tsx script against a real encrypted company/system DB pair, deleted after) — including a rate-change simulation (swap PF's rate via a new RuleSet version, zero code change), the wage-cap reclassification's literal Section 3.2 test, headcount-driven applicability at 1/10/20 employees plus the sticky-gratuity-survives-a-headcount-drop case, LOP proration, a two-employee run with PF/ESI/PT/TDS all live and the posted voucher balancing to the paise, and the full gratuity lifecycle (fixed-term-eligible vs permanent-ineligible at the same tenure, provisioning, a zero-adjustment separation, settlement, and settlement correctly refused for an ineligible employee). **Verification caught and fixed a real deadlock bug**: `gratuityRecords.ts` was calling back into the outer `companyDb` handle from inside its own `companyDb.transaction()` callback (instead of using `trx`), which silently deadlocks Kysely's single-connection queue — the awaiting promise never resolves, and since nothing else keeps Node's event loop alive, the process exits silently with no error, no crash, exit code 0. Fixed by resolving ledger IDs before opening the transaction (same pattern `postPayrollRun` already used correctly); grepped the rest of the codebase for the same pattern and found no other occurrence. Full workspace `nx run-many -t build` and `-t lint` (16 projects) clean with cache bypassed; `tsc --noEmit` clean on both the renderer and main-process TS projects (only the pre-existing, already-documented `licenseHandlers.ts` latent error remains, untouched, out of scope). Not yet merged — on branch `phase7/payroll`, pending user review. |
-| 8 | Advanced ERP | Fixed assets (dual depreciation), cost centres, budgets, manufacturing, multi-currency, multi-branch | ⬜ Not started | | |
+| 8 | Advanced ERP | Fixed assets (dual depreciation), cost centres, budgets, manufacturing, multi-currency, multi-branch | 🟨 In progress | | Split into three increments (user's explicit choice over one full pass): **Increment 1 (Fixed Assets + Cost Centres + Budgets) is done.** Cost centres are a nullable `cost_centre_id` dimension tag on `voucher_line` (new `cost_centre` table, `core-accounting/costCentres.ts` + a cost-centre-wise P&L report), wired as an optional selector into Journal/Payment/Receipt voucher-entry screens (Contra deliberately excluded — a pure internal Cash/Bank transfer, not an expense/income event). Budgets (`budget`/`budget_line`, 12 monthly lines, scoped to a ledger and/or cost centre) compare against actuals re-queried from `voucher_line`, no separate actuals table. Fixed Assets is a new pure-TS package `core-fixed-assets` (same `type:core` Nx boundary, depends on `core-accounting` + `core-rules-engine`): two genuinely independent depreciation books per asset — Companies Act Schedule II (SLM/WDV, strict day-count pro-ration, GL-posted via a new `DEPRECIATION` voucher type) and Income Tax Act WDV block (the real `<180`-days-in-year half-rate rule, memo-only, never GL-posted) — both rate-driven via two new `core-rules-engine` rule types (`FIXED_ASSET.SCHEDULE2_RATE.<category>` / `FIXED_ASSET.IT_WDV_BLOCK_RATE.<category>`), never hardcoded. New `ASSET_ACQUISITION`/`DEPRECIATION`/`ASSET_DISPOSAL` voucher types; each asset CLASS (not each physical unit) gets its own dedicated gross-block and accumulated-depreciation ledgers, same "own dedicated ledger" pattern as parties/bank accounts/employees. Verified end-to-end (27 checks, throwaway tsx script against a real encrypted company/system DB pair, deleted after) — including the literal dual-depreciation exit criterion (the two books compute genuinely different amounts for the same asset), a rate-change simulation (zero code change), GL balancing on acquisition/depreciation/disposal, and idempotent re-running of a depreciation period. Full workspace `nx run-many -t build -t lint` clean. Not yet merged — on branch `phase8/fixed-assets-cost-centres-budgets`, pending user review. **Increment 2 (Multi-currency + Multi-branch) and Increment 3 (Manufacturing) not started.** |
 | 9 | Print + Templates | Print Centre, native printing, PDF, template designer | ⬜ Not started | | |
 | 10 | Commercialization | Installer, updates, demo mode, setup wizard | ⬜ Not started | | |
 | 11 | UAT & Compliance Sign-off | Full acceptance test, CA sign-off, security pass | ⬜ Not started | | |
@@ -126,6 +126,12 @@ Record every architectural or business decision here the moment it's made, so it
 | 2026-09-07 | **Salary TDS (Section 192): new-regime slabs are auto-computed from a RuleSet table; old regime is deliberately manual-entry-only, not auto-computed with a wrong number.** The user asked for "both" regimes supported — new regime has almost no exemptions to model, so a slab computation from gross salary alone stays meaningfully accurate; old regime depends on HRA actually paid, 80C/80D investments, home-loan interest, none of which this schema collects, so inventing a number would be actively misleading rather than a reasonable simplification (unlike GST's simplifications, which stay directionally correct). Either way the figure is user-overridable per payslip (`overridePayslipTdsAmount`). | 7 |
 | 2026-09-07 | **Gratuity: both a monthly formula-based provisioning accrual AND a separation eligibility/formula calculator were built (user's explicit "do both")** — clearly labeled everywhere as a formula estimate (15/26 × last-drawn statutory wage base × rounded years of service), NOT an actuarial AS-15/Ind AS-19 valuation. Settlement pays directly out of the Gratuity Provision ledger (Dr Provision, Cr payment ledger) rather than through the employee's salary-payable ledger, since `recordSeparation`'s true-up adjustment voucher already reconciles the provision to exactly the formula amount owed before settlement runs. | 7 |
 | 2026-09-07 | **Real deadlock bug found and fixed during verification**: `gratuityRecords.ts` called back into the outer `companyDb` handle from inside its own `companyDb.transaction()` callback (should have used `trx`) — this silently deadlocks Kysely's single-connection queue (the transaction holds the only connection; the nested query waits forever for one that will never free up). The awaiting promise never resolves, and since nothing else keeps Node's event loop alive, the process just exits silently — no crash, no error, no stack trace, exit code 0 — which is exactly why it wasn't caught by `build`/`lint` and needed a real end-to-end run to surface. Fixed by resolving ledger IDs before opening the transaction, the same pattern `postPayrollRun` already used correctly; grepped the rest of the codebase for the same anti-pattern and found no other occurrence. Worth remembering as a class of bug for future core-* work: never call the outer `Kysely` handle from inside its own open transaction's callback. | 7 |
+| 2026-09-07 | **Phase 8 split into three increments** (user's explicit choice, offered as the recommended alternative to a Phase-7-style single pass, given six largely-independent sub-areas): Increment 1 = Fixed Assets + Cost Centres + Budgets (accounting-core extensions); Increment 2 = Multi-currency (full, including period-end revaluation and forex gain/loss — user's choice over entry-only) + Multi-branch; Increment 3 = Manufacturing (core BOM + a single consume-then-produce voucher, no work-order/WIP tracking — user's choice, explicitly deferrable to fuller tracking later if wanted). | 8 |
+| 2026-09-07 | **Cost centres are a dimension tag on `voucher_line` (`cost_centre_id`, nullable), not a parallel ledger hierarchy.** A voucher still posts to the same `ledger_account` it always did; a cost centre is an optional second axis for reporting (a new cost-centre-wise P&L, `computeCostCentreSummary`) and for budgeting. Wired into Journal/Payment/Receipt voucher-entry screens; deliberately left off Contra, since a transfer between the business's own Cash/Bank ledgers isn't an expense/income event a department would own. | 8 |
+| 2026-09-07 | **Budgets compare against actuals by re-querying `voucher_line` directly (`computeBudgetVsActual`), no separate "actual" table to keep in sync** — same "derive, don't duplicate" principle every other report in `core-accounting` already follows (Trial Balance/P&L/BS all re-derive from `voucher_line` too). A budget scoped to a specific ledger compares that ledger's own monthly movement (flipped positive for an INCOME-nature ledger so a revenue budget and its actual both read positive); a cost-centre-only budget (the more common department-budget case) compares that cost centre's total EXPENSE-nature spend for the month, not its own revenue attribution — deliberately not attempted this pass. | 8 |
+| 2026-09-07 | **Fixed Assets: two genuinely independent depreciation books, both resolved via `core-rules-engine`, never hardcoded** — Companies Act Schedule II (`FIXED_ASSET.SCHEDULE2_RATE.<category>`: SLM or WDV method, strict day-count pro-ration from the date put to use, no `<180`-day threshold — that rule is IT-Act-specific) and Income Tax Act WDV block (`FIXED_ASSET.IT_WDV_BLOCK_RATE.<category>`: the real `<180`-days-in-year half-rate rule, applied only in an asset's own first year). SCHEDULE2 entries post a real `DEPRECIATION` voucher (Dr a shared "Depreciation" expense ledger, Cr that asset class's own accumulated-depreciation ledger); IT_WDV entries are memo-only (`voucher_id` stays null) — real WDV blocks are pooled by category, not GL-posted per asset, and this pass tracks each `fixed_asset` unit's IT_WDV book independently as a documented simplification rather than building true block-pooling. | 8 |
+| 2026-09-07 | **Asset classes, not individual physical units, get their own dedicated gross-block and accumulated-depreciation ledgers** (`asset_class.gross_block_ledger_id` / `accumulated_depreciation_ledger_id`, created atomically with the class — same "own dedicated ledger" pattern as `business_party`/`bank_account`/`employee`). The individual-unit register lives in `fixed_asset` instead, keyed to its class. A ledger-per-physical-unit design (e.g. a separate ledger per laptop) would explode the chart of accounts for any business with many like-kind assets; a Balance Sheet showing "Computers — Rs 5,00,000" as one line, not fifty, matches real Indian accounting practice. Disposal correctly removes only that ONE asset's own share of the shared ledgers (its own accumulated depreciation total from `asset_depreciation_entry`, its own original cost), not the whole class balance. | 8 |
+| 2026-09-07 | **New `ASSET_ACQUISITION`/`DEPRECIATION`/`ASSET_DISPOSAL` voucher types added to the existing shared `VOUCHER_TYPES` list** — same mechanism as every prior phase's additions (`EXPENSE_CLAIM`, `PAYROLL`, `GRATUITY_PROVISION`), a plain `as const` array validated in application code, not a DB CHECK. Disposal computes a Profit/Loss on Sale of Assets plug line (Dr for a loss, Cr for a gain) so the voucher always balances by construction — Sale proceeds + Accumulated depreciation removed vs. Gross block removed, with the residual being the gain/loss, standard fixed-asset-disposal accounting mechanics. | 8 |
 
 ## 3. Open Questions / Blockers
 
@@ -198,6 +204,14 @@ Track anything unresolved so it surfaces automatically in the next session inste
 - [ ] Phase 7: **No PF/ESI government e-filing (ECR/challan) integration** — PF/ESI/PT amounts are correctly computed and posted to their own payable ledgers, but remitting them to the actual government portal and recording the challan reference is a manual step outside the app today, same scoping as GST's own "prep reports, not upload-ready files" deferral.
 - [ ] Phase 7: **Existing (pre-Phase-7) companies don't get Payroll permissions/ledgers/settings retroactively** — `grantPayrollPermissions`/`seedPayrollLedgers`/`seedDefaultCompanyPayrollSettings` only run at NEW company creation, the same characteristic every prior module's additions have had.
 - [ ] Phase 7: **`ManagePayrollRulesScreen` uses a raw JSON payload editor** rather than six bespoke forms for the six different rule-payload shapes (PF/ESI/PT/wage-cap/gratuity-eligibility/TDS-slab) — a deliberate scope choice for an admin-only screen (amounts must be entered in paise), same underlying gap Phase 2 flagged ("no admin UI for rate versions... worth solving once, generically, rather than three times per-module") — still not solved generically, now present a third time (TDS/GST/Payroll).
+- [x] Phase 8 Increment 1: **Fixed Assets + Cost Centres + Budgets** — **done 2026-09-07** (see Key Decisions Log for the full design). The items below are genuine, explicitly-scoped simplifications within that delivered scope, not oversights.
+- [ ] Phase 8: **`ManageFixedAssetRatesScreen` is a fourth instance of the same raw-JSON rate-editor gap** flagged since Phase 2 ("no admin UI for rate versions... worth solving once, generically") — now present for TDS/GST/Payroll/Fixed-Assets. Genuinely worth solving generically before a fifth module needs it.
+- [ ] Phase 8: **IT WDV block depreciation tracks each `fixed_asset` unit independently, not a true pooled block** — real Income Tax Act WDV blocks merge every asset of a category into one shared WDV figure per block (additions/deletions net against the block as a whole, and the `<180`-day half-rate rule is evaluated at the block level for that year's net additions, not per-asset). This pass applies the `<180`-day rule per-asset in that asset's own first year only, which is directionally correct for a single acquisition but would diverge from a real filing once a class sees multiple part-year additions/disposals within one FY. A dedicated pooled-block redesign would be needed before this is filing-accurate.
+- [ ] Phase 8: **Disposal doesn't compute a stub partial-year depreciation top-up for the disposal FY itself** — `disposeFixedAsset` only removes accumulated depreciation from `asset_depreciation_entry` rows that already exist (i.e. from `postDepreciationRun` having been run for that FY already). A business that disposes an asset mid-year without first running that year's depreciation will see a slightly overstated gain/understated loss on disposal. The natural real-world workflow (run depreciation for the current period, then dispose) avoids this, but the app doesn't force or warn about the ordering.
+- [ ] Phase 8: **No admin UI to edit an asset class or a fixed asset once created**, beyond the class's own `is_active` flag (no UI exposes toggling it yet either) — same "append/deactivate, don't edit in place" pattern as Phase 7's salary components, not yet given its own screen control for asset classes.
+- [ ] Phase 8: **Cost centres and budgets have no permission granted to pre-Phase-8 companies retroactively** — `grantAccountingPermissions` (which now includes `ACCOUNTING.MANAGE_COST_CENTRES`/`ACCOUNTING.MANAGE_BUDGETS`) and `grantFixedAssetsPermissions`/`seedFixedAssetLedgers` only run at NEW company creation, the same characteristic every prior module's additions have had since Phase 3.
+- [ ] Phase 8: **Budgets have no hierarchical roll-up** — a cost centre with children doesn't aggregate its children's budgets/actuals into a parent total; `parent_cost_centre_id` exists on `cost_centre` (added for future-proofing) but nothing in Increment 1 reads it yet.
+- [ ] Phase 8: **Depreciation runs are annual only** (once per financial year per asset), not monthly-provisioning like Phase 7's gratuity — a company wanting a monthly depreciation P&L impact would need to estimate it manually between annual runs. A deliberate scope choice: the Blueprint's literal ask was "two separate depreciation calculations," not a specific posting frequency, and annual is standard practice for Schedule II/IT-Act books.
 
 ---
 
@@ -217,6 +231,103 @@ Next concrete step:
 ```
 
 ### Entries:
+```
+Date: 2026-09-07 (session 19)
+Phase: 8 (Advanced ERP), Increment 1 — Fixed Assets, Cost Centres, Budgets
+What was completed:
+  - User said "Start Phase 8" — read the Phase Status Board (Phase 7 merged
+    via PR #15) and the Blueprint's one-line Phase 8 scope: "Fixed assets
+    (dual depreciation), cost centres, budgets, manufacturing,
+    multi-currency, multi-branch" — the broadest single phase in the
+    roadmap, six largely-independent sub-areas.
+  - Before drafting a plan, surfaced the real scope forks via
+    AskUserQuestion: (1) one full pass vs. splitting into increments — user
+    chose to split (recommended); (2) Manufacturing depth — user deferred to
+    the recommendation (core BOM + a single consume/produce voucher, no
+    work-order/WIP tracking, explicitly open to "both" i.e. fuller tracking
+    later if wanted); (3) Multi-currency depth — user chose full (entry-time
+    conversion + period-end revaluation + forex gain/loss), not basic
+    entry-only.
+  - Landed on three increments: Inc.1 Fixed Assets + Cost Centres + Budgets
+    (this session), Inc.2 Multi-currency + Multi-branch, Inc.3 Manufacturing.
+  - Explored the existing voucher engine, chart-of-accounts seeding, and
+    core-rules-engine's RuleSet mechanism (confirmed still fully generic —
+    GST/TDS/Payroll all already prove the pattern) before planning, per
+    CLAUDE.md's financial-logic plan-and-confirm gate. Used plan mode; user
+    approved the plan as drafted with no changes.
+  - Built Increment 1 in full: `cost_centre` table + `voucher_line.cost_centre_id`
+    (nullable dimension tag) + a cost-centre-wise P&L report, all in
+    `core-accounting` (not a new package — a dimension on the existing
+    voucher engine, not a standalone module); `budget`/`budget_line` (12
+    monthly lines, scoped to a ledger and/or cost centre) + a
+    budget-vs-actual report that re-queries `voucher_line` directly, no
+    separate actuals table; a brand-new pure-TS package `core-fixed-assets`
+    (same `type:core` Nx boundary, depends on `core-accounting` +
+    `core-rules-engine`) implementing genuinely independent Companies Act
+    Schedule II (SLM/WDV, strict day-count pro-ration, GL-posted) and Income
+    Tax Act WDV block (the real <180-days half-rate rule, memo-only, never
+    posted) depreciation, both rate-driven via two new `core-rules-engine`
+    rule types, never hardcoded. Three new voucher types
+    (ASSET_ACQUISITION/DEPRECIATION/ASSET_DISPOSAL); each asset CLASS (not
+    each physical unit) gets its own dedicated gross-block and
+    accumulated-depreciation ledgers, same "own dedicated ledger" pattern as
+    parties/bank accounts/employees, so the chart of accounts doesn't
+    explode per physical unit.
+  - Two new company-DB migrations (013 cost centres/budgets, 014 fixed
+    assets). Full IPC/preload/renderer wiring: 6 new screens
+    (CostCentresScreen, BudgetsScreen, FixedAssetClassesScreen,
+    FixedAssetRegisterScreen, RunDepreciationScreen,
+    ManageFixedAssetRatesScreen — the last reusing the existing generic
+    raw-JSON RuleSet-editor pattern from ManagePayrollRulesScreen, a known,
+    now-fourth instance of the still-unsolved "generic rate editor" gap
+    flagged since Phase 2), a cost-centre selector added to the
+    Journal/Payment/Receipt voucher-entry screens (Contra deliberately
+    excluded — a pure internal Cash/Bank transfer, not an expense/income
+    event), and new dashboard nav entries gated by the three new
+    `FIXED_ASSETS.*` permissions plus the two new `ACCOUNTING.*` ones.
+  - Verified end-to-end (27 checks, throwaway tsx script against a real
+    encrypted company/system DB pair, deleted after): cost-centre-tagged
+    vouchers and the resulting P&L split; a budget's monthly variance
+    against real posted actuals; an asset class's two dedicated ledgers;
+    acquisition balancing the gross-block ledger; a depreciation run where
+    the two books compute genuinely DIFFERENT amounts for the same asset
+    (the literal Blueprint exit criterion) with only SCHEDULE2 getting a
+    real `voucher_id` and IT_WDV staying memo-only; idempotent re-running of
+    an already-processed FY; a rate-change simulation (new RuleSet version,
+    zero code change, matching the same test pattern GST/Payroll used); and
+    a full disposal (gross block and accumulated depreciation both correctly
+    zeroed for that one asset without disturbing the shared class ledgers,
+    and a correctly-signed loss posted to the Profit/Loss on Sale of Assets
+    ledger). Full workspace `nx run-many -t build -t lint` clean
+    (desktop-shell's lint flagged once as "flaky" — a real ENOENT race
+    against electron-vite's temp config file when build and lint run
+    concurrently in the same `nx run-many`, confirmed transient by
+    re-running lint alone immediately after); `tsc --noEmit` clean on both
+    the renderer and main-process TS projects (only the pre-existing,
+    already-documented `licenseHandlers.ts` latent error remains, untouched).
+What's still pending in this phase:
+  - Phase 8 Increment 2 (Multi-currency + Multi-branch) and Increment 3
+    (Manufacturing) — not started.
+  - Everything listed under the new Phase 8 items in Section 3 (Open
+    Questions): the fourth raw-JSON rate-editor instance, IT WDV block being
+    per-asset rather than truly pooled, no disposal-year partial-depreciation
+    top-up, no asset-class/asset edit UI, no retroactive permission grant for
+    pre-Phase-8 companies, no cost-centre hierarchy roll-up, annual-only
+    depreciation runs.
+Any decisions made (also add to Section 2): see the seven new 2026-09-07 /
+  Phase 8 rows in the Key Decisions Log — increment split, cost centres as a
+  dimension tag (not a new module), budgets re-deriving actuals (not a
+  stored table), the two independent rate-driven depreciation books, asset
+  classes (not units) owning the dedicated ledgers, and the three new
+  voucher types.
+Any blockers (also add to Section 3): none.
+Next concrete step: user review of branch
+  `phase8/fixed-assets-cost-centres-budgets`, then open a PR (not merged by
+  Claude); after that, either Phase 8 Increment 2 (Multi-currency +
+  Multi-branch) or Increment 3 (Manufacturing) per the user's choice of
+  sequencing next session.
+```
+
 ```
 Date: 2026-09-07 (session 18)
 Phase: 7 (Payroll) — kicked off and completed in one pass
