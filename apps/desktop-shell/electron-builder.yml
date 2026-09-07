@@ -1,0 +1,74 @@
+# electron-builder packaging config for the MHTS ERP desktop shell.
+#
+# This is an npm/yarn workspace monorepo with hoisted node_modules at the repo
+# root — electron-builder's own dependency walker (Node's own resolution
+# algorithm, starting from this app directory) is what has to find and ship
+# better-sqlite3-multiple-ciphers/node-machine-id/electron-updater into the
+# packaged app's node_modules. This has never been exercised in this repo
+# before; verify a real package actually runs before trusting this config.
+appId: com.mhtsdigixr.erp
+productName: MHTS ERP
+# electron-builder auto-detects the Electron version by finding
+# node_modules/electron/package.json relative to this app directory — but in
+# this npm workspace, electron is hoisted to the repo-root node_modules, so
+# auto-detection fails ("Cannot compute electron version..."). Pin it
+# explicitly instead; keep in sync with the electron devDependency range.
+electronVersion: 44.2.0
+directories:
+  output: dist
+  buildResources: build
+files:
+  - out/**/*
+  - package.json
+# electron-builder's production-dependency walker resolves package.json's
+# "dependencies" (not devDependencies) into node_modules to decide what ships
+# — and for @mhts/* it would resolve straight through the workspace symlink
+# (node_modules/@mhts/<name> -> ../../packages/<name>, i.e. OUTSIDE this app
+# directory) and crash trying to compute a relative path for that real
+# target. This is why every @mhts/* package lives in this app's
+# devDependencies, not dependencies (see package.json): electron-vite already
+# bundles all of them directly into out/main/index.js (electron.vite.config.ts),
+# so none are ever required from node_modules at runtime anyway — moving them
+# out of "dependencies" is the correct fix, not a workaround.
+# The native .node binary can't load from inside asar.
+asarUnpack:
+  - node_modules/better-sqlite3-multiple-ciphers/**/*
+# better-sqlite3-multiple-ciphers ships one prebuilt binary per platform/arch
+# (node_modules/better-sqlite3-multiple-ciphers/prebuilds/*.node, via
+# prebuildify) rather than one per Node ABI version — the signature of an
+# N-API module, which is ABI-stable across every Node.js/Electron version by
+# design. No rebuild is ever needed (this is also why the app has always run
+# correctly without an @electron/rebuild step anywhere in this repo).
+# electron-builder's npmRebuild default assumes a non-N-API native module and
+# tries a from-source node-gyp rebuild, which needlessly requires a native
+# toolchain (MSVC/Visual Studio on Windows) this doesn't need — disable it.
+npmRebuild: false
+win:
+  target: nsis
+  icon: build/icon.ico
+  # Unsigned build (no code-signing certificate exists yet — see Open
+  # Questions). Disabling this skips downloading electron-builder's combined
+  # win/mac signing-tool archive (winCodeSign), which otherwise fails to
+  # extract in a sandbox without Windows Developer Mode / symlink privilege
+  # (its archive bundles macOS .dylib symlinks electron-builder can't create
+  # without elevation). Re-enable once real code signing is set up.
+  signAndEditExecutable: false
+mac:
+  target: dmg
+  icon: build/icon.icns
+  category: public.app-category.business
+linux:
+  target: AppImage
+  icon: build/icon.png
+  category: Office
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+# Publishing to GitHub Releases is what lets electron-updater auto-discover
+# new versions at runtime (electron-builder emits app-update.yml into the
+# package when this is configured) — actually running `npm run release`
+# requires a GH_TOKEN the user supplies; this repo/session has no such token.
+publish:
+  provider: github
+  owner: Sunprem06
+  repo: MHTS-Accounting-App

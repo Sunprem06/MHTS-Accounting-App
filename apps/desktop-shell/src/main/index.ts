@@ -201,6 +201,7 @@ import {
   getTemplatePreviewData,
   getTemplateFieldCatalog,
 } from './printHandlers';
+import { initAutoUpdater, checkForUpdate, quitAndInstall } from './updateHandlers';
 import { session } from './session';
 import {
   IPC,
@@ -550,10 +551,25 @@ async function bootstrap(): Promise<void> {
   handleWithArg(IPC.GET_TEMPLATE_PREVIEW_DATA, (documentFamily: TemplateFamily) => getTemplatePreviewData(systemDb, documentFamily));
   handleWithArg(IPC.GET_TEMPLATE_FIELD_CATALOG, (documentFamily: TemplateFamily) => getTemplateFieldCatalog(documentFamily));
 
-  createWindow();
+  handle(IPC.CHECK_FOR_UPDATE, () => checkForUpdate());
+  handle(IPC.QUIT_AND_INSTALL, async () => {
+    quitAndInstall();
+  });
+
+  const window = createWindow();
+  initAutoUpdater(window);
+  // Opportunistic and silent — never blocks startup, and only runs in a real
+  // packaged build (there's no update feed at all in `electron-vite dev`).
+  // A network/offline failure here is expected and non-fatal, consistent with
+  // the Blueprint's "no phone-home dependency for core operation" principle.
+  if (app.isPackaged) {
+    setTimeout(() => {
+      checkForUpdate().catch((error) => console.error('Background update check failed:', error));
+    }, 10_000);
+  }
 }
 
-function createWindow(): void {
+function createWindow(): BrowserWindow {
   const window = new BrowserWindow({
     width: 1200,
     height: 800,
@@ -570,6 +586,8 @@ function createWindow(): void {
   } else {
     window.loadFile(join(__dirname, '../renderer/index.html'));
   }
+
+  return window;
 }
 
 app.whenReady().then(() => {
@@ -580,7 +598,7 @@ app.whenReady().then(() => {
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
-      createWindow();
+      initAutoUpdater(createWindow());
     }
   });
 });

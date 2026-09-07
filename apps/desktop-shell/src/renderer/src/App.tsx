@@ -33,6 +33,7 @@ import { MsmeAgeingScreen } from './screens/MsmeAgeingScreen';
 import { CustomerReceiptScreen } from './screens/CustomerReceiptScreen';
 import { SupplierPaymentScreen } from './screens/SupplierPaymentScreen';
 import { ThemeToggle } from './ThemeToggle';
+import { UpdateStatusBanner } from './UpdateStatusBanner';
 import { BackupScreen } from './screens/BackupScreen';
 import { ManageRolesScreen } from './screens/ManageRolesScreen';
 import { ManageUnitsScreen } from './screens/ManageUnitsScreen';
@@ -171,6 +172,7 @@ export function App() {
   return (
     <>
       <ThemeToggle />
+      <UpdateStatusBanner />
       <AppRoutes />
     </>
   );
