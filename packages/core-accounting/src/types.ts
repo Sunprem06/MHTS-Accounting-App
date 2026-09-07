@@ -95,6 +95,29 @@ export interface VoucherSummary {
   reversesVoucherId: string | null;
 }
 
+/** Phase 9 Increment 2 (Print + Templates) — one Dr/Cr line of a printed Journal/Payment/Receipt/Contra voucher. */
+export interface VoucherForPrintLine {
+  ledgerName: string;
+  /** Paise. Exactly one of debitAmount/creditAmount is > 0. */
+  debitAmount: number;
+  creditAmount: number;
+  lineNarration: string | null;
+  costCentreName: string | null;
+  branchName: string | null;
+}
+
+/** Phase 9 Increment 2 (Print + Templates) — full header+lines assembly for a printed Journal/Payment/Receipt/Contra voucher (the plain ledger-line voucher types with no dedicated register/print path of their own — Sales/Purchase Invoice, Expense Claim, Payroll etc. each get their own richer getXForPrint elsewhere). */
+export interface VoucherForPrint {
+  voucherType: VoucherType;
+  voucherNumber: number;
+  financialYear: string;
+  voucherDate: string;
+  narration: string | null;
+  cancelledAt: string | null;
+  lines: VoucherForPrintLine[];
+  totalAmount: number;
+}
+
 export interface TrialBalanceRow {
   ledgerId: string;
   ledgerName: string;

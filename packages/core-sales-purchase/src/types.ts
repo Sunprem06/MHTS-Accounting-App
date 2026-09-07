@@ -233,6 +233,34 @@ export interface PurchaseInvoiceSummary extends InvoiceSummary {
   netPayable: number;
 }
 
+/** Phase 9 Increment 2 (Print + Templates) — same shape as InvoiceForPrintLine (Sales Invoice), assembled from purchase_invoice_line instead. */
+export type PurchaseInvoiceForPrintLine = InvoiceForPrintLine;
+
+export interface PurchaseInvoiceForPrint {
+  voucherNumber: number;
+  financialYear: string;
+  invoiceDate: string;
+  narration: string | null;
+  cancelledAt: string | null;
+  partyName: string;
+  partyGstin: string | null;
+  partyStateCode: string | null;
+  partyAddress: string | null;
+  currency: string | null;
+  isMsmeVendor: boolean;
+  dueDate: string;
+  tdsSection: string | null;
+  tdsAmount: number;
+  lines: PurchaseInvoiceForPrintLine[];
+  taxableAmount: number;
+  cgstAmount: number;
+  sgstAmount: number;
+  igstAmount: number;
+  cessAmount: number;
+  manualTaxAmount: number;
+  totalAmount: number;
+}
+
 export interface CreateSalesOrderInput {
   partyId: string;
   financialYear: string;
@@ -263,6 +291,44 @@ export interface OrderSummary {
   taxAmount: number;
   totalAmount: number;
   convertedToInvoiceId: string | null;
+}
+
+/**
+ * Phase 9 Increment 2 (Print + Templates) — a Sales/Purchase Order line
+ * carries no GST-split columns (unlike an invoice line, which has
+ * cgst_amount/sgst_amount/igst_amount/cess_amount) — only a flat
+ * tax_ledger_id/tax_amount pair, so there's a single "Tax" figure per line
+ * rather than a CGST/SGST/IGST/Cess breakdown. Shared shape for both Sales
+ * and Purchase orders since sales_order_line/purchase_order_line are
+ * structurally identical.
+ */
+export interface OrderForPrintLine {
+  description: string;
+  hsnSacCode: string | null;
+  itemName: string | null;
+  quantityThousandths: number | null;
+  unitSymbol: string | null;
+  ratePaise: number | null;
+  /** Paise. Taxable value. */
+  amount: number;
+  taxAmount: number;
+}
+
+export interface OrderForPrint {
+  orderNumber: number;
+  financialYear: string;
+  orderDate: string;
+  narration: string | null;
+  status: OrderStatus;
+  convertedToInvoiceId: string | null;
+  partyName: string;
+  partyGstin: string | null;
+  partyStateCode: string | null;
+  partyAddress: string | null;
+  lines: OrderForPrintLine[];
+  taxableAmount: number;
+  taxAmount: number;
+  totalAmount: number;
 }
 
 export interface PartyOutstandingRow {

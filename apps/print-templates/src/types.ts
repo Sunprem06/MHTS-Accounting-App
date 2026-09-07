@@ -64,6 +64,121 @@ export interface InvoiceTemplateData {
   totalAmount: number;
 }
 
+/** Phase 9 Increment 2 (Print + Templates) — same shape as InvoiceLineForPrint, reused as-is for a Purchase Invoice line (structurally identical: item/HSN/qty/rate/tax split). */
+export type PurchaseInvoiceLineForPrint = InvoiceLineForPrint;
+
+export interface PurchaseInvoiceTemplateData {
+  letterhead: LetterheadForPrint;
+  voucherNumber: number;
+  financialYear: string;
+  invoiceDate: string;
+  narration: string | null;
+  cancelled: boolean;
+  partyName: string;
+  partyGstin: string | null;
+  partyStateCode: string | null;
+  partyAddress: string | null;
+  currency: string | null;
+  isMsmeVendor: boolean;
+  dueDate: string;
+  tdsSection: string | null;
+  /** Rupees. */
+  tdsAmount: number;
+  lines: PurchaseInvoiceLineForPrint[];
+  taxableAmount: number;
+  cgstAmount: number;
+  sgstAmount: number;
+  igstAmount: number;
+  cessAmount: number;
+  manualTaxAmount: number;
+  totalAmount: number;
+}
+
+export type OrderKind = 'SALES_ORDER' | 'PURCHASE_ORDER';
+
+/**
+ * A Sales/Purchase Order line carries no CGST/SGST/IGST/Cess split (unlike
+ * an invoice line) — only a flat tax amount, since GST isn't computed until
+ * conversion to an invoice.
+ */
+export interface OrderLineForPrint {
+  description: string;
+  hsnSacCode: string | null;
+  itemName: string | null;
+  quantity: number | null;
+  unitSymbol: string | null;
+  rate: number | null;
+  /** Rupees. Taxable value. */
+  amount: number;
+  taxAmount: number;
+}
+
+export interface OrderTemplateData {
+  letterhead: LetterheadForPrint;
+  kind: OrderKind;
+  orderNumber: number;
+  financialYear: string;
+  orderDate: string;
+  narration: string | null;
+  status: string;
+  convertedToInvoiceId: string | null;
+  partyName: string;
+  partyGstin: string | null;
+  partyStateCode: string | null;
+  partyAddress: string | null;
+  lines: OrderLineForPrint[];
+  taxableAmount: number;
+  taxAmount: number;
+  totalAmount: number;
+}
+
+/** Journal/Payment/Receipt/Contra — see @mhts/core-accounting's VoucherType; only these four route through this generic template (every other voucher type has its own richer, purpose-built print path). */
+export type PrintableVoucherType = 'JOURNAL' | 'PAYMENT' | 'RECEIPT' | 'CONTRA';
+
+export interface VoucherLineForPrint {
+  ledgerName: string;
+  /** Rupees. Exactly one of debitAmount/creditAmount is > 0. */
+  debitAmount: number;
+  creditAmount: number;
+  lineNarration: string | null;
+  costCentreName: string | null;
+  branchName: string | null;
+}
+
+export interface VoucherTemplateData {
+  letterhead: LetterheadForPrint;
+  voucherType: PrintableVoucherType;
+  voucherNumber: number;
+  financialYear: string;
+  voucherDate: string;
+  narration: string | null;
+  cancelled: boolean;
+  lines: VoucherLineForPrint[];
+  totalAmount: number;
+}
+
+export interface ExpenseClaimLineForPrint {
+  expenseLedgerName: string;
+  description: string;
+  expenseDate: string;
+  /** Rupees. */
+  amount: number;
+  lineNarration: string | null;
+}
+
+export interface ExpenseClaimTemplateData {
+  letterhead: LetterheadForPrint;
+  employeeName: string;
+  claimNumber: number;
+  financialYear: string;
+  claimDate: string;
+  purpose: string | null;
+  status: string;
+  rejectedReason: string | null;
+  lines: ExpenseClaimLineForPrint[];
+  totalAmount: number;
+}
+
 export type PayslipLineType = 'EARNING' | 'DEDUCTION' | 'EMPLOYER_CONTRIBUTION';
 
 export interface PayslipLineForPrint {

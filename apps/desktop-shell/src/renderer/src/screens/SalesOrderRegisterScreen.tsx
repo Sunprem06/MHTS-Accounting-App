@@ -10,8 +10,10 @@ export function SalesOrderRegisterScreen({ session, onBack }: Props) {
   const [orders, setOrders] = useState<OrderSummary[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [printingId, setPrintingId] = useState<string | null>(null);
 
   const canManage = session.permissions.includes('SALES.CREATE_ORDER');
+  const canPrint = session.permissions.includes('PRINT.PRINT_DOCUMENTS');
 
   async function refresh() {
     const result = await window.mhts.listSalesOrders();
@@ -38,6 +40,26 @@ export function SalesOrderRegisterScreen({ session, onBack }: Props) {
     }
   }
 
+  async function handlePrint(orderId: string) {
+    setError(null);
+    setPrintingId(orderId);
+    const result = await window.mhts.printSalesOrder(orderId);
+    setPrintingId(null);
+    if (!result.ok) {
+      setError(result.error ?? 'Failed to print order');
+    }
+  }
+
+  async function handleSavePdf(orderId: string) {
+    setError(null);
+    setPrintingId(orderId);
+    const result = await window.mhts.saveSalesOrderPdf(orderId);
+    setPrintingId(null);
+    if (!result.ok) {
+      setError(result.error ?? 'Failed to save order as PDF');
+    }
+  }
+
   return (
     <div style={{ padding: 24, fontFamily: 'sans-serif', maxWidth: 900 }}>
       <h1>Sales order register</h1>
@@ -53,6 +75,7 @@ export function SalesOrderRegisterScreen({ session, onBack }: Props) {
               <th style={{ textAlign: 'left' }}>Customer</th>
               <th style={{ textAlign: 'right' }}>Total (₹)</th>
               <th style={{ textAlign: 'left' }}>Status</th>
+              {canPrint && <th />}
               {canManage && <th />}
             </tr>
           </thead>
@@ -64,6 +87,16 @@ export function SalesOrderRegisterScreen({ session, onBack }: Props) {
                 <td>{order.partyName}</td>
                 <td style={{ textAlign: 'right' }}>{order.totalAmount.toFixed(2)}</td>
                 <td>{order.status}</td>
+                {canPrint && (
+                  <td>
+                    <button type="button" disabled={printingId === order.id} onClick={() => handlePrint(order.id)}>
+                      {printingId === order.id ? 'Working…' : 'Print'}
+                    </button>{' '}
+                    <button type="button" disabled={printingId === order.id} onClick={() => handleSavePdf(order.id)}>
+                      Save PDF
+                    </button>
+                  </td>
+                )}
                 {canManage && (
                   <td>
                     {order.status === 'DRAFT' && (

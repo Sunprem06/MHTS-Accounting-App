@@ -18,9 +18,13 @@ export type {
   InvoiceForPrint,
   InvoiceForPrintLine,
   PurchaseInvoiceSummary,
+  PurchaseInvoiceForPrint,
+  PurchaseInvoiceForPrintLine,
   CreateSalesOrderInput,
   CreatePurchaseOrderInput,
   OrderSummary,
+  OrderForPrint,
+  OrderForPrintLine,
   PartyOutstandingRow,
   MsmeAgeingRow,
 } from './types';
@@ -30,10 +34,10 @@ export { SALES_PURCHASE_PERMISSIONS, grantSalesPurchasePermissions, seedSalesPur
 export { seedDefaultTdsRates, resolveTdsRate, computeTdsAmount, cumulativeTaxableThisFinancialYear } from './tds';
 
 export { createSalesInvoice, listSalesInvoices, cancelSalesInvoice, getSalesInvoiceForPrint } from './salesInvoices';
-export { createPurchaseInvoice, listPurchaseInvoices, computeDueDate, cancelPurchaseInvoice } from './purchaseInvoices';
+export { createPurchaseInvoice, listPurchaseInvoices, computeDueDate, cancelPurchaseInvoice, getPurchaseInvoiceForPrint } from './purchaseInvoices';
 
-export { createSalesOrder, listSalesOrders, confirmSalesOrder, cancelSalesOrder, convertSalesOrderToInvoice } from './salesOrders';
-export { createPurchaseOrder, listPurchaseOrders, confirmPurchaseOrder, cancelPurchaseOrder, convertPurchaseOrderToInvoice } from './purchaseOrders';
+export { createSalesOrder, listSalesOrders, confirmSalesOrder, cancelSalesOrder, convertSalesOrderToInvoice, getSalesOrderForPrint } from './salesOrders';
+export { createPurchaseOrder, listPurchaseOrders, confirmPurchaseOrder, cancelPurchaseOrder, convertPurchaseOrderToInvoice, getPurchaseOrderForPrint } from './purchaseOrders';
 
 export { listReceivables, listPayables, listMsmeAgeing } from './receivablesPayables';
 

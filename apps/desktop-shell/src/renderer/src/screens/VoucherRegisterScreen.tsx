@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useState } from 'react';
-import type { SessionInfo, VoucherSummary } from '../../../shared/ipc';
+import type { SessionInfo, VoucherSummary, VoucherType } from '../../../shared/ipc';
 import { AttachmentsPanel } from './AttachmentsPanel';
 
 interface Props {
@@ -7,13 +7,21 @@ interface Props {
   onBack: () => void;
 }
 
+// Only these four voucher types route through the generic print path — every other type
+// (Sales/Purchase Invoice, Expense Claim, Payroll, Stock Adjustment, Manufacturing, Fixed
+// Asset, FX Revaluation, Inter-Branch Transfer) either has its own dedicated print path
+// elsewhere or none at all.
+const PRINTABLE_VOUCHER_TYPES: VoucherType[] = ['JOURNAL', 'PAYMENT', 'RECEIPT', 'CONTRA'];
+
 export function VoucherRegisterScreen({ session, onBack }: Props) {
   const [vouchers, setVouchers] = useState<VoucherSummary[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [cancellingId, setCancellingId] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [printingId, setPrintingId] = useState<string | null>(null);
 
   const canCreate = session.permissions.includes('ACCOUNTING.CREATE_VOUCHER');
+  const canPrint = session.permissions.includes('PRINT.PRINT_DOCUMENTS');
 
   async function refresh() {
     const result = await window.mhts.listVouchers();
@@ -56,6 +64,26 @@ export function VoucherRegisterScreen({ session, onBack }: Props) {
     }
   }
 
+  async function handlePrint(voucherId: string) {
+    setError(null);
+    setPrintingId(voucherId);
+    const result = await window.mhts.printVoucher(voucherId);
+    setPrintingId(null);
+    if (!result.ok) {
+      setError(result.error ?? 'Failed to print voucher');
+    }
+  }
+
+  async function handleSavePdf(voucherId: string) {
+    setError(null);
+    setPrintingId(voucherId);
+    const result = await window.mhts.saveVoucherPdf(voucherId);
+    setPrintingId(null);
+    if (!result.ok) {
+      setError(result.error ?? 'Failed to save voucher as PDF');
+    }
+  }
+
   return (
     <div style={{ padding: 24, fontFamily: 'sans-serif', maxWidth: 800 }}>
       <h1>Voucher register</h1>
@@ -73,6 +101,7 @@ export function VoucherRegisterScreen({ session, onBack }: Props) {
               <th style={{ textAlign: 'right' }}>Amount (₹)</th>
               <th style={{ textAlign: 'left' }}>Status</th>
               <th />
+              {canPrint && <th />}
               {canCreate && <th />}
             </tr>
           </thead>
@@ -97,6 +126,20 @@ export function VoucherRegisterScreen({ session, onBack }: Props) {
                       {expandedId === voucher.id ? 'Hide' : 'Attachments'}
                     </button>
                   </td>
+                  {canPrint && (
+                    <td>
+                      {PRINTABLE_VOUCHER_TYPES.includes(voucher.voucherType) && (
+                        <>
+                          <button type="button" disabled={printingId === voucher.id} onClick={() => handlePrint(voucher.id)}>
+                            {printingId === voucher.id ? 'Working…' : 'Print'}
+                          </button>{' '}
+                          <button type="button" disabled={printingId === voucher.id} onClick={() => handleSavePdf(voucher.id)}>
+                            Save PDF
+                          </button>
+                        </>
+                      )}
+                    </td>
+                  )}
                   {canCreate && (
                     <td>
                       {!voucher.cancelledAt && !voucher.reversesVoucherId && (
@@ -109,7 +152,7 @@ export function VoucherRegisterScreen({ session, onBack }: Props) {
                 </tr>
                 {expandedId === voucher.id && (
                   <tr>
-                    <td colSpan={canCreate ? 8 : 7}>
+                    <td colSpan={7 + (canPrint ? 1 : 0) + (canCreate ? 1 : 0)}>
                       <AttachmentsPanel session={session} entityType="Voucher" entityId={voucher.id} />
                     </td>
                   </tr>

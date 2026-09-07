@@ -17,5 +17,5 @@ export type {
 export { EXPENSE_PERMISSIONS, grantExpensePermissions } from './permissions';
 export { EMPLOYEE_REIMBURSEMENTS_GROUP, seedExpenseLedgers } from './seedLedgers';
 export { createEmployee, listEmployees } from './employees';
-export { createExpenseClaim, listExpenseClaims, submitExpenseClaim, rejectExpenseClaim, approveExpenseClaim, cancelExpenseClaim } from './claims';
+export { createExpenseClaim, listExpenseClaims, submitExpenseClaim, rejectExpenseClaim, approveExpenseClaim, cancelExpenseClaim, getExpenseClaimForPrint } from './claims';
 export { listOutstandingReimbursements, reimburseExpenseClaim } from './settlements';

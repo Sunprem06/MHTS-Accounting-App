@@ -221,6 +221,10 @@ export interface PurchaseInvoiceLineTable {
   is_reverse_charge: ColumnType<boolean, boolean | number, boolean | number>;
   /** Phase 8 Increment 2 (multi-currency) — this line's taxable value in the invoice's own currency, display only. Null for a base-currency invoice. */
   foreign_amount: number | null;
+  /** Phase 9 Increment 2 (Print + Templates) — same gap-closing as SalesInvoiceLineTable's identical fields (migration 018): persisted so a printed purchase invoice can show Qty/Rate; previously computed for stock-receipt purposes only and discarded. Null for a non-stockable (service) line. */
+  item_id: string | null;
+  quantity_thousandths: number | null;
+  rate_paise: number | null;
 }
 
 export interface SalesOrderTable {
@@ -514,7 +518,7 @@ export interface CompanyLetterheadProfileTable {
   /** The SECOND blob column in this schema (the first was document_attachment.file_data, Phase 6) — inherits SQLCipher's at-rest encryption and backupCompany's whole-file copy for free. */
   logo_data: Buffer | null;
   logo_mime_type: string | null;
-  /** 'CLASSIC' | 'MODERN' — see @mhts/print-templates. */
+  /** 'CLASSIC' | 'MODERN' — see @mhts/print-templates. invoice_layout is reused as-is (Phase 9 Increment 2) for Purchase Invoice, and passed through (currently rendered identically either way, same precedent as payslip_layout) for Sales/Purchase Order and the Journal/Payment/Receipt/Contra voucher/Expense Claim templates. */
   invoice_layout: string;
   payslip_layout: string;
   accent_color_hex: string | null;

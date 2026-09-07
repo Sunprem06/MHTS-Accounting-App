@@ -1905,6 +1905,19 @@ export interface PrintDocumentResult {
   filePath?: string;
 }
 
+/** Phase 9 Increment 2 (Print + Templates) — one row of the Print Centre's cross-run payslip listing. */
+export interface PayslipPrintListItem {
+  id: string;
+  employeeName: string;
+  employeeCode: string;
+  financialYear: string;
+  periodMonth: number;
+  periodYear: number;
+  /** Rupees. */
+  netPay: number;
+  runStatus: PayrollRunStatus;
+}
+
 export interface IpcResult<T> {
   ok: boolean;
   data?: T;
@@ -2113,4 +2126,17 @@ export const IPC = {
   SAVE_SALES_INVOICE_PDF: 'print:saveSalesInvoicePdf',
   PRINT_PAYSLIP: 'print:printPayslip',
   SAVE_PAYSLIP_PDF: 'print:savePayslipPdf',
+
+  // Phase 9 Increment 2: Print + Templates
+  PRINT_PURCHASE_INVOICE: 'print:printPurchaseInvoice',
+  SAVE_PURCHASE_INVOICE_PDF: 'print:savePurchaseInvoicePdf',
+  PRINT_SALES_ORDER: 'print:printSalesOrder',
+  SAVE_SALES_ORDER_PDF: 'print:saveSalesOrderPdf',
+  PRINT_PURCHASE_ORDER: 'print:printPurchaseOrder',
+  SAVE_PURCHASE_ORDER_PDF: 'print:savePurchaseOrderPdf',
+  PRINT_VOUCHER: 'print:printVoucher',
+  SAVE_VOUCHER_PDF: 'print:saveVoucherPdf',
+  PRINT_EXPENSE_CLAIM: 'print:printExpenseClaim',
+  SAVE_EXPENSE_CLAIM_PDF: 'print:saveExpenseClaimPdf',
+  LIST_PAYSLIPS_FOR_PRINT: 'print:listPayslipsForPrint',
 } as const;

@@ -17,6 +17,7 @@ import * as m015MultiCurrency from './015_multi_currency';
 import * as m016MultiBranch from './016_multi_branch';
 import * as m017Manufacturing from './017_manufacturing';
 import * as m018PrintTemplates from './018_print_templates';
+import * as m019PrintTemplatesIncrement2 from './019_print_templates_increment2';
 
 export const migrations: Record<string, Migration> = {
   '001_init': m001Init,
@@ -37,4 +38,5 @@ export const migrations: Record<string, Migration> = {
   '016_multi_branch': m016MultiBranch,
   '017_manufacturing': m017Manufacturing,
   '018_print_templates': m018PrintTemplates,
+  '019_print_templates_increment2': m019PrintTemplatesIncrement2,
 };

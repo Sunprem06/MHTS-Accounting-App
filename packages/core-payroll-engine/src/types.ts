@@ -154,6 +154,18 @@ export interface PayslipForPrint {
   lines: PayslipLineSummary[];
 }
 
+/** Phase 9 Increment 2 (Print + Templates) — one row for the Print Centre's cross-run payslip listing (a flat list, unlike PayrollRunScreen's own per-run drill-down). */
+export interface PayslipListItemForPrint {
+  id: string;
+  employeeName: string;
+  employeeCode: string;
+  financialYear: string;
+  periodMonth: number;
+  periodYear: number;
+  netPay: number;
+  runStatus: PayrollRunStatus;
+}
+
 export interface SalaryComponentDefinitionInput {
   name: string;
   componentType: ComponentType;
