@@ -1,0 +1,17 @@
+{
+  "name": "core-print-templates",
+  "sourceRoot": "packages/core-print-templates/src",
+  "projectType": "library",
+  "tags": ["type:core"],
+  "targets": {
+    "build": {
+      "executor": "@nx/js:tsc",
+      "outputs": ["{options.outputPath}"],
+      "options": {
+        "outputPath": "dist/packages/core-print-templates",
+        "main": "packages/core-print-templates/src/index.ts",
+        "tsConfig": "packages/core-print-templates/tsconfig.json"
+      }
+    }
+  }
+}

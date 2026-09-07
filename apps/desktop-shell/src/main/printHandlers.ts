@@ -10,11 +10,13 @@ import {
   setCompanyLogo,
   clearCompanyLogo as coreClearCompanyLogo,
 } from '@mhts/core-company-profile';
-import { getSalesInvoiceForPrint, getPurchaseInvoiceForPrint, getSalesOrderForPrint, getPurchaseOrderForPrint } from '@mhts/core-sales-purchase';
-import { getVoucherForPrint } from '@mhts/core-accounting';
-import { getExpenseClaimForPrint } from '@mhts/core-expense';
+import { getSalesInvoiceForPrint, getPurchaseInvoiceForPrint, getSalesOrderForPrint, getPurchaseOrderForPrint, listSalesInvoices, listPurchaseInvoices, listSalesOrders, listPurchaseOrders } from '@mhts/core-sales-purchase';
+import { getVoucherForPrint, listVouchers } from '@mhts/core-accounting';
+import { getExpenseClaimForPrint, listExpenseClaims } from '@mhts/core-expense';
 import { getPayslipForPrint, listPayslipsForPrint as corePayrollListPayslipsForPrint } from '@mhts/core-payroll-engine';
-import { renderSalesInvoiceHtml, renderPurchaseInvoiceHtml, renderOrderHtml, renderVoucherHtml, renderExpenseClaimHtml, renderPayslipHtml } from '@mhts/print-templates';
+import { saveTemplateLayoutVersion, getActiveTemplateLayout, listTemplateLayoutVersions as coreListTemplateLayoutVersions, revertTemplateLayout as coreRevertTemplateLayout } from '@mhts/core-print-templates';
+import type { PrintTemplateLayoutSummary as CorePrintTemplateLayoutSummary, TemplateFamily } from '@mhts/core-print-templates';
+import { renderSalesInvoiceHtml, renderPurchaseInvoiceHtml, renderOrderHtml, renderVoucherHtml, renderExpenseClaimHtml, renderPayslipHtml, renderCustomLayoutHtml, TEMPLATE_FIELD_CATALOG } from '@mhts/print-templates';
 import type {
   DocumentLayout,
   InvoiceTemplateData,
@@ -25,9 +27,21 @@ import type {
   LetterheadForPrint,
   PayslipTemplateData,
   PrintableVoucherType,
+  TemplateLayoutDocument,
 } from '@mhts/print-templates';
 import { session } from './session';
-import type { CompanyLetterheadProfile, PayslipPrintListItem, PickedLogoFile, PrintDocumentResult, UpdateCompanyLetterheadProfileInput, UploadCompanyLogoInput } from '../shared/ipc';
+import type {
+  CompanyLetterheadProfile,
+  PayslipPrintListItem,
+  PickedLogoFile,
+  PrintDocumentResult,
+  PrintTemplateLayoutSummary,
+  SaveTemplateLayoutInput,
+  TemplateFieldCatalogEntry,
+  TemplatePreviewData,
+  UpdateCompanyLetterheadProfileInput,
+  UploadCompanyLogoInput,
+} from '../shared/ipc';
 
 function requireSessionWithCompanyDb(requiredPermission: string) {
   const info = session.get();
@@ -114,7 +128,24 @@ async function letterheadForPrint(systemDb: Kysely<SystemDatabase>, companyDb: K
   };
 }
 
-async function buildSalesInvoiceHtml(systemDb: Kysely<SystemDatabase>, companyDb: Kysely<CompanyDatabase>, companyId: string, invoiceId: string): Promise<{ html: string; fileNameBase: string }> {
+/**
+ * Phase 9 Increment 3 (Print + Templates) — every document family checks
+ * for an active drag-and-drop-designed layout before falling back to its
+ * own fixed CLASSIC/MODERN builder. `data` is passed through untyped to
+ * renderCustomLayoutHtml on purpose — a saved TemplateLayoutDocument can
+ * reference any field templateFieldCatalog.ts exposed at design time across
+ * 6 structurally different *TemplateData shapes, so there is no single TS
+ * interface to type this interpreter boundary against.
+ */
+async function renderWithOptionalCustomLayout(companyDb: Kysely<CompanyDatabase>, family: TemplateFamily, data: unknown, title: string, renderDefault: () => string): Promise<string> {
+  const custom = await getActiveTemplateLayout(companyDb, family);
+  if (custom) {
+    return renderCustomLayoutHtml(data, custom.layout as TemplateLayoutDocument, title);
+  }
+  return renderDefault();
+}
+
+async function buildSalesInvoiceHtml(systemDb: Kysely<SystemDatabase>, companyDb: Kysely<CompanyDatabase>, companyId: string, invoiceId: string): Promise<{ html: string; fileNameBase: string; data: Record<string, unknown> }> {
   const [letterhead, profile, invoice] = await Promise.all([
     letterheadForPrint(systemDb, companyDb, companyId),
     coreGetCompanyLetterheadProfile(companyDb),
@@ -157,10 +188,11 @@ async function buildSalesInvoiceHtml(systemDb: Kysely<SystemDatabase>, companyDb
     totalAmount: invoice.totalAmount / 100,
   };
 
-  return { html: renderSalesInvoiceHtml(data, profile.invoiceLayout as DocumentLayout), fileNameBase: `Invoice-${invoice.voucherNumber}` };
+  const html = await renderWithOptionalCustomLayout(companyDb, 'SALES_INVOICE', data, `Invoice ${invoice.voucherNumber}`, () => renderSalesInvoiceHtml(data, profile.invoiceLayout as DocumentLayout));
+  return { html, fileNameBase: `Invoice-${invoice.voucherNumber}`, data: data as unknown as Record<string, unknown> };
 }
 
-async function buildPurchaseInvoiceHtml(systemDb: Kysely<SystemDatabase>, companyDb: Kysely<CompanyDatabase>, companyId: string, invoiceId: string): Promise<{ html: string; fileNameBase: string }> {
+async function buildPurchaseInvoiceHtml(systemDb: Kysely<SystemDatabase>, companyDb: Kysely<CompanyDatabase>, companyId: string, invoiceId: string): Promise<{ html: string; fileNameBase: string; data: Record<string, unknown> }> {
   const [letterhead, profile, invoice] = await Promise.all([
     letterheadForPrint(systemDb, companyDb, companyId),
     coreGetCompanyLetterheadProfile(companyDb),
@@ -207,10 +239,11 @@ async function buildPurchaseInvoiceHtml(systemDb: Kysely<SystemDatabase>, compan
     totalAmount: invoice.totalAmount / 100,
   };
 
-  return { html: renderPurchaseInvoiceHtml(data, profile.invoiceLayout as DocumentLayout), fileNameBase: `PurchaseInvoice-${invoice.voucherNumber}` };
+  const html = await renderWithOptionalCustomLayout(companyDb, 'PURCHASE_INVOICE', data, `Purchase Invoice ${invoice.voucherNumber}`, () => renderPurchaseInvoiceHtml(data, profile.invoiceLayout as DocumentLayout));
+  return { html, fileNameBase: `PurchaseInvoice-${invoice.voucherNumber}`, data: data as unknown as Record<string, unknown> };
 }
 
-async function buildSalesOrderHtml(systemDb: Kysely<SystemDatabase>, companyDb: Kysely<CompanyDatabase>, companyId: string, orderId: string): Promise<{ html: string; fileNameBase: string }> {
+async function buildSalesOrderHtml(systemDb: Kysely<SystemDatabase>, companyDb: Kysely<CompanyDatabase>, companyId: string, orderId: string): Promise<{ html: string; fileNameBase: string; data: Record<string, unknown> }> {
   const [letterhead, profile, order] = await Promise.all([
     letterheadForPrint(systemDb, companyDb, companyId),
     coreGetCompanyLetterheadProfile(companyDb),
@@ -245,10 +278,11 @@ async function buildSalesOrderHtml(systemDb: Kysely<SystemDatabase>, companyDb: 
     totalAmount: order.totalAmount / 100,
   };
 
-  return { html: renderOrderHtml(data, profile.invoiceLayout as DocumentLayout), fileNameBase: `SalesOrder-${order.orderNumber}` };
+  const html = await renderWithOptionalCustomLayout(companyDb, 'ORDER', data, `Sales Order ${order.orderNumber}`, () => renderOrderHtml(data, profile.invoiceLayout as DocumentLayout));
+  return { html, fileNameBase: `SalesOrder-${order.orderNumber}`, data: data as unknown as Record<string, unknown> };
 }
 
-async function buildPurchaseOrderHtml(systemDb: Kysely<SystemDatabase>, companyDb: Kysely<CompanyDatabase>, companyId: string, orderId: string): Promise<{ html: string; fileNameBase: string }> {
+async function buildPurchaseOrderHtml(systemDb: Kysely<SystemDatabase>, companyDb: Kysely<CompanyDatabase>, companyId: string, orderId: string): Promise<{ html: string; fileNameBase: string; data: Record<string, unknown> }> {
   const [letterhead, profile, order] = await Promise.all([
     letterheadForPrint(systemDb, companyDb, companyId),
     coreGetCompanyLetterheadProfile(companyDb),
@@ -283,12 +317,13 @@ async function buildPurchaseOrderHtml(systemDb: Kysely<SystemDatabase>, companyD
     totalAmount: order.totalAmount / 100,
   };
 
-  return { html: renderOrderHtml(data, profile.invoiceLayout as DocumentLayout), fileNameBase: `PurchaseOrder-${order.orderNumber}` };
+  const html = await renderWithOptionalCustomLayout(companyDb, 'ORDER', data, `Purchase Order ${order.orderNumber}`, () => renderOrderHtml(data, profile.invoiceLayout as DocumentLayout));
+  return { html, fileNameBase: `PurchaseOrder-${order.orderNumber}`, data: data as unknown as Record<string, unknown> };
 }
 
 const PRINTABLE_VOUCHER_TYPES: readonly PrintableVoucherType[] = ['JOURNAL', 'PAYMENT', 'RECEIPT', 'CONTRA'];
 
-async function buildVoucherHtml(systemDb: Kysely<SystemDatabase>, companyDb: Kysely<CompanyDatabase>, companyId: string, voucherId: string): Promise<{ html: string; fileNameBase: string }> {
+async function buildVoucherHtml(systemDb: Kysely<SystemDatabase>, companyDb: Kysely<CompanyDatabase>, companyId: string, voucherId: string): Promise<{ html: string; fileNameBase: string; data: Record<string, unknown> }> {
   const [letterhead, profile, voucher] = await Promise.all([
     letterheadForPrint(systemDb, companyDb, companyId),
     coreGetCompanyLetterheadProfile(companyDb),
@@ -318,10 +353,11 @@ async function buildVoucherHtml(systemDb: Kysely<SystemDatabase>, companyDb: Kys
     totalAmount: voucher.totalAmount / 100,
   };
 
-  return { html: renderVoucherHtml(data, profile.invoiceLayout as DocumentLayout), fileNameBase: `Voucher-${voucher.voucherNumber}` };
+  const html = await renderWithOptionalCustomLayout(companyDb, 'VOUCHER', data, `${data.voucherType} ${voucher.voucherNumber}`, () => renderVoucherHtml(data, profile.invoiceLayout as DocumentLayout));
+  return { html, fileNameBase: `Voucher-${voucher.voucherNumber}`, data: data as unknown as Record<string, unknown> };
 }
 
-async function buildExpenseClaimHtml(systemDb: Kysely<SystemDatabase>, companyDb: Kysely<CompanyDatabase>, companyId: string, expenseClaimId: string): Promise<{ html: string; fileNameBase: string }> {
+async function buildExpenseClaimHtml(systemDb: Kysely<SystemDatabase>, companyDb: Kysely<CompanyDatabase>, companyId: string, expenseClaimId: string): Promise<{ html: string; fileNameBase: string; data: Record<string, unknown> }> {
   const [letterhead, profile, claim] = await Promise.all([
     letterheadForPrint(systemDb, companyDb, companyId),
     coreGetCompanyLetterheadProfile(companyDb),
@@ -347,10 +383,11 @@ async function buildExpenseClaimHtml(systemDb: Kysely<SystemDatabase>, companyDb
     totalAmount: claim.totalAmount / 100,
   };
 
-  return { html: renderExpenseClaimHtml(data, profile.invoiceLayout as DocumentLayout), fileNameBase: `ExpenseClaim-${claim.claimNumber}` };
+  const html = await renderWithOptionalCustomLayout(companyDb, 'EXPENSE_CLAIM', data, `Expense Claim ${claim.claimNumber}`, () => renderExpenseClaimHtml(data, profile.invoiceLayout as DocumentLayout));
+  return { html, fileNameBase: `ExpenseClaim-${claim.claimNumber}`, data: data as unknown as Record<string, unknown> };
 }
 
-async function buildPayslipHtml(systemDb: Kysely<SystemDatabase>, companyDb: Kysely<CompanyDatabase>, companyId: string, payslipId: string): Promise<{ html: string; fileNameBase: string }> {
+async function buildPayslipHtml(systemDb: Kysely<SystemDatabase>, companyDb: Kysely<CompanyDatabase>, companyId: string, payslipId: string): Promise<{ html: string; fileNameBase: string; data: Record<string, unknown> }> {
   const [letterhead, profile, payslip] = await Promise.all([
     letterheadForPrint(systemDb, companyDb, companyId),
     coreGetCompanyLetterheadProfile(companyDb),
@@ -377,7 +414,8 @@ async function buildPayslipHtml(systemDb: Kysely<SystemDatabase>, companyDb: Kys
     lines: payslip.lines.map((l) => ({ lineType: l.lineType, label: l.label, amount: l.amount / 100 })),
   };
 
-  return { html: renderPayslipHtml(data, profile.payslipLayout as DocumentLayout), fileNameBase: `Payslip-${payslip.employeeCode}-${payslip.periodMonth}-${payslip.periodYear}` };
+  const html = await renderWithOptionalCustomLayout(companyDb, 'PAYSLIP', data, `Payslip ${payslip.employeeCode} ${payslip.periodMonth}/${payslip.periodYear}`, () => renderPayslipHtml(data, profile.payslipLayout as DocumentLayout));
+  return { html, fileNameBase: `Payslip-${payslip.employeeCode}-${payslip.periodMonth}-${payslip.periodYear}`, data: data as unknown as Record<string, unknown> };
 }
 
 /** A hidden, sandboxed BrowserWindow used purely as an HTML->print/PDF renderer — never shown, never navigable by the user, destroyed immediately after use. */
@@ -509,4 +547,216 @@ export async function listPayslipsForPrint(): Promise<PayslipPrintListItem[]> {
   const { companyDb } = requireSessionWithCompanyDb('PRINT.PRINT_DOCUMENTS');
   const rows = await corePayrollListPayslipsForPrint(companyDb);
   return rows.map((r) => ({ ...r, netPay: r.netPay / 100 }));
+}
+
+// --- Phase 9 Increment 3: Print + Templates (drag-and-drop template designer) ---
+
+function toIpcLayoutSummary(summary: CorePrintTemplateLayoutSummary): PrintTemplateLayoutSummary {
+  return { ...summary, layout: summary.layout as TemplateLayoutDocument };
+}
+
+export async function getTemplateLayout(documentFamily: TemplateFamily): Promise<PrintTemplateLayoutSummary | null> {
+  const { companyDb } = requireSessionWithCompanyDb('PRINT.MANAGE_LETTERHEAD');
+  const layout = await getActiveTemplateLayout(companyDb, documentFamily);
+  return layout ? toIpcLayoutSummary(layout) : null;
+}
+
+export async function saveTemplateLayout(input: SaveTemplateLayoutInput): Promise<void> {
+  const { info, companyDb } = requireSessionWithCompanyDb('PRINT.MANAGE_LETTERHEAD');
+  await saveTemplateLayoutVersion(companyDb, input, info.userId);
+}
+
+export async function revertTemplateLayout(documentFamily: TemplateFamily): Promise<void> {
+  const { info, companyDb } = requireSessionWithCompanyDb('PRINT.MANAGE_LETTERHEAD');
+  await coreRevertTemplateLayout(companyDb, documentFamily, info.userId);
+}
+
+export async function listTemplateLayoutVersions(documentFamily: TemplateFamily): Promise<PrintTemplateLayoutSummary[]> {
+  const { companyDb } = requireSessionWithCompanyDb('PRINT.MANAGE_LETTERHEAD');
+  const rows = await coreListTemplateLayoutVersions(companyDb, documentFamily);
+  return rows.map(toIpcLayoutSummary);
+}
+
+/** Fixed metadata, not company data — no DB lookup needed beyond the permission check (same "designer is a MANAGE_LETTERHEAD action" gate as the other 4 handlers above). */
+export async function getTemplateFieldCatalog(documentFamily: TemplateFamily): Promise<TemplateFieldCatalogEntry[]> {
+  requireSessionWithCompanyDb('PRINT.MANAGE_LETTERHEAD');
+  return TEMPLATE_FIELD_CATALOG[documentFamily];
+}
+
+/** A minimal, clearly-labelled placeholder — used only when the company has no real document of a family yet, so the designer canvas still has something to show. Never used for an actual print/PDF. */
+function placeholderDataFor(family: TemplateFamily, letterhead: LetterheadForPrint): Record<string, unknown> {
+  const sampleLine = { description: 'Sample item', hsnSacCode: '1234', itemName: 'Sample item', quantity: 2, unitSymbol: 'PCS', rate: 500, taxableAmount: 1000, gstRatePercent: 18, cgstAmount: 90, sgstAmount: 90, igstAmount: 0, cessAmount: 0, manualTaxAmount: 0 };
+  const common = { letterhead, financialYear: '2026-27', narration: 'Sample narration' };
+  switch (family) {
+    case 'SALES_INVOICE':
+      return {
+        ...common,
+        voucherNumber: 1,
+        invoiceDate: '2026-04-01',
+        cancelled: false,
+        partyName: 'Sample Customer',
+        partyGstin: null,
+        partyStateCode: null,
+        partyAddress: 'Sample address',
+        currency: null,
+        lines: [sampleLine],
+        taxableAmount: 1000,
+        cgstAmount: 90,
+        sgstAmount: 90,
+        igstAmount: 0,
+        cessAmount: 0,
+        manualTaxAmount: 0,
+        totalAmount: 1180,
+      };
+    case 'PURCHASE_INVOICE':
+      return {
+        ...common,
+        voucherNumber: 1,
+        invoiceDate: '2026-04-01',
+        cancelled: false,
+        partyName: 'Sample Supplier',
+        partyGstin: null,
+        partyStateCode: null,
+        partyAddress: 'Sample address',
+        currency: null,
+        isMsmeVendor: false,
+        dueDate: '2026-04-30',
+        tdsSection: null,
+        tdsAmount: 0,
+        lines: [sampleLine],
+        taxableAmount: 1000,
+        cgstAmount: 90,
+        sgstAmount: 90,
+        igstAmount: 0,
+        cessAmount: 0,
+        manualTaxAmount: 0,
+        totalAmount: 1180,
+      };
+    case 'ORDER':
+      return {
+        ...common,
+        kind: 'SALES_ORDER',
+        orderNumber: 1,
+        orderDate: '2026-04-01',
+        status: 'OPEN',
+        convertedToInvoiceId: null,
+        partyName: 'Sample Party',
+        partyGstin: null,
+        partyStateCode: null,
+        partyAddress: 'Sample address',
+        lines: [{ description: 'Sample item', hsnSacCode: '1234', itemName: 'Sample item', quantity: 2, unitSymbol: 'PCS', rate: 500, amount: 1000, taxAmount: 180 }],
+        taxableAmount: 1000,
+        taxAmount: 180,
+        totalAmount: 1180,
+      };
+    case 'VOUCHER':
+      return {
+        ...common,
+        voucherType: 'JOURNAL',
+        voucherNumber: 1,
+        voucherDate: '2026-04-01',
+        cancelled: false,
+        lines: [
+          { ledgerName: 'Sample Debit Ledger', debitAmount: 1000, creditAmount: 0, lineNarration: null, costCentreName: null, branchName: null },
+          { ledgerName: 'Sample Credit Ledger', debitAmount: 0, creditAmount: 1000, lineNarration: null, costCentreName: null, branchName: null },
+        ],
+        totalAmount: 1000,
+      };
+    case 'EXPENSE_CLAIM':
+      return {
+        ...common,
+        employeeName: 'Sample Employee',
+        claimNumber: 1,
+        claimDate: '2026-04-01',
+        purpose: 'Sample purpose',
+        status: 'SUBMITTED',
+        rejectedReason: null,
+        lines: [{ expenseLedgerName: 'Sample Expense Ledger', description: 'Sample expense', expenseDate: '2026-04-01', amount: 500, lineNarration: null }],
+        totalAmount: 500,
+      };
+    case 'PAYSLIP':
+      return {
+        ...common,
+        employeeName: 'Sample Employee',
+        employeeCode: 'EMP001',
+        designation: 'Sample Designation',
+        pan: null,
+        bankAccountNumber: null,
+        bankIfsc: null,
+        uan: null,
+        periodMonth: 4,
+        periodYear: 2026,
+        paidDays: 30,
+        lopDays: 0,
+        grossEarnings: 50000,
+        totalDeductions: 5000,
+        netPay: 45000,
+        lines: [
+          { lineType: 'EARNING', label: 'Basic', amount: 25000 },
+          { lineType: 'EARNING', label: 'HRA', amount: 25000 },
+          { lineType: 'DEDUCTION', label: 'PF', amount: 5000 },
+        ],
+      };
+  }
+}
+
+/**
+ * The designer's live-preview data source — reuses the exact same assembly
+ * (getXForPrint + letterheadForPrint) every buildXHtml function already
+ * uses, against whichever real document of that family was created most
+ * recently. Falls back to a placeholder only when the company has none yet
+ * (preview-only; never used for an actual print/PDF).
+ */
+export async function getTemplatePreviewData(systemDb: Kysely<SystemDatabase>, documentFamily: TemplateFamily): Promise<TemplatePreviewData> {
+  const { info, companyDb } = requireSessionWithCompanyDb('PRINT.MANAGE_LETTERHEAD');
+
+  switch (documentFamily) {
+    case 'SALES_INVOICE': {
+      const rows = await listSalesInvoices(companyDb);
+      if (rows.length === 0) break;
+      const { data } = await buildSalesInvoiceHtml(systemDb, companyDb, info.companyId, rows[0].id);
+      return { data, isPlaceholder: false };
+    }
+    case 'PURCHASE_INVOICE': {
+      const rows = await listPurchaseInvoices(companyDb);
+      if (rows.length === 0) break;
+      const { data } = await buildPurchaseInvoiceHtml(systemDb, companyDb, info.companyId, rows[0].id);
+      return { data, isPlaceholder: false };
+    }
+    case 'ORDER': {
+      const salesRows = await listSalesOrders(companyDb);
+      if (salesRows.length > 0) {
+        const { data } = await buildSalesOrderHtml(systemDb, companyDb, info.companyId, salesRows[0].id);
+        return { data, isPlaceholder: false };
+      }
+      const purchaseRows = await listPurchaseOrders(companyDb);
+      if (purchaseRows.length > 0) {
+        const { data } = await buildPurchaseOrderHtml(systemDb, companyDb, info.companyId, purchaseRows[0].id);
+        return { data, isPlaceholder: false };
+      }
+      break;
+    }
+    case 'VOUCHER': {
+      const rows = await listVouchers(companyDb);
+      const printable = rows.find((r) => (PRINTABLE_VOUCHER_TYPES as readonly string[]).includes(r.voucherType));
+      if (!printable) break;
+      const { data } = await buildVoucherHtml(systemDb, companyDb, info.companyId, printable.id);
+      return { data, isPlaceholder: false };
+    }
+    case 'EXPENSE_CLAIM': {
+      const rows = await listExpenseClaims(companyDb);
+      if (rows.length === 0) break;
+      const { data } = await buildExpenseClaimHtml(systemDb, companyDb, info.companyId, rows[0].id);
+      return { data, isPlaceholder: false };
+    }
+    case 'PAYSLIP': {
+      const rows = await corePayrollListPayslipsForPrint(companyDb);
+      if (rows.length === 0) break;
+      const { data } = await buildPayslipHtml(systemDb, companyDb, info.companyId, rows[0].id);
+      return { data, isPlaceholder: false };
+    }
+  }
+
+  const letterhead = await letterheadForPrint(systemDb, companyDb, info.companyId);
+  return { data: placeholderDataFor(documentFamily, letterhead), isPlaceholder: true };
 }

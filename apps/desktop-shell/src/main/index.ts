@@ -194,6 +194,12 @@ import {
   printExpenseClaim,
   saveExpenseClaimPdf,
   listPayslipsForPrint,
+  getTemplateLayout,
+  saveTemplateLayout,
+  revertTemplateLayout,
+  listTemplateLayoutVersions,
+  getTemplatePreviewData,
+  getTemplateFieldCatalog,
 } from './printHandlers';
 import { session } from './session';
 import {
@@ -284,6 +290,8 @@ import {
   type UpdateCompanyLetterheadProfileInput,
   type UploadCompanyLogoInput,
   type UpdateBusinessPartyAddressInput,
+  type TemplateFamily,
+  type SaveTemplateLayoutInput,
 } from '../shared/ipc';
 
 function handle<T>(channel: string, fn: () => Promise<T>): void {
@@ -535,6 +543,12 @@ async function bootstrap(): Promise<void> {
   handleWithArg(IPC.PRINT_EXPENSE_CLAIM, (expenseClaimId: string) => printExpenseClaim(systemDb, expenseClaimId));
   handleWithArg(IPC.SAVE_EXPENSE_CLAIM_PDF, (expenseClaimId: string) => saveExpenseClaimPdf(systemDb, expenseClaimId));
   handle(IPC.LIST_PAYSLIPS_FOR_PRINT, () => listPayslipsForPrint());
+  handleWithArg(IPC.GET_TEMPLATE_LAYOUT, (documentFamily: TemplateFamily) => getTemplateLayout(documentFamily));
+  handleWithArg(IPC.SAVE_TEMPLATE_LAYOUT, (input: SaveTemplateLayoutInput) => saveTemplateLayout(input));
+  handleWithArg(IPC.REVERT_TEMPLATE_LAYOUT, (documentFamily: TemplateFamily) => revertTemplateLayout(documentFamily));
+  handleWithArg(IPC.LIST_TEMPLATE_LAYOUT_VERSIONS, (documentFamily: TemplateFamily) => listTemplateLayoutVersions(documentFamily));
+  handleWithArg(IPC.GET_TEMPLATE_PREVIEW_DATA, (documentFamily: TemplateFamily) => getTemplatePreviewData(systemDb, documentFamily));
+  handleWithArg(IPC.GET_TEMPLATE_FIELD_CATALOG, (documentFamily: TemplateFamily) => getTemplateFieldCatalog(documentFamily));
 
   createWindow();
 }

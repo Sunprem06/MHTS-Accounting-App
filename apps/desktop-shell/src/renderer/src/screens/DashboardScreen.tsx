@@ -75,6 +75,7 @@ interface Props {
   onManufacturingJournalRegister: () => void;
   onCompanyLetterhead: () => void;
   onPrintCentre: () => void;
+  onTemplateDesigner: () => void;
 }
 
 export function DashboardScreen({
@@ -152,6 +153,7 @@ export function DashboardScreen({
   onManufacturingJournalRegister,
   onCompanyLetterhead,
   onPrintCentre,
+  onTemplateDesigner,
 }: Props) {
   return (
     <div style={{ padding: 24, fontFamily: 'sans-serif', maxWidth: 480 }}>
@@ -339,7 +341,8 @@ export function DashboardScreen({
       {(session.permissions.includes('PRINT.MANAGE_LETTERHEAD') || session.permissions.includes('PRINT.PRINT_DOCUMENTS')) && (
         <p>
           {session.permissions.includes('PRINT.MANAGE_LETTERHEAD') && <button onClick={onCompanyLetterhead}>Company letterhead</button>}{' '}
-          {session.permissions.includes('PRINT.PRINT_DOCUMENTS') && <button onClick={onPrintCentre}>Print Centre</button>}
+          {session.permissions.includes('PRINT.PRINT_DOCUMENTS') && <button onClick={onPrintCentre}>Print Centre</button>}{' '}
+          {session.permissions.includes('PRINT.MANAGE_LETTERHEAD') && <button onClick={onTemplateDesigner}>Template designer</button>}
         </p>
       )}
       <p>
