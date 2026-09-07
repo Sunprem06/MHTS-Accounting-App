@@ -11,6 +11,8 @@ import * as m009GstItcRcm from './009_gst_itc_rcm';
 import * as m010Banking from './010_banking';
 import * as m011ExpensesDocuments from './011_expenses_documents';
 import * as m012Payroll from './012_payroll';
+import * as m013CostCentresBudgets from './013_cost_centres_budgets';
+import * as m014FixedAssets from './014_fixed_assets';
 
 export const migrations: Record<string, Migration> = {
   '001_init': m001Init,
@@ -25,4 +27,6 @@ export const migrations: Record<string, Migration> = {
   '010_banking': m010Banking,
   '011_expenses_documents': m011ExpensesDocuments,
   '012_payroll': m012Payroll,
+  '013_cost_centres_budgets': m013CostCentresBudgets,
+  '014_fixed_assets': m014FixedAssets,
 };

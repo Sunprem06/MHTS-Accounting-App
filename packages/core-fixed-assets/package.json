@@ -1,0 +1,14 @@
+{
+  "name": "@mhts/core-fixed-assets",
+  "version": "0.0.0",
+  "private": true,
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "dependencies": {
+    "@mhts/core-accounting": "*",
+    "@mhts/core-audit": "*",
+    "@mhts/core-rules-engine": "*",
+    "@mhts/db-schema": "*",
+    "@mhts/shared-types": "*"
+  }
+}

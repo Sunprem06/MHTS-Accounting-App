@@ -10,8 +10,22 @@ export type AccountNature = (typeof ACCOUNT_NATURES)[number];
 export const BALANCE_SIDES = ['DEBIT', 'CREDIT'] as const;
 export type BalanceSide = (typeof BALANCE_SIDES)[number];
 
-/** SALES_INVOICE/PURCHASE_INVOICE added in Phase 2 (@mhts/core-sales-purchase); STOCK_ADJUSTMENT added in Phase 3 (@mhts/core-inventory); EXPENSE_CLAIM added in Phase 6 (@mhts/core-expense); PAYROLL and GRATUITY_PROVISION added in Phase 7 (@mhts/core-payroll-engine) — all posted via createVoucherInTransaction, same engine as every other voucher type. */
-export const VOUCHER_TYPES = ['JOURNAL', 'PAYMENT', 'RECEIPT', 'CONTRA', 'SALES_INVOICE', 'PURCHASE_INVOICE', 'STOCK_ADJUSTMENT', 'EXPENSE_CLAIM', 'PAYROLL', 'GRATUITY_PROVISION'] as const;
+/** SALES_INVOICE/PURCHASE_INVOICE added in Phase 2 (@mhts/core-sales-purchase); STOCK_ADJUSTMENT added in Phase 3 (@mhts/core-inventory); EXPENSE_CLAIM added in Phase 6 (@mhts/core-expense); PAYROLL and GRATUITY_PROVISION added in Phase 7 (@mhts/core-payroll-engine); ASSET_ACQUISITION/DEPRECIATION/ASSET_DISPOSAL added in Phase 8 (@mhts/core-fixed-assets) — all posted via createVoucherInTransaction, same engine as every other voucher type. */
+export const VOUCHER_TYPES = [
+  'JOURNAL',
+  'PAYMENT',
+  'RECEIPT',
+  'CONTRA',
+  'SALES_INVOICE',
+  'PURCHASE_INVOICE',
+  'STOCK_ADJUSTMENT',
+  'EXPENSE_CLAIM',
+  'PAYROLL',
+  'GRATUITY_PROVISION',
+  'ASSET_ACQUISITION',
+  'DEPRECIATION',
+  'ASSET_DISPOSAL',
+] as const;
 export type VoucherType = (typeof VOUCHER_TYPES)[number];
 
 export interface AccountGroupSummary {
@@ -39,6 +53,8 @@ export interface VoucherLineInput {
   debitAmount: number;
   creditAmount: number;
   lineNarration?: string;
+  /** Phase 8 (Advanced ERP) — optional dimension tag, see costCentres.ts. */
+  costCentreId?: string;
 }
 
 export interface CreateVoucherInput {

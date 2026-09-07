@@ -92,6 +92,8 @@ export interface VoucherLineTable {
   debit_amount: number;
   credit_amount: number;
   line_narration: string | null;
+  /** Phase 8 (Advanced ERP) — optional dimension tag, see @mhts/core-accounting's costCentres.ts. Null for any voucher line not tagged to a cost centre. */
+  cost_centre_id: string | null;
 }
 
 export interface BusinessPartyTable {
@@ -689,6 +691,84 @@ export interface DocumentAttachmentTable {
   uploaded_at: ColumnType<string, string | undefined, never>;
 }
 
+export interface CostCentreTable {
+  id: string;
+  name: string;
+  code: string | null;
+  parent_cost_centre_id: string | null;
+  is_active: ColumnType<boolean, boolean | number, boolean | number>;
+  created_at: ColumnType<string, string | undefined, never>;
+}
+
+export interface BudgetTable {
+  id: string;
+  name: string;
+  financial_year: string;
+  /** At least one of ledger_id/cost_centre_id is set — validated in core-accounting. */
+  ledger_id: string | null;
+  cost_centre_id: string | null;
+  created_by: string | null;
+  created_at: ColumnType<string, string | undefined, never>;
+}
+
+export interface BudgetLineTable {
+  id: string;
+  budget_id: string;
+  /** 1-12, calendar month number. */
+  period_month: number;
+  /** Paise. */
+  amount_paise: number;
+}
+
+export interface AssetClassTable {
+  id: string;
+  name: string;
+  /** Matches a rule_set payload key for rule_type FIXED_ASSET_SCHEDULE2_RATE (system DB). */
+  schedule2_rate_category: string;
+  /** Matches a rule_set payload key for rule_type FIXED_ASSET_IT_WDV_BLOCK_RATE (system DB). */
+  it_wdv_block_category: string;
+  /** This class's own dedicated ledger under "Fixed Assets" — its balance IS the gross block for every unit of this class. */
+  gross_block_ledger_id: string;
+  /** This class's own dedicated ledger under "Accumulated Depreciation" — a contra-asset ledger. */
+  accumulated_depreciation_ledger_id: string;
+  is_active: ColumnType<boolean, boolean | number, boolean | number>;
+  created_at: ColumnType<string, string | undefined, never>;
+}
+
+export interface FixedAssetTable {
+  id: string;
+  asset_class_id: string;
+  name: string;
+  asset_code: string;
+  purchase_date: string;
+  /** Paise. */
+  purchase_cost_paise: number;
+  salvage_value_paise: number;
+  cost_centre_id: string | null;
+  /** 'ACTIVE' | 'DISPOSED' — see @mhts/core-fixed-assets. */
+  status: string;
+  disposed_at: string | null;
+  acquisition_voucher_id: string | null;
+  disposal_voucher_id: string | null;
+  created_by: string | null;
+  created_at: ColumnType<string, string | undefined, never>;
+}
+
+export interface AssetDepreciationEntryTable {
+  id: string;
+  asset_id: string;
+  /** 'SCHEDULE2' | 'IT_WDV' — the two independent depreciation books. */
+  book: string;
+  financial_year: string;
+  /** Paise, all three. */
+  opening_wdv_paise: number;
+  depreciation_amount_paise: number;
+  closing_wdv_paise: number;
+  /** Only ever set for book = 'SCHEDULE2' — IT_WDV is memo-only, never GL-posted. */
+  voucher_id: string | null;
+  created_at: ColumnType<string, string | undefined, never>;
+}
+
 export interface CompanyDatabase {
   role: RoleTable;
   permission: PermissionTable;
@@ -741,4 +821,10 @@ export interface CompanyDatabase {
   gratuity_provision_run: GratuityProvisionRunTable;
   gratuity_provision_line: GratuityProvisionLineTable;
   gratuity_record: GratuityRecordTable;
+  cost_centre: CostCentreTable;
+  budget: BudgetTable;
+  budget_line: BudgetLineTable;
+  asset_class: AssetClassTable;
+  fixed_asset: FixedAssetTable;
+  asset_depreciation_entry: AssetDepreciationEntryTable;
 }

@@ -7,6 +7,8 @@ export const ACCOUNTING_PERMISSIONS = [
   { code: 'ACCOUNTING.MANAGE_CHART_OF_ACCOUNTS', description: 'Create and edit ledger accounts and groups' },
   { code: 'ACCOUNTING.CREATE_VOUCHER', description: 'Create journal, payment, receipt and contra vouchers' },
   { code: 'ACCOUNTING.VIEW_REPORTS', description: 'View Trial Balance and other financial reports' },
+  { code: 'ACCOUNTING.MANAGE_COST_CENTRES', description: 'Create and edit cost centres' },
+  { code: 'ACCOUNTING.MANAGE_BUDGETS', description: 'Create budgets and view budget vs actual reports' },
 ] as const;
 
 /** Grants this module's own permissions to a role — called alongside @mhts/core-identity's seedAdminRole at company creation, same pattern each business module follows as it's added. */
@@ -39,7 +41,17 @@ const DEFAULT_GROUPS: GroupSeed[] = [
       { name: 'Duties & Taxes', nature: 'LIABILITY' },
     ],
   },
-  { name: 'Fixed Assets', nature: 'ASSET' },
+  {
+    name: 'Fixed Assets',
+    nature: 'ASSET',
+    // Phase 8: asset classes get their own gross-block ledger here, and their
+    // own accumulated-depreciation (contra-asset) ledger below — both under
+    // Fixed Assets so Gross Block - Accumulated Depreciation = Net Block
+    // reads correctly on the Balance Sheet without any change to
+    // computeLedgerBalances (a credit-natural ledger under an ASSET group
+    // simply nets negative, which is exactly the contra-asset behavior).
+    children: [{ name: 'Accumulated Depreciation', nature: 'ASSET' }],
+  },
   {
     name: 'Current Assets',
     nature: 'ASSET',

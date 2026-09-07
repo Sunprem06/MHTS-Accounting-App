@@ -1,0 +1,17 @@
+{
+  "name": "core-fixed-assets",
+  "sourceRoot": "packages/core-fixed-assets/src",
+  "projectType": "library",
+  "tags": ["type:core"],
+  "targets": {
+    "build": {
+      "executor": "@nx/js:tsc",
+      "outputs": ["{options.outputPath}"],
+      "options": {
+        "outputPath": "dist/packages/core-fixed-assets",
+        "main": "packages/core-fixed-assets/src/index.ts",
+        "tsConfig": "packages/core-fixed-assets/tsconfig.json"
+      }
+    }
+  }
+}

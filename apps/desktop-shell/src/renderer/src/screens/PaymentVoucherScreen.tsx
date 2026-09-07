@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { LedgerAccountSummary, PaymentInstrumentInput, SessionInfo } from '../../../shared/ipc';
+import type { CostCentreSummary, LedgerAccountSummary, PaymentInstrumentInput, SessionInfo } from '../../../shared/ipc';
 import { PaymentInstrumentFields } from './PaymentInstrumentFields';
 
 interface Props {
@@ -13,6 +13,7 @@ const BANK_ACCOUNTS_GROUP = 'Bank Accounts';
 interface ParticularLine {
   ledgerId: string;
   amountRupees: number;
+  costCentreId?: string;
 }
 
 function emptyParticular(): ParticularLine {
@@ -22,6 +23,7 @@ function emptyParticular(): ParticularLine {
 /** Money going out: one "Paid from" ledger (Cash/Bank) is credited automatically for the total; one or more "Paid to" lines are debited — no manual balancing needed. */
 export function PaymentVoucherScreen({ session, onCreated, onBack }: Props) {
   const [ledgers, setLedgers] = useState<LedgerAccountSummary[]>([]);
+  const [costCentres, setCostCentres] = useState<CostCentreSummary[]>([]);
   const [paidFromLedgerId, setPaidFromLedgerId] = useState('');
   const [voucherDate, setVoucherDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [narration, setNarration] = useState('');
@@ -42,6 +44,7 @@ export function PaymentVoucherScreen({ session, onCreated, onBack }: Props) {
         setParticulars([{ ...emptyParticular(), ledgerId: result.data[0]?.id ?? '' }]);
       }
     })();
+    window.mhts.listCostCentres().then((r) => r.ok && r.data && setCostCentres(r.data));
   }, []);
 
   function updateParticular(index: number, patch: Partial<ParticularLine>) {
@@ -63,7 +66,7 @@ export function PaymentVoucherScreen({ session, onCreated, onBack }: Props) {
       voucherDate,
       narration: narration || undefined,
       lines: [
-        ...particulars.map((p) => ({ ledgerId: p.ledgerId, debitRupees: Number(p.amountRupees) || 0, creditRupees: 0 })),
+        ...particulars.map((p) => ({ ledgerId: p.ledgerId, debitRupees: Number(p.amountRupees) || 0, creditRupees: 0, costCentreId: p.costCentreId })),
         { ledgerId: paidFromLedgerId, debitRupees: 0, creditRupees: total },
       ],
       instrument: paidFromIsBank ? instrument : null,
@@ -107,6 +110,7 @@ export function PaymentVoucherScreen({ session, onCreated, onBack }: Props) {
             <tr>
               <th style={{ textAlign: 'left' }}>Paid to</th>
               <th style={{ textAlign: 'right' }}>Amount (₹)</th>
+              <th style={{ textAlign: 'left' }}>Cost centre</th>
               <th />
             </tr>
           </thead>
@@ -136,6 +140,16 @@ export function PaymentVoucherScreen({ session, onCreated, onBack }: Props) {
                   />
                 </td>
                 <td>
+                  <select value={line.costCentreId ?? ''} onChange={(e) => updateParticular(index, { costCentreId: e.target.value || undefined })}>
+                    <option value="">—</option>
+                    {costCentres.map((cc) => (
+                      <option key={cc.id} value={cc.id}>
+                        {cc.name}
+                      </option>
+                    ))}
+                  </select>
+                </td>
+                <td>
                   {particulars.length > 1 && (
                     <button type="button" onClick={() => setParticulars((prev) => prev.filter((_, i) => i !== index))}>
                       Remove
@@ -153,6 +167,7 @@ export function PaymentVoucherScreen({ session, onCreated, onBack }: Props) {
                 </button>
               </td>
               <td style={{ textAlign: 'right', fontWeight: 'bold' }}>₹{total.toFixed(2)}</td>
+              <td />
               <td />
             </tr>
           </tfoot>

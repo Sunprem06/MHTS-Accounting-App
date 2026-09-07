@@ -116,6 +116,7 @@ export async function recordBankVoucher(systemDb: Kysely<SystemDatabase>, input:
         debitAmount: rupeesToPaise(line.debitRupees),
         creditAmount: rupeesToPaise(line.creditRupees),
         lineNarration: line.lineNarration,
+        costCentreId: line.costCentreId,
       })),
     },
     input.instrument,

@@ -13,6 +13,7 @@
     "@mhts/core-banking": "*",
     "@mhts/core-documents": "*",
     "@mhts/core-expense": "*",
+    "@mhts/core-fixed-assets": "*",
     "@mhts/core-gst-engine": "*",
     "@mhts/core-identity": "*",
     "@mhts/core-inventory": "*",

@@ -3,6 +3,7 @@ import { app, BrowserWindow, ipcMain } from 'electron';
 import { seedDefaultTdsRates } from '@mhts/core-sales-purchase';
 import { seedDefaultGstRates } from '@mhts/core-gst-engine';
 import { seedDefaultPayrollRules } from '@mhts/core-payroll-engine';
+import { seedDefaultFixedAssetRules } from '@mhts/core-fixed-assets';
 import { resolveAppPaths, openAndMigrateSystemDb } from './db';
 import {
   listCompanies,
@@ -137,6 +138,29 @@ import {
   settleGratuity,
   listGratuityRecords,
 } from './payrollHandlers';
+import {
+  createCostCentre,
+  listCostCentres,
+  updateCostCentre,
+  getCostCentreReport,
+  createBudget,
+  listBudgets,
+  updateBudgetLine,
+  getBudgetVsActual,
+} from './costCentreBudgetHandlers';
+import {
+  createAssetClass,
+  listAssetClasses,
+  acquireFixedAsset,
+  listFixedAssets,
+  getAssetDepreciationSchedule,
+  disposeFixedAsset,
+  previewDepreciationRun,
+  postDepreciationRun,
+  createOrUpdateFixedAssetRate,
+  listActiveFixedAssetRates,
+  listFixedAssetRateVersions,
+} from './fixedAssetsHandlers';
 import { session } from './session';
 import {
   IPC,
@@ -205,6 +229,16 @@ import {
   type RunGratuityProvisioningInput,
   type RecordSeparationInput,
   type SettleGratuityInput,
+  type CreateCostCentreInput,
+  type UpdateCostCentreInput,
+  type CostCentreReportInput,
+  type CreateBudgetInput,
+  type UpdateBudgetLineInput,
+  type CreateAssetClassInput,
+  type AcquireFixedAssetInput,
+  type DisposeFixedAssetInput,
+  type RunDepreciationInput,
+  type CreateOrUpdateFixedAssetRateInput,
 } from '../shared/ipc';
 
 function handle<T>(channel: string, fn: () => Promise<T>): void {
@@ -238,6 +272,7 @@ async function bootstrap(): Promise<void> {
   await seedDefaultTdsRates(systemDb);
   await seedDefaultGstRates(systemDb);
   await seedDefaultPayrollRules(systemDb);
+  await seedDefaultFixedAssetRules(systemDb);
 
   handle(IPC.LIST_COMPANIES, () => listCompanies(systemDb));
   handleWithArg(IPC.CREATE_COMPANY, (input: CreateCompanyInput) => createCompany(systemDb, paths, input));
@@ -393,6 +428,26 @@ async function bootstrap(): Promise<void> {
   handleWithArg(IPC.RECORD_SEPARATION, (input: RecordSeparationInput) => recordSeparation(systemDb, input));
   handleWithArg(IPC.SETTLE_GRATUITY, (input: SettleGratuityInput) => settleGratuity(systemDb, input));
   handle(IPC.LIST_GRATUITY_RECORDS, () => listGratuityRecords());
+
+  handleWithArg(IPC.CREATE_COST_CENTRE, (input: CreateCostCentreInput) => createCostCentre(input));
+  handle(IPC.LIST_COST_CENTRES, () => listCostCentres());
+  handleWithArg(IPC.UPDATE_COST_CENTRE, (input: UpdateCostCentreInput) => updateCostCentre(input));
+  handleWithArg(IPC.GET_COST_CENTRE_REPORT, (input: CostCentreReportInput) => getCostCentreReport(input));
+  handleWithArg(IPC.CREATE_BUDGET, (input: CreateBudgetInput) => createBudget(input));
+  handle(IPC.LIST_BUDGETS, () => listBudgets());
+  handleWithArg(IPC.UPDATE_BUDGET_LINE, (input: UpdateBudgetLineInput) => updateBudgetLine(input));
+  handleWithArg(IPC.GET_BUDGET_VS_ACTUAL, (budgetId: string) => getBudgetVsActual(systemDb, budgetId));
+  handleWithArg(IPC.CREATE_ASSET_CLASS, (input: CreateAssetClassInput) => createAssetClass(input));
+  handle(IPC.LIST_ASSET_CLASSES, () => listAssetClasses());
+  handleWithArg(IPC.ACQUIRE_FIXED_ASSET, (input: AcquireFixedAssetInput) => acquireFixedAsset(systemDb, input));
+  handle(IPC.LIST_FIXED_ASSETS, () => listFixedAssets());
+  handleWithArg(IPC.GET_ASSET_DEPRECIATION_SCHEDULE, (assetId: string) => getAssetDepreciationSchedule(assetId));
+  handleWithArg(IPC.DISPOSE_FIXED_ASSET, (input: DisposeFixedAssetInput) => disposeFixedAsset(systemDb, input));
+  handleWithArg(IPC.PREVIEW_DEPRECIATION_RUN, (input: RunDepreciationInput) => previewDepreciationRun(systemDb, input));
+  handleWithArg(IPC.POST_DEPRECIATION_RUN, (input: RunDepreciationInput) => postDepreciationRun(systemDb, input));
+  handleWithArg(IPC.CREATE_OR_UPDATE_FIXED_ASSET_RATE, (input: CreateOrUpdateFixedAssetRateInput) => createOrUpdateFixedAssetRate(systemDb, input));
+  handle(IPC.LIST_ACTIVE_FIXED_ASSET_RATES, () => listActiveFixedAssetRates(systemDb));
+  handleWithArg(IPC.LIST_FIXED_ASSET_RATE_VERSIONS, (ruleType: string) => listFixedAssetRateVersions(systemDb, ruleType));
 
   createWindow();
 }

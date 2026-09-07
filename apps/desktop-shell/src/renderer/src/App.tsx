@@ -61,6 +61,12 @@ import { SalaryComponentsScreen } from './screens/SalaryComponentsScreen';
 import { SalaryStructureScreen } from './screens/SalaryStructureScreen';
 import { PayrollSettingsScreen } from './screens/PayrollSettingsScreen';
 import { ManagePayrollRulesScreen } from './screens/ManagePayrollRulesScreen';
+import { CostCentresScreen } from './screens/CostCentresScreen';
+import { BudgetsScreen } from './screens/BudgetsScreen';
+import { FixedAssetClassesScreen } from './screens/FixedAssetClassesScreen';
+import { FixedAssetRegisterScreen } from './screens/FixedAssetRegisterScreen';
+import { RunDepreciationScreen } from './screens/RunDepreciationScreen';
+import { ManageFixedAssetRatesScreen } from './screens/ManageFixedAssetRatesScreen';
 import { AttendanceScreen } from './screens/AttendanceScreen';
 import { LeaveScreen } from './screens/LeaveScreen';
 import { PayrollRunScreen } from './screens/PayrollRunScreen';
@@ -131,7 +137,13 @@ type View =
   | { name: 'attendance' }
   | { name: 'leave' }
   | { name: 'payrollRuns' }
-  | { name: 'gratuity' };
+  | { name: 'gratuity' }
+  | { name: 'costCentres' }
+  | { name: 'budgets' }
+  | { name: 'assetClasses' }
+  | { name: 'fixedAssetRegister' }
+  | { name: 'runDepreciation' }
+  | { name: 'manageFixedAssetRates' };
 
 export function App() {
   return (
@@ -495,6 +507,30 @@ function AppRoutes() {
     return <GratuityScreen session={session!} onBack={() => setView({ name: 'dashboard' })} />;
   }
 
+  if (view.name === 'costCentres') {
+    return <CostCentresScreen session={session!} onBack={() => setView({ name: 'dashboard' })} />;
+  }
+
+  if (view.name === 'budgets') {
+    return <BudgetsScreen session={session!} onBack={() => setView({ name: 'dashboard' })} />;
+  }
+
+  if (view.name === 'assetClasses') {
+    return <FixedAssetClassesScreen session={session!} onBack={() => setView({ name: 'dashboard' })} />;
+  }
+
+  if (view.name === 'fixedAssetRegister') {
+    return <FixedAssetRegisterScreen session={session!} onBack={() => setView({ name: 'dashboard' })} />;
+  }
+
+  if (view.name === 'runDepreciation') {
+    return <RunDepreciationScreen session={session!} onBack={() => setView({ name: 'dashboard' })} />;
+  }
+
+  if (view.name === 'manageFixedAssetRates') {
+    return <ManageFixedAssetRatesScreen session={session!} onBack={() => setView({ name: 'dashboard' })} />;
+  }
+
   return (
     <DashboardScreen
       session={session!}
@@ -554,6 +590,12 @@ function AppRoutes() {
       onLeave={() => setView({ name: 'leave' })}
       onPayrollRuns={() => setView({ name: 'payrollRuns' })}
       onGratuity={() => setView({ name: 'gratuity' })}
+      onCostCentres={() => setView({ name: 'costCentres' })}
+      onBudgets={() => setView({ name: 'budgets' })}
+      onAssetClasses={() => setView({ name: 'assetClasses' })}
+      onFixedAssetRegister={() => setView({ name: 'fixedAssetRegister' })}
+      onRunDepreciation={() => setView({ name: 'runDepreciation' })}
+      onManageFixedAssetRates={() => setView({ name: 'manageFixedAssetRates' })}
       onLogout={async () => {
         await window.mhts.logout();
         setSession(null);

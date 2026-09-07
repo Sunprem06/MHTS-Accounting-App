@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { LedgerAccountSummary, VoucherLineInput } from '../../../shared/ipc';
+import type { CostCentreSummary, LedgerAccountSummary, VoucherLineInput } from '../../../shared/ipc';
 
 interface Props {
   onCreated: () => void;
@@ -13,6 +13,7 @@ function emptyLine(): VoucherLineInput {
 /** For adjustments not involving Cash/Bank directly. Payment/Receipt/Contra have their own dedicated, auto-balancing screens. */
 export function JournalVoucherScreen({ onCreated, onBack }: Props) {
   const [ledgers, setLedgers] = useState<LedgerAccountSummary[]>([]);
+  const [costCentres, setCostCentres] = useState<CostCentreSummary[]>([]);
   const [voucherDate, setVoucherDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [narration, setNarration] = useState('');
   const [lines, setLines] = useState<VoucherLineInput[]>([emptyLine(), emptyLine()]);
@@ -30,6 +31,7 @@ export function JournalVoucherScreen({ onCreated, onBack }: Props) {
         ]);
       }
     })();
+    window.mhts.listCostCentres().then((r) => r.ok && r.data && setCostCentres(r.data));
   }, []);
 
   function updateLine(index: number, patch: Partial<VoucherLineInput>) {
@@ -52,6 +54,7 @@ export function JournalVoucherScreen({ onCreated, onBack }: Props) {
         ledgerId: line.ledgerId,
         debitRupees: Number(line.debitRupees) || 0,
         creditRupees: Number(line.creditRupees) || 0,
+        costCentreId: line.costCentreId || undefined,
       })),
     });
     setSubmitting(false);
@@ -82,6 +85,7 @@ export function JournalVoucherScreen({ onCreated, onBack }: Props) {
               <th style={{ textAlign: 'left' }}>Ledger</th>
               <th style={{ textAlign: 'right' }}>Debit (₹)</th>
               <th style={{ textAlign: 'right' }}>Credit (₹)</th>
+              <th style={{ textAlign: 'left' }}>Cost centre</th>
               <th />
             </tr>
           </thead>
@@ -121,6 +125,16 @@ export function JournalVoucherScreen({ onCreated, onBack }: Props) {
                   />
                 </td>
                 <td>
+                  <select value={line.costCentreId ?? ''} onChange={(e) => updateLine(index, { costCentreId: e.target.value || undefined })}>
+                    <option value="">—</option>
+                    {costCentres.map((cc) => (
+                      <option key={cc.id} value={cc.id}>
+                        {cc.name}
+                      </option>
+                    ))}
+                  </select>
+                </td>
+                <td>
                   {lines.length > 2 && (
                     <button type="button" onClick={() => setLines((prev) => prev.filter((_, i) => i !== index))}>
                       Remove
@@ -139,6 +153,7 @@ export function JournalVoucherScreen({ onCreated, onBack }: Props) {
               </td>
               <td style={{ textAlign: 'right', fontWeight: 'bold' }}>₹{totalDebit.toFixed(2)}</td>
               <td style={{ textAlign: 'right', fontWeight: 'bold' }}>₹{totalCredit.toFixed(2)}</td>
+              <td />
               <td />
             </tr>
           </tfoot>

@@ -113,7 +113,20 @@ export interface InviteUserResult {
 
 export type AccountNature = 'ASSET' | 'LIABILITY' | 'EQUITY' | 'INCOME' | 'EXPENSE';
 export type BalanceSide = 'DEBIT' | 'CREDIT';
-export type VoucherType = 'JOURNAL' | 'PAYMENT' | 'RECEIPT' | 'CONTRA' | 'SALES_INVOICE' | 'PURCHASE_INVOICE' | 'STOCK_ADJUSTMENT' | 'EXPENSE_CLAIM' | 'PAYROLL' | 'GRATUITY_PROVISION';
+export type VoucherType =
+  | 'JOURNAL'
+  | 'PAYMENT'
+  | 'RECEIPT'
+  | 'CONTRA'
+  | 'SALES_INVOICE'
+  | 'PURCHASE_INVOICE'
+  | 'STOCK_ADJUSTMENT'
+  | 'EXPENSE_CLAIM'
+  | 'PAYROLL'
+  | 'GRATUITY_PROVISION'
+  | 'ASSET_ACQUISITION'
+  | 'DEPRECIATION'
+  | 'ASSET_DISPOSAL';
 
 export interface AccountGroupSummary {
   id: string;
@@ -148,6 +161,8 @@ export interface VoucherLineInput {
   debitRupees: number;
   creditRupees: number;
   lineNarration?: string;
+  /** Phase 8 (Advanced ERP) — optional dimension tag. */
+  costCentreId?: string;
 }
 
 export interface CreateVoucherInput {
@@ -1394,6 +1409,209 @@ export interface RunGratuityProvisioningInput {
   periodYear: number;
 }
 
+// --- Phase 8 Increment 1: Advanced ERP (Cost Centres, Budgets, Fixed Assets) ---
+
+export interface CostCentreSummary {
+  id: string;
+  name: string;
+  code: string | null;
+  parentCostCentreId: string | null;
+  isActive: boolean;
+}
+
+export interface CreateCostCentreInput {
+  name: string;
+  code?: string;
+  parentCostCentreId?: string;
+}
+
+export interface UpdateCostCentreInput {
+  costCentreId: string;
+  name?: string;
+  code?: string | null;
+  isActive?: boolean;
+}
+
+export interface CostCentreSummaryRow {
+  costCentreId: string | null;
+  costCentreName: string;
+  /** Rupees. */
+  totalIncome: number;
+  totalExpense: number;
+  net: number;
+}
+
+export interface CostCentreReportInput {
+  fromDate?: string;
+  toDate?: string;
+}
+
+export interface BudgetLineInput {
+  /** 1-12, calendar month number. */
+  periodMonth: number;
+  /** Rupees, as typed by the user — converted to paise at the IPC boundary. */
+  amountRupees: number;
+}
+
+export interface CreateBudgetInput {
+  name: string;
+  financialYear: string;
+  ledgerId?: string;
+  costCentreId?: string;
+  /** Exactly 12 lines. The renderer's helper form can pre-fill these evenly from one annual total before the user edits individual months. */
+  lines: BudgetLineInput[];
+}
+
+export interface BudgetSummary {
+  id: string;
+  name: string;
+  financialYear: string;
+  ledgerId: string | null;
+  ledgerName: string | null;
+  costCentreId: string | null;
+  costCentreName: string | null;
+  lines: BudgetLineInput[];
+}
+
+export interface UpdateBudgetLineInput {
+  budgetId: string;
+  periodMonth: number;
+  /** Rupees. */
+  amountRupees: number;
+}
+
+export interface BudgetVsActualRow {
+  periodMonth: number;
+  /** Rupees, for display. */
+  budgetedAmount: number;
+  actualAmount: number;
+  varianceAmount: number;
+  variancePercent: number | null;
+}
+
+export interface BudgetVsActualResult {
+  budget: BudgetSummary;
+  rows: BudgetVsActualRow[];
+}
+
+export type DepreciationMethod = 'SLM' | 'WDV';
+
+export interface Schedule2RatePayload {
+  method: DepreciationMethod;
+  ratePercent: number;
+}
+
+export interface ItWdvBlockRatePayload {
+  ratePercent: number;
+}
+
+export interface AssetClassSummary {
+  id: string;
+  name: string;
+  schedule2RateCategory: string;
+  itWdvBlockCategory: string;
+  grossBlockLedgerId: string;
+  grossBlockLedgerName: string;
+  accumulatedDepreciationLedgerId: string;
+  accumulatedDepreciationLedgerName: string;
+  isActive: boolean;
+}
+
+export interface CreateAssetClassInput {
+  name: string;
+  schedule2RateCategory: string;
+  itWdvBlockCategory: string;
+}
+
+export type FixedAssetStatus = 'ACTIVE' | 'DISPOSED';
+
+export interface FixedAssetSummary {
+  id: string;
+  assetClassId: string;
+  assetClassName: string;
+  name: string;
+  assetCode: string;
+  purchaseDate: string;
+  /** Rupees, for display. */
+  purchaseCost: number;
+  salvageValue: number;
+  costCentreId: string | null;
+  status: FixedAssetStatus;
+  disposedAt: string | null;
+  acquisitionVoucherId: string | null;
+  disposalVoucherId: string | null;
+}
+
+export interface AcquireFixedAssetInput {
+  assetClassId: string;
+  name: string;
+  assetCode: string;
+  purchaseDate: string;
+  /** Rupees, as typed by the user. */
+  purchaseCostRupees: number;
+  salvageValueRupees?: number;
+  costCentreId?: string;
+  paidFromLedgerId: string;
+  narration?: string;
+}
+
+export type DepreciationBook = 'SCHEDULE2' | 'IT_WDV';
+
+export interface AssetDepreciationEntrySummary {
+  book: DepreciationBook;
+  financialYear: string;
+  /** Rupees, for display. */
+  openingWdv: number;
+  depreciationAmount: number;
+  closingWdv: number;
+  voucherId: string | null;
+}
+
+export interface DisposeFixedAssetInput {
+  assetId: string;
+  disposalDate: string;
+  /** Rupees, as typed by the user. 0 for a write-off. */
+  saleProceedsRupees: number;
+  receiptLedgerId?: string;
+  narration?: string;
+}
+
+export interface DepreciationPreviewLine {
+  assetId: string;
+  assetName: string;
+  assetCode: string;
+  /** Rupees, for display. */
+  schedule2Depreciation: number;
+  itWdvDepreciation: number;
+}
+
+export interface RunDepreciationInput {
+  financialYear: string;
+}
+
+export interface PostDepreciationResult {
+  voucherIds: string[];
+}
+
+export interface FixedAssetRateVersionSummary {
+  id: string;
+  ruleType: string;
+  effectiveFrom: string;
+  effectiveTo: string | null;
+  version: number;
+  /** Shape depends on the rule type — Schedule2RatePayload or ItWdvBlockRatePayload. Passed through as-is, same convention as PayrollRuleVersionSummary. */
+  payload: unknown;
+  sourceReference: string | null;
+}
+
+export interface CreateOrUpdateFixedAssetRateInput {
+  book: 'SCHEDULE2' | 'IT_WDV';
+  category: string;
+  effectiveFrom: string;
+  payload: unknown;
+  sourceReference?: string;
+}
+
 export interface IpcResult<T> {
   ok: boolean;
   data?: T;
@@ -1548,4 +1766,25 @@ export const IPC = {
   RECORD_SEPARATION: 'payroll:recordSeparation',
   SETTLE_GRATUITY: 'payroll:settleGratuity',
   LIST_GRATUITY_RECORDS: 'payroll:listGratuityRecords',
+
+  // Phase 8 Increment 1: Advanced ERP
+  CREATE_COST_CENTRE: 'accounting:createCostCentre',
+  LIST_COST_CENTRES: 'accounting:listCostCentres',
+  UPDATE_COST_CENTRE: 'accounting:updateCostCentre',
+  GET_COST_CENTRE_REPORT: 'accounting:getCostCentreReport',
+  CREATE_BUDGET: 'accounting:createBudget',
+  LIST_BUDGETS: 'accounting:listBudgets',
+  UPDATE_BUDGET_LINE: 'accounting:updateBudgetLine',
+  GET_BUDGET_VS_ACTUAL: 'accounting:getBudgetVsActual',
+  CREATE_ASSET_CLASS: 'fixedAssets:createAssetClass',
+  LIST_ASSET_CLASSES: 'fixedAssets:listAssetClasses',
+  ACQUIRE_FIXED_ASSET: 'fixedAssets:acquireFixedAsset',
+  LIST_FIXED_ASSETS: 'fixedAssets:listFixedAssets',
+  GET_ASSET_DEPRECIATION_SCHEDULE: 'fixedAssets:getAssetDepreciationSchedule',
+  DISPOSE_FIXED_ASSET: 'fixedAssets:disposeFixedAsset',
+  PREVIEW_DEPRECIATION_RUN: 'fixedAssets:previewDepreciationRun',
+  POST_DEPRECIATION_RUN: 'fixedAssets:postDepreciationRun',
+  CREATE_OR_UPDATE_FIXED_ASSET_RATE: 'fixedAssets:createOrUpdateFixedAssetRate',
+  LIST_ACTIVE_FIXED_ASSET_RATES: 'fixedAssets:listActiveFixedAssetRates',
+  LIST_FIXED_ASSET_RATE_VERSIONS: 'fixedAssets:listFixedAssetRateVersions',
 } as const;
