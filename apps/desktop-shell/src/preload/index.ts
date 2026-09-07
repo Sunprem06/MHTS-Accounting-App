@@ -166,6 +166,12 @@ import {
   type PostManufacturingJournalInput,
   type ManufacturingJournalSummary,
   type ManufacturingJournalMovementSummary,
+  type CompanyLetterheadProfile,
+  type UpdateCompanyLetterheadProfileInput,
+  type PickedLogoFile,
+  type UploadCompanyLogoInput,
+  type PrintDocumentResult,
+  type UpdateBusinessPartyAddressInput,
 } from '../shared/ipc';
 
 const api = {
@@ -197,6 +203,7 @@ const api = {
     ipcRenderer.invoke(IPC.GET_BALANCE_SHEET, asOfDate),
   createParty: (input: CreatePartyInput): Promise<IpcResult<string>> => ipcRenderer.invoke(IPC.CREATE_PARTY, input),
   listParties: (): Promise<IpcResult<PartySummary[]>> => ipcRenderer.invoke(IPC.LIST_PARTIES),
+  updateBusinessPartyAddress: (input: UpdateBusinessPartyAddressInput): Promise<IpcResult<void>> => ipcRenderer.invoke(IPC.UPDATE_BUSINESS_PARTY_ADDRESS, input),
   createSalesInvoice: (input: CreateSalesInvoiceInput): Promise<IpcResult<string>> => ipcRenderer.invoke(IPC.CREATE_SALES_INVOICE, input),
   listSalesInvoices: (): Promise<IpcResult<InvoiceSummary[]>> => ipcRenderer.invoke(IPC.LIST_SALES_INVOICES),
   cancelSalesInvoice: (invoiceId: string): Promise<IpcResult<string>> => ipcRenderer.invoke(IPC.CANCEL_SALES_INVOICE, invoiceId),
@@ -355,6 +362,16 @@ const api = {
   postManufacturingJournal: (input: PostManufacturingJournalInput): Promise<IpcResult<string>> => ipcRenderer.invoke(IPC.POST_MANUFACTURING_JOURNAL, input),
   listManufacturingJournals: (): Promise<IpcResult<ManufacturingJournalSummary[]>> => ipcRenderer.invoke(IPC.LIST_MANUFACTURING_JOURNALS),
   getManufacturingJournalMovements: (journalId: string): Promise<IpcResult<ManufacturingJournalMovementSummary[]>> => ipcRenderer.invoke(IPC.GET_MANUFACTURING_JOURNAL_MOVEMENTS, journalId),
+
+  getCompanyLetterheadProfile: (): Promise<IpcResult<CompanyLetterheadProfile>> => ipcRenderer.invoke(IPC.GET_COMPANY_LETTERHEAD_PROFILE),
+  updateCompanyLetterheadProfile: (input: UpdateCompanyLetterheadProfileInput): Promise<IpcResult<void>> => ipcRenderer.invoke(IPC.UPDATE_COMPANY_LETTERHEAD_PROFILE, input),
+  pickLogoFile: (): Promise<IpcResult<PickedLogoFile | null>> => ipcRenderer.invoke(IPC.PICK_LOGO_FILE),
+  uploadCompanyLogo: (input: UploadCompanyLogoInput): Promise<IpcResult<void>> => ipcRenderer.invoke(IPC.UPLOAD_COMPANY_LOGO, input),
+  clearCompanyLogo: (): Promise<IpcResult<void>> => ipcRenderer.invoke(IPC.CLEAR_COMPANY_LOGO),
+  printSalesInvoice: (invoiceId: string): Promise<IpcResult<PrintDocumentResult>> => ipcRenderer.invoke(IPC.PRINT_SALES_INVOICE, invoiceId),
+  saveSalesInvoicePdf: (invoiceId: string): Promise<IpcResult<PrintDocumentResult>> => ipcRenderer.invoke(IPC.SAVE_SALES_INVOICE_PDF, invoiceId),
+  printPayslip: (payslipId: string): Promise<IpcResult<PrintDocumentResult>> => ipcRenderer.invoke(IPC.PRINT_PAYSLIP, payslipId),
+  savePayslipPdf: (payslipId: string): Promise<IpcResult<PrintDocumentResult>> => ipcRenderer.invoke(IPC.SAVE_PAYSLIP_PDF, payslipId),
 };
 
 export type MhtsApi = typeof api;

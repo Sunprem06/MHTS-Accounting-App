@@ -16,7 +16,7 @@ import { resolveEsiRule, resolvePfRule, resolvePtRule, resolveTdsSlabNewRegime, 
 import { computeMonthlyTdsNewRegime } from './salaryTds';
 import { getActiveSalaryStructure } from './salaryStructure';
 import { getCompanyPayrollSettings } from './companySettings';
-import type { CreatePayrollRunInput, DisbursePayslipInput, PayrollRunSummary, PayrollRunStatus, PayslipLineSummary, PayslipLineType, PayslipSummary } from './types';
+import type { CreatePayrollRunInput, DisbursePayslipInput, PayrollRunSummary, PayrollRunStatus, PayslipForPrint, PayslipLineSummary, PayslipLineType, PayslipSummary } from './types';
 
 const IS_ACTIVE = 1 as unknown as boolean; // better-sqlite3 only binds numbers/strings/bigints/buffers/null, not JS booleans.
 
@@ -317,6 +317,45 @@ export async function getPayrollRun(companyDb: Kysely<CompanyDatabase>, payrollR
   }
   const payslips = await loadPayslipsForRun(companyDb, payrollRunId);
   return { id: run.id, financialYear: run.financial_year, periodMonth: run.period_month, periodYear: run.period_year, status: run.status as PayrollRunStatus, voucherId: run.voucher_id, payslips };
+}
+
+/** Phase 9 Increment 1 (Print + Templates) — full employee+run assembly for a printed payslip. Money stays paise (converted at the IPC boundary, same convention as every other handler in this codebase). */
+export async function getPayslipForPrint(companyDb: Kysely<CompanyDatabase>, payslipId: string): Promise<PayslipForPrint> {
+  const row = await companyDb
+    .selectFrom('payslip')
+    .innerJoin('employee', 'employee.id', 'payslip.employee_id')
+    .innerJoin('payroll_run', 'payroll_run.id', 'payslip.payroll_run_id')
+    .select([
+      'employee.name as employeeName',
+      'employee.employee_code as employeeCode',
+      'employee.designation as designation',
+      'employee.pan as pan',
+      'employee.bank_account_number as bankAccountNumber',
+      'employee.bank_ifsc as bankIfsc',
+      'employee.uan as uan',
+      'payroll_run.financial_year as financialYear',
+      'payroll_run.period_month as periodMonth',
+      'payroll_run.period_year as periodYear',
+      'payslip.paid_days as paidDays',
+      'payslip.lop_days as lopDays',
+      'payslip.gross_earnings as grossEarnings',
+      'payslip.total_deductions as totalDeductions',
+      'payslip.net_pay as netPay',
+    ])
+    .where('payslip.id', '=', payslipId)
+    .executeTakeFirst();
+  if (!row) {
+    throw new Error('Payslip not found');
+  }
+
+  const lineRows = await companyDb
+    .selectFrom('payslip_line')
+    .select(['line_type as lineType', 'label', 'component_id as componentId', 'amount'])
+    .where('payslip_id', '=', payslipId)
+    .execute();
+  const lines: PayslipLineSummary[] = lineRows.map((l) => ({ lineType: l.lineType as PayslipLineType, label: l.label, componentId: l.componentId, amount: l.amount }));
+
+  return { ...row, lines };
 }
 
 export async function listPayrollRuns(companyDb: Kysely<CompanyDatabase>): Promise<PayrollRunSummary[]> {

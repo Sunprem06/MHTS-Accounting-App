@@ -73,6 +73,7 @@ interface Props {
   onBillsOfMaterial: () => void;
   onManufacturingJournal: () => void;
   onManufacturingJournalRegister: () => void;
+  onCompanyLetterhead: () => void;
 }
 
 export function DashboardScreen({
@@ -148,6 +149,7 @@ export function DashboardScreen({
   onBillsOfMaterial,
   onManufacturingJournal,
   onManufacturingJournalRegister,
+  onCompanyLetterhead,
 }: Props) {
   return (
     <div style={{ padding: 24, fontFamily: 'sans-serif', maxWidth: 480 }}>
@@ -330,6 +332,11 @@ export function DashboardScreen({
           {session.permissions.includes('MANUFACTURING.MANAGE_BOM') && <button onClick={onBillsOfMaterial}>Bills of material</button>}{' '}
           {session.permissions.includes('MANUFACTURING.POST_JOURNAL') && <button onClick={onManufacturingJournal}>Manufacturing journal</button>}{' '}
           {session.permissions.includes('MANUFACTURING.POST_JOURNAL') && <button onClick={onManufacturingJournalRegister}>Manufacturing journal register</button>}
+        </p>
+      )}
+      {session.permissions.includes('PRINT.MANAGE_LETTERHEAD') && (
+        <p>
+          <button onClick={onCompanyLetterhead}>Company letterhead</button>
         </p>
       )}
       <p>

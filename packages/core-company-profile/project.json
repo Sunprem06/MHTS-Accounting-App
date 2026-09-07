@@ -1,0 +1,17 @@
+{
+  "name": "core-company-profile",
+  "sourceRoot": "packages/core-company-profile/src",
+  "projectType": "library",
+  "tags": ["type:core"],
+  "targets": {
+    "build": {
+      "executor": "@nx/js:tsc",
+      "outputs": ["{options.outputPath}"],
+      "options": {
+        "outputPath": "dist/packages/core-company-profile",
+        "main": "packages/core-company-profile/src/index.ts",
+        "tsConfig": "packages/core-company-profile/tsconfig.json"
+      }
+    }
+  }
+}

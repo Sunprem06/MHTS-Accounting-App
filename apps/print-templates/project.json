@@ -1,7 +1,17 @@
 {
   "name": "print-templates",
   "sourceRoot": "apps/print-templates/src",
-  "projectType": "application",
+  "projectType": "library",
   "tags": ["type:app"],
-  "targets": {}
+  "targets": {
+    "build": {
+      "executor": "@nx/js:tsc",
+      "outputs": ["{options.outputPath}"],
+      "options": {
+        "outputPath": "dist/apps/print-templates",
+        "main": "apps/print-templates/src/index.ts",
+        "tsConfig": "apps/print-templates/tsconfig.json"
+      }
+    }
+  }
 }

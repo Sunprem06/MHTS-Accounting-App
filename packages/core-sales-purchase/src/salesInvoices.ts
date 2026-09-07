@@ -10,7 +10,7 @@ import type { GstLedgerIds } from '@mhts/core-gst-engine';
 import { validateDocumentLines } from './lineValidation';
 import { resolveLineGstList } from './gstLineResolution';
 import type { ResolvedLineGst } from './gstLineResolution';
-import type { CreateSalesInvoiceInput, DocumentLineInput, InvoiceSummary } from './types';
+import type { CreateSalesInvoiceInput, DocumentLineInput, InvoiceForPrint, InvoiceForPrintLine, InvoiceSummary } from './types';
 
 /**
  * Builds the debit/credit voucher lines for a sales invoice: one credit per
@@ -203,6 +203,10 @@ export async function createSalesInvoiceInTransaction(
         cess_amount: gst?.cessAmount ?? 0,
         is_reverse_charge: line.isReverseCharge ? 1 : 0,
         foreign_amount: line.foreignAmount ?? null,
+        // Phase 9 Increment 1 (Print + Templates) — persisted so a printed invoice can show Qty/Rate; previously computed for stock-movement purposes only and discarded.
+        item_id: line.itemId ?? null,
+        quantity_thousandths: line.quantityThousandths ?? null,
+        rate_paise: line.ratePaise ?? null,
       })
       .execute();
   }
@@ -305,4 +309,96 @@ export async function listSalesInvoices(companyDb: Kysely<CompanyDatabase>): Pro
       cancelledAt: row.cancelledAt,
     };
   });
+}
+
+/** Phase 9 Increment 1 (Print + Templates) — full header+lines+party assembly for a printed invoice. All money/quantity fields stay paise/thousandths (converted at the IPC boundary, same convention as every other handler in this codebase) — this function has no display concerns of its own. */
+export async function getSalesInvoiceForPrint(companyDb: Kysely<CompanyDatabase>, invoiceId: string): Promise<InvoiceForPrint> {
+  const header = await companyDb
+    .selectFrom('sales_invoice')
+    .innerJoin('voucher', 'voucher.id', 'sales_invoice.voucher_id')
+    .innerJoin('business_party', 'business_party.id', 'sales_invoice.party_id')
+    .select([
+      'sales_invoice.invoice_date as invoiceDate',
+      'sales_invoice.narration as narration',
+      'sales_invoice.currency as currency',
+      'voucher.voucher_number as voucherNumber',
+      'voucher.financial_year as financialYear',
+      'voucher.cancelled_at as cancelledAt',
+      'business_party.name as partyName',
+      'business_party.gstin as partyGstin',
+      'business_party.state_code as partyStateCode',
+      'business_party.address as partyAddress',
+    ])
+    .where('sales_invoice.id', '=', invoiceId)
+    .executeTakeFirst();
+  if (!header) {
+    throw new Error('Sales invoice not found');
+  }
+
+  const lineRows = await companyDb
+    .selectFrom('sales_invoice_line')
+    .leftJoin('item', 'item.id', 'sales_invoice_line.item_id')
+    .leftJoin('unit_of_measure', 'unit_of_measure.id', 'item.unit_id')
+    .select([
+      'sales_invoice_line.description as description',
+      'sales_invoice_line.hsn_sac_code as hsnSacCode',
+      'item.name as itemName',
+      'sales_invoice_line.quantity_thousandths as quantityThousandths',
+      'unit_of_measure.symbol as unitSymbol',
+      'sales_invoice_line.rate_paise as ratePaise',
+      'sales_invoice_line.amount as taxableAmount',
+      'sales_invoice_line.gst_rate_basis_points as gstRateBasisPoints',
+      'sales_invoice_line.cgst_amount as cgstAmount',
+      'sales_invoice_line.sgst_amount as sgstAmount',
+      'sales_invoice_line.igst_amount as igstAmount',
+      'sales_invoice_line.cess_amount as cessAmount',
+      'sales_invoice_line.tax_amount as manualTaxAmount',
+    ])
+    .where('sales_invoice_line.sales_invoice_id', '=', invoiceId)
+    .execute();
+
+  const lines: InvoiceForPrintLine[] = lineRows.map((l) => ({
+    description: l.description,
+    hsnSacCode: l.hsnSacCode,
+    itemName: l.itemName,
+    quantityThousandths: l.quantityThousandths,
+    unitSymbol: l.unitSymbol,
+    ratePaise: l.ratePaise,
+    taxableAmount: l.taxableAmount,
+    gstRatePercent: l.gstRateBasisPoints !== null ? l.gstRateBasisPoints / 100 : null,
+    cgstAmount: l.cgstAmount,
+    sgstAmount: l.sgstAmount,
+    igstAmount: l.igstAmount,
+    cessAmount: l.cessAmount,
+    manualTaxAmount: l.manualTaxAmount,
+  }));
+
+  const totals = lines.reduce(
+    (acc, l) => ({
+      taxableAmount: acc.taxableAmount + l.taxableAmount,
+      cgstAmount: acc.cgstAmount + l.cgstAmount,
+      sgstAmount: acc.sgstAmount + l.sgstAmount,
+      igstAmount: acc.igstAmount + l.igstAmount,
+      cessAmount: acc.cessAmount + l.cessAmount,
+      manualTaxAmount: acc.manualTaxAmount + l.manualTaxAmount,
+    }),
+    { taxableAmount: 0, cgstAmount: 0, sgstAmount: 0, igstAmount: 0, cessAmount: 0, manualTaxAmount: 0 },
+  );
+  const totalAmount = totals.taxableAmount + totals.cgstAmount + totals.sgstAmount + totals.igstAmount + totals.cessAmount + totals.manualTaxAmount;
+
+  return {
+    voucherNumber: header.voucherNumber,
+    financialYear: header.financialYear,
+    invoiceDate: header.invoiceDate,
+    narration: header.narration,
+    cancelledAt: header.cancelledAt,
+    partyName: header.partyName,
+    partyGstin: header.partyGstin,
+    partyStateCode: header.partyStateCode,
+    partyAddress: header.partyAddress,
+    currency: header.currency,
+    lines,
+    ...totals,
+    totalAmount,
+  };
 }

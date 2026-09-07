@@ -121,6 +121,8 @@ export interface BusinessPartyTable {
   created_at: ColumnType<string, string | undefined, never>;
   /** Phase 8 Increment 2 — this party's usual transaction currency. A UX default only (pre-fills invoice currency), never enforced. */
   default_currency: string | null;
+  /** Phase 9 Increment 1 (Print + Templates) — the printed "Bill To" address. Free text (no separate billing/shipping split this pass). Null for any party created before this migration. */
+  address: string | null;
 }
 
 export interface SalesInvoiceTable {
@@ -165,6 +167,12 @@ export interface SalesInvoiceLineTable {
   is_reverse_charge: ColumnType<boolean, boolean | number, boolean | number>;
   /** Phase 8 Increment 2 (multi-currency) — this line's taxable value in the invoice's own currency, for display only; `amount` (paise) is the authoritative base-currency figure it's derived from. Null for a base-currency invoice. */
   foreign_amount: number | null;
+  /** Phase 9 Increment 1 (Print + Templates) — set only for a stockable item line, same all-or-nothing trio as core-sales-purchase's DocumentLineInput. Null for a service line. */
+  item_id: string | null;
+  /** Thousandths of a unit. */
+  quantity_thousandths: number | null;
+  /** Paise, per whole unit. */
+  rate_paise: number | null;
 }
 
 export interface PurchaseInvoiceTable {
@@ -486,6 +494,32 @@ export interface EmployeeTable {
   pf_voluntary_opt_out: ColumnType<boolean, boolean | number | undefined, boolean | number>;
   /** A SECOND dedicated ledger, distinct from ledger_account_id (which stays scoped to expense reimbursements) — under "Salaries Payable". Null until a salary structure is first assigned. */
   salary_payable_ledger_id: string | null;
+  /** Phase 9 Increment 1 (Print + Templates) — shown on a printed payslip. Null for any employee created before this migration. */
+  designation: string | null;
+}
+
+/** Phase 9 Increment 1 (Print + Templates). Singleton row, fixed id — every company gets exactly one, same pattern as CompanyPayrollSettingsTable. Presentation-only facts, never read by any accounting/GST/payroll logic. */
+export interface CompanyLetterheadProfileTable {
+  id: string;
+  address: string | null;
+  phone: string | null;
+  email: string | null;
+  website: string | null;
+  bank_account_name: string | null;
+  bank_account_number: string | null;
+  bank_ifsc: string | null;
+  bank_name: string | null;
+  bank_branch: string | null;
+  footer_note: string | null;
+  /** The SECOND blob column in this schema (the first was document_attachment.file_data, Phase 6) — inherits SQLCipher's at-rest encryption and backupCompany's whole-file copy for free. */
+  logo_data: Buffer | null;
+  logo_mime_type: string | null;
+  /** 'CLASSIC' | 'MODERN' — see @mhts/print-templates. */
+  invoice_layout: string;
+  payslip_layout: string;
+  accent_color_hex: string | null;
+  updated_by: string | null;
+  updated_at: ColumnType<string, string | undefined, string>;
 }
 
 export interface CompanyPayrollSettingsTable {
@@ -931,4 +965,5 @@ export interface CompanyDatabase {
   bill_of_material: BillOfMaterialTable;
   bill_of_material_line: BillOfMaterialLineTable;
   manufacturing_journal: ManufacturingJournalTable;
+  company_letterhead_profile: CompanyLetterheadProfileTable;
 }

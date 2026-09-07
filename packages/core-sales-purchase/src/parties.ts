@@ -107,6 +107,7 @@ export async function createParty(companyDb: Kysely<CompanyDatabase>, input: Cre
         credit_period_days: input.creditPeriodDays ?? null,
         ledger_account_id: ledgerId,
         is_active: 1,
+        address: input.address ?? null,
       })
       .execute();
 
@@ -135,5 +136,16 @@ export async function listParties(companyDb: Kysely<CompanyDatabase>): Promise<B
     creditPeriodDays: row.credit_period_days,
     ledgerAccountId: row.ledger_account_id,
     isActive: Boolean(row.is_active),
+    address: row.address,
   }));
+}
+
+/** Phase 9 Increment 1 (Print + Templates) — the only party field editable after creation so far; a printed invoice's "Bill To" block needs somewhere to get an address from even for a party created before this feature existed. */
+export async function updateBusinessPartyAddress(companyDb: Kysely<CompanyDatabase>, partyId: string, address: string | null, actorUserId: string | null): Promise<void> {
+  const party = await companyDb.selectFrom('business_party').select('id').where('id', '=', partyId).executeTakeFirst();
+  if (!party) {
+    throw new Error('Party not found');
+  }
+  await companyDb.updateTable('business_party').set({ address }).where('id', '=', partyId).execute();
+  await writeAuditLog(companyDb, { actorUserId, action: 'UPDATE', entityType: 'BusinessParty', entityId: partyId, afterData: { address } });
 }

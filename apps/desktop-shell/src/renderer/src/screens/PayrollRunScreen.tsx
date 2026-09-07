@@ -24,8 +24,11 @@ export function PayrollRunScreen({ session, onBack }: Props) {
   const [paymentLedgerId, setPaymentLedgerId] = useState('');
   const [disbursing, setDisbursing] = useState<string | null>(null);
 
+  const [printingId, setPrintingId] = useState<string | null>(null);
+
   const canRun = session.permissions.includes('PAYROLL.RUN_PAYROLL');
   const canDisburse = session.permissions.includes('PAYROLL.DISBURSE_SALARY');
+  const canPrint = session.permissions.includes('PRINT.PRINT_DOCUMENTS');
 
   async function refreshRuns() {
     const result = await window.mhts.listPayrollRuns();
@@ -116,6 +119,26 @@ export function PayrollRunScreen({ session, onBack }: Props) {
       await refreshSelected(selectedRun.id);
     } else {
       setError(result.error ?? 'Failed to disburse');
+    }
+  }
+
+  async function handlePrintPayslip(payslip: PayslipSummary) {
+    setError(null);
+    setPrintingId(payslip.id);
+    const result = await window.mhts.printPayslip(payslip.id);
+    setPrintingId(null);
+    if (!result.ok) {
+      setError(result.error ?? 'Failed to print payslip');
+    }
+  }
+
+  async function handleSavePayslipPdf(payslip: PayslipSummary) {
+    setError(null);
+    setPrintingId(payslip.id);
+    const result = await window.mhts.savePayslipPdf(payslip.id);
+    setPrintingId(null);
+    if (!result.ok) {
+      setError(result.error ?? 'Failed to save payslip as PDF');
     }
   }
 
@@ -228,6 +251,17 @@ export function PayrollRunScreen({ session, onBack }: Props) {
                           <button type="button" onClick={() => handleDisburse(payslip)} disabled={disbursing === payslip.id} style={{ fontSize: 11 }}>
                             {disbursing === payslip.id ? 'Paying…' : 'Disburse'}
                           </button>
+                        )}
+                        {canPrint && selectedRun.status !== 'DRAFT' && (
+                          <>
+                            {' '}
+                            <button type="button" onClick={() => handlePrintPayslip(payslip)} disabled={printingId === payslip.id} style={{ fontSize: 11 }}>
+                              Print
+                            </button>{' '}
+                            <button type="button" onClick={() => handleSavePayslipPdf(payslip)} disabled={printingId === payslip.id} style={{ fontSize: 11 }}>
+                              Save PDF
+                            </button>
+                          </>
                         )}
                       </td>
                     </tr>

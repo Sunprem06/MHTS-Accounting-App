@@ -110,6 +110,8 @@ export interface EmployeePayrollProfileInput {
   uan?: string;
   esiNumber?: string;
   pfVoluntaryOptOut?: boolean;
+  /** Phase 9 Increment 1 (Print + Templates) — shown on a printed payslip. */
+  designation?: string;
 }
 
 export interface EmployeePayrollProfileSummary {
@@ -128,6 +130,28 @@ export interface EmployeePayrollProfileSummary {
   esiNumber: string | null;
   pfVoluntaryOptOut: boolean;
   salaryPayableLedgerId: string | null;
+  designation: string | null;
+}
+
+/** Phase 9 Increment 1 (Print + Templates) — everything a Payslip template needs, assembled fresh from payslip/payslip_line/employee/payroll_run (PayslipSummary above was built for the payroll-run screen, and deliberately carries only employeeId/employeeName — not designation/PAN/bank/UAN). */
+export interface PayslipForPrint {
+  employeeName: string;
+  employeeCode: string;
+  designation: string | null;
+  pan: string | null;
+  bankAccountNumber: string | null;
+  bankIfsc: string | null;
+  uan: string | null;
+  financialYear: string;
+  periodMonth: number;
+  periodYear: number;
+  /** Tenths of a day. */
+  paidDays: number;
+  lopDays: number;
+  grossEarnings: number;
+  totalDeductions: number;
+  netPay: number;
+  lines: PayslipLineSummary[];
 }
 
 export interface SalaryComponentDefinitionInput {

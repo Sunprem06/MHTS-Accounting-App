@@ -55,6 +55,7 @@ export type {
   CreatePayrollRunInput,
   PayslipLineSummary,
   PayslipSummary,
+  PayslipForPrint,
   PayrollRunSummary,
   DisbursePayslipInput,
   GratuityEligibilityResult,
@@ -113,6 +114,6 @@ export { createLeaveType, listLeaveTypes, applyLeave, listLeaveApplications, app
 export { markAttendance, listAttendanceForEmployee, computeAttendanceSummary } from './attendance';
 export type { AttendanceSummary } from './attendance';
 
-export { createPayrollRun, processPayrollRun, overridePayslipTdsAmount, getPayrollRun, listPayrollRuns, postPayrollRun, disbursePayslip } from './payrollRun';
+export { createPayrollRun, processPayrollRun, overridePayslipTdsAmount, getPayrollRun, listPayrollRuns, postPayrollRun, disbursePayslip, getPayslipForPrint } from './payrollRun';
 
 export { runGratuityProvisioning, recordSeparation, settleGratuity, listGratuityRecords } from './gratuityRecords';

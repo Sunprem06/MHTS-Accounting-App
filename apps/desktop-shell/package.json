@@ -11,6 +11,7 @@
   "dependencies": {
     "@mhts/core-accounting": "*",
     "@mhts/core-banking": "*",
+    "@mhts/core-company-profile": "*",
     "@mhts/core-documents": "*",
     "@mhts/core-expense": "*",
     "@mhts/core-fixed-assets": "*",
@@ -23,6 +24,7 @@
     "@mhts/core-rules-engine": "*",
     "@mhts/core-sales-purchase": "*",
     "@mhts/db-schema": "*",
+    "@mhts/print-templates": "*",
     "@mhts/shared-types": "*",
     "better-sqlite3-multiple-ciphers": "^13.0.3",
     "node-machine-id": "^1.1.12",

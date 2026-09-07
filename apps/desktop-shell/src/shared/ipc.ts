@@ -267,6 +267,8 @@ export interface PartySummary {
   creditPeriodDays: number | null;
   ledgerAccountId: string;
   isActive: boolean;
+  /** Phase 9 Increment 1 (Print + Templates) — the printed "Bill To" address. */
+  address: string | null;
 }
 
 export interface CreatePartyInput {
@@ -277,6 +279,13 @@ export interface CreatePartyInput {
   isMsmeUdyamRegistered: boolean;
   udyamRegistrationNumber?: string;
   creditPeriodDays?: number;
+  address?: string;
+}
+
+/** Phase 9 Increment 1 (Print + Templates) — the only party field editable after creation so far. */
+export interface UpdateBusinessPartyAddressInput {
+  partyId: string;
+  address: string | null;
 }
 
 /** Rupees, as typed by the user — converted to paise at the IPC boundary, same convention as VoucherLineInput. */
@@ -1152,6 +1161,8 @@ export interface EmployeePayrollProfileSummary {
   esiNumber: string | null;
   pfVoluntaryOptOut: boolean;
   salaryPayableLedgerId: string | null;
+  /** Phase 9 Increment 1 (Print + Templates) — shown on a printed payslip. */
+  designation: string | null;
 }
 
 export interface UpdateEmployeePayrollProfileInput {
@@ -1166,6 +1177,7 @@ export interface UpdateEmployeePayrollProfileInput {
   uan?: string;
   esiNumber?: string;
   pfVoluntaryOptOut?: boolean;
+  designation?: string;
 }
 
 export interface SalaryComponentDefinitionInput {
@@ -1836,6 +1848,63 @@ export interface ManufacturingJournalMovementSummary {
   batchNumber: string | null;
 }
 
+// --- Phase 9 Increment 1: Print + Templates ---
+
+/** 'CLASSIC' | 'MODERN' — see @mhts/print-templates for what each one actually renders. A config-based layout choice, not a code change. */
+export type DocumentLayout = 'CLASSIC' | 'MODERN';
+
+export interface CompanyLetterheadProfile {
+  address: string | null;
+  phone: string | null;
+  email: string | null;
+  website: string | null;
+  bankAccountName: string | null;
+  bankAccountNumber: string | null;
+  bankIfsc: string | null;
+  bankName: string | null;
+  bankBranch: string | null;
+  footerNote: string | null;
+  hasLogo: boolean;
+  invoiceLayout: DocumentLayout;
+  payslipLayout: DocumentLayout;
+  accentColorHex: string | null;
+  updatedAt: string;
+}
+
+export interface UpdateCompanyLetterheadProfileInput {
+  address?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  website?: string | null;
+  bankAccountName?: string | null;
+  bankAccountNumber?: string | null;
+  bankIfsc?: string | null;
+  bankName?: string | null;
+  bankBranch?: string | null;
+  footerNote?: string | null;
+  invoiceLayout?: DocumentLayout;
+  payslipLayout?: DocumentLayout;
+  accentColorHex?: string | null;
+}
+
+/** Base64-over-IPC — a raw Buffer can't cross the contextBridge boundary, same convention as documentHandlers.ts's attachment upload. */
+export interface PickedLogoFile {
+  fileName: string;
+  mimeType: string;
+  fileDataBase64: string;
+}
+
+export interface UploadCompanyLogoInput {
+  fileDataBase64: string;
+  mimeType: string;
+}
+
+export interface PrintDocumentResult {
+  /** False if the user cancelled the native save dialog. Always true for a print-dialog action (there's no dialog to cancel before the OS print dialog itself opens). */
+  saved: boolean;
+  filePath?: string;
+}
+
 export interface IpcResult<T> {
   ok: boolean;
   data?: T;
@@ -1865,6 +1934,7 @@ export const IPC = {
   GET_BALANCE_SHEET: 'accounting:getBalanceSheet',
   LIST_PARTIES: 'salesPurchase:listParties',
   CREATE_PARTY: 'salesPurchase:createParty',
+  UPDATE_BUSINESS_PARTY_ADDRESS: 'salesPurchase:updateBusinessPartyAddress',
   CREATE_SALES_INVOICE: 'salesPurchase:createSalesInvoice',
   LIST_SALES_INVOICES: 'salesPurchase:listSalesInvoices',
   CREATE_PURCHASE_INVOICE: 'salesPurchase:createPurchaseInvoice',
@@ -2032,4 +2102,15 @@ export const IPC = {
   POST_MANUFACTURING_JOURNAL: 'manufacturing:postManufacturingJournal',
   LIST_MANUFACTURING_JOURNALS: 'manufacturing:listManufacturingJournals',
   GET_MANUFACTURING_JOURNAL_MOVEMENTS: 'manufacturing:getManufacturingJournalMovements',
+
+  // Phase 9 Increment 1: Print + Templates
+  GET_COMPANY_LETTERHEAD_PROFILE: 'print:getCompanyLetterheadProfile',
+  UPDATE_COMPANY_LETTERHEAD_PROFILE: 'print:updateCompanyLetterheadProfile',
+  PICK_LOGO_FILE: 'print:pickLogoFile',
+  UPLOAD_COMPANY_LOGO: 'print:uploadCompanyLogo',
+  CLEAR_COMPANY_LOGO: 'print:clearCompanyLogo',
+  PRINT_SALES_INVOICE: 'print:printSalesInvoice',
+  SAVE_SALES_INVOICE_PDF: 'print:saveSalesInvoicePdf',
+  PRINT_PAYSLIP: 'print:printPayslip',
+  SAVE_PAYSLIP_PDF: 'print:savePayslipPdf',
 } as const;

@@ -77,6 +77,7 @@ import { LeaveScreen } from './screens/LeaveScreen';
 import { PayrollRunScreen } from './screens/PayrollRunScreen';
 import { GratuityScreen } from './screens/GratuityScreen';
 import { BillOfMaterialsScreen } from './screens/BillOfMaterialsScreen';
+import { CompanyLetterheadScreen } from './screens/CompanyLetterheadScreen';
 import { ManufacturingJournalScreen } from './screens/ManufacturingJournalScreen';
 import { ManufacturingJournalRegisterScreen } from './screens/ManufacturingJournalRegisterScreen';
 
@@ -159,7 +160,8 @@ type View =
   | { name: 'runFxRevaluation' }
   | { name: 'billsOfMaterial' }
   | { name: 'manufacturingJournal' }
-  | { name: 'manufacturingJournalRegister' };
+  | { name: 'manufacturingJournalRegister' }
+  | { name: 'companyLetterhead' };
 
 export function App() {
   return (
@@ -579,6 +581,10 @@ function AppRoutes() {
     return <ManufacturingJournalRegisterScreen onBack={() => setView({ name: 'dashboard' })} />;
   }
 
+  if (view.name === 'companyLetterhead') {
+    return <CompanyLetterheadScreen session={session!} onBack={() => setView({ name: 'dashboard' })} />;
+  }
+
   return (
     <DashboardScreen
       session={session!}
@@ -652,6 +658,7 @@ function AppRoutes() {
       onBillsOfMaterial={() => setView({ name: 'billsOfMaterial' })}
       onManufacturingJournal={() => setView({ name: 'manufacturingJournal' })}
       onManufacturingJournalRegister={() => setView({ name: 'manufacturingJournalRegister' })}
+      onCompanyLetterhead={() => setView({ name: 'companyLetterhead' })}
       onLogout={async () => {
         await window.mhts.logout();
         setSession(null);

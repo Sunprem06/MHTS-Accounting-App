@@ -4,6 +4,7 @@ import { computeFinancialYearLabel } from '@mhts/core-accounting';
 import {
   createParty as coreCreateParty,
   listParties as coreListParties,
+  updateBusinessPartyAddress as coreUpdateBusinessPartyAddress,
   createSalesInvoice as coreCreateSalesInvoice,
   listSalesInvoices as coreListSalesInvoices,
   cancelSalesInvoice as coreCancelSalesInvoice,
@@ -47,6 +48,7 @@ import type {
   PurchaseInvoiceSummary,
   RecordPurchasePaymentInput,
   RecordSalesReceiptInput,
+  UpdateBusinessPartyAddressInput,
 } from '../shared/ipc';
 
 const PAISE_PER_RUPEE = 100;
@@ -120,6 +122,7 @@ export async function createParty(input: CreatePartyInput): Promise<string> {
       isMsmeUdyamRegistered: input.isMsmeUdyamRegistered,
       udyamRegistrationNumber: input.udyamRegistrationNumber,
       creditPeriodDays: input.creditPeriodDays,
+      address: input.address,
     },
     info.userId,
   );
@@ -128,6 +131,11 @@ export async function createParty(input: CreatePartyInput): Promise<string> {
 export async function listParties(): Promise<PartySummary[]> {
   const { companyDb } = requireSessionWithCompanyDb('SALES.MANAGE_PARTIES');
   return coreListParties(companyDb);
+}
+
+export async function updateBusinessPartyAddress(input: UpdateBusinessPartyAddressInput): Promise<void> {
+  const { info, companyDb } = requireSessionWithCompanyDb('SALES.MANAGE_PARTIES');
+  await coreUpdateBusinessPartyAddress(companyDb, input.partyId, input.address, info.userId);
 }
 
 function invoiceToRupees<T extends { taxableAmount: number; taxAmount: number; totalAmount: number }>(invoice: T): T {
