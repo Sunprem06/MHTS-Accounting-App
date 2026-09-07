@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { DocumentLineInput, ItemSummary, LedgerAccountSummary, PartySummary, TdsSectionCode, WarehouseSummary } from '../../../shared/ipc';
+import type { BranchSummary, DocumentLineInput, ItemSummary, LedgerAccountSummary, PartySummary, TdsSectionCode, WarehouseSummary } from '../../../shared/ipc';
 import { DocumentLinesEditor } from './DocumentLinesEditor';
 
 interface Props {
@@ -20,9 +20,14 @@ export function NewPurchaseInvoiceScreen({ onCreated, onBack }: Props) {
   const [items, setItems] = useState<ItemSummary[]>([]);
   const [warehouses, setWarehouses] = useState<WarehouseSummary[]>([]);
   const [stockInHandLedgerId, setStockInHandLedgerId] = useState<string | undefined>(undefined);
+  const [branches, setBranches] = useState<BranchSummary[]>([]);
   const [partyId, setPartyId] = useState('');
   const [invoiceDate, setInvoiceDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [narration, setNarration] = useState('');
+  const [branchId, setBranchId] = useState('');
+  const [isForeignCurrency, setIsForeignCurrency] = useState(false);
+  const [currency, setCurrency] = useState('USD');
+  const [exchangeRate, setExchangeRate] = useState(0);
   const [tdsSection, setTdsSection] = useState<TdsSectionCode | ''>('');
   const [lines, setLines] = useState<DocumentLineInput[]>([{ description: '', ledgerId: '', amountRupees: 0 }]);
   const [error, setError] = useState<string | null>(null);
@@ -52,6 +57,7 @@ export function NewPurchaseInvoiceScreen({ onCreated, onBack }: Props) {
       if (itemsResult.ok && itemsResult.data) setItems(itemsResult.data);
       if (warehousesResult.ok && warehousesResult.data) setWarehouses(warehousesResult.data);
     })();
+    window.mhts.listBranches().then((r) => r.ok && r.data && setBranches(r.data));
   }, []);
 
   const selectedParty = parties.find((p) => p.id === partyId);
@@ -69,6 +75,9 @@ export function NewPurchaseInvoiceScreen({ onCreated, onBack }: Props) {
       invoiceDate,
       narration: narration || undefined,
       tdsSection: tdsSection || undefined,
+      branchId: branchId || undefined,
+      currency: isForeignCurrency ? currency : undefined,
+      exchangeRate: isForeignCurrency ? exchangeRate : undefined,
       lines,
     });
     setSubmitting(false);
@@ -105,7 +114,28 @@ export function NewPurchaseInvoiceScreen({ onCreated, onBack }: Props) {
         <label>
           Narration
           <input value={narration} onChange={(e) => setNarration(e.target.value)} style={{ width: '100%' }} />
+        </label>{' '}
+        <label>
+          Branch
+          <select value={branchId} onChange={(e) => setBranchId(e.target.value)}>
+            <option value="">—</option>
+            {branches.map((b) => (
+              <option key={b.id} value={b.id}>
+                {b.name}
+              </option>
+            ))}
+          </select>
         </label>
+        <br />
+        <label style={{ fontSize: 12 }}>
+          <input type="checkbox" checked={isForeignCurrency} onChange={(e) => setIsForeignCurrency(e.target.checked)} /> Foreign-currency invoice
+        </label>
+        {isForeignCurrency && (
+          <span style={{ marginLeft: 8 }}>
+            <input value={currency} onChange={(e) => setCurrency(e.target.value.toUpperCase())} style={{ width: 50 }} placeholder="USD" />{' '}
+            <input type="number" step="0.0001" value={exchangeRate || ''} onChange={(e) => setExchangeRate(Number(e.target.value) || 0)} style={{ width: 100 }} placeholder="Rate (₹ per unit)" />
+          </span>
+        )}
         <br />
         <label>
           TDS section (optional)
@@ -141,7 +171,7 @@ export function NewPurchaseInvoiceScreen({ onCreated, onBack }: Props) {
 
         {error && <p style={{ color: 'crimson' }}>{error}</p>}
 
-        <button type="submit" disabled={submitting || parties.length === 0}>
+        <button type="submit" disabled={submitting || parties.length === 0 || (isForeignCurrency && exchangeRate <= 0)}>
           {submitting ? 'Saving…' : 'Save invoice'}
         </button>{' '}
         <button type="button" onClick={onBack} disabled={submitting}>

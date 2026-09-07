@@ -67,6 +67,11 @@ import { FixedAssetClassesScreen } from './screens/FixedAssetClassesScreen';
 import { FixedAssetRegisterScreen } from './screens/FixedAssetRegisterScreen';
 import { RunDepreciationScreen } from './screens/RunDepreciationScreen';
 import { ManageFixedAssetRatesScreen } from './screens/ManageFixedAssetRatesScreen';
+import { BranchesScreen } from './screens/BranchesScreen';
+import { InterBranchTransferScreen } from './screens/InterBranchTransferScreen';
+import { BranchReportsScreen } from './screens/BranchReportsScreen';
+import { ManageExchangeRatesScreen } from './screens/ManageExchangeRatesScreen';
+import { RunFxRevaluationScreen } from './screens/RunFxRevaluationScreen';
 import { AttendanceScreen } from './screens/AttendanceScreen';
 import { LeaveScreen } from './screens/LeaveScreen';
 import { PayrollRunScreen } from './screens/PayrollRunScreen';
@@ -143,7 +148,12 @@ type View =
   | { name: 'assetClasses' }
   | { name: 'fixedAssetRegister' }
   | { name: 'runDepreciation' }
-  | { name: 'manageFixedAssetRates' };
+  | { name: 'manageFixedAssetRates' }
+  | { name: 'branches' }
+  | { name: 'interBranchTransfer' }
+  | { name: 'branchReports' }
+  | { name: 'manageExchangeRates' }
+  | { name: 'runFxRevaluation' };
 
 export function App() {
   return (
@@ -531,6 +541,26 @@ function AppRoutes() {
     return <ManageFixedAssetRatesScreen session={session!} onBack={() => setView({ name: 'dashboard' })} />;
   }
 
+  if (view.name === 'branches') {
+    return <BranchesScreen session={session!} onBack={() => setView({ name: 'dashboard' })} />;
+  }
+
+  if (view.name === 'interBranchTransfer') {
+    return <InterBranchTransferScreen session={session!} onCreated={() => setView({ name: 'dashboard' })} onBack={() => setView({ name: 'dashboard' })} />;
+  }
+
+  if (view.name === 'branchReports') {
+    return <BranchReportsScreen session={session!} onBack={() => setView({ name: 'dashboard' })} />;
+  }
+
+  if (view.name === 'manageExchangeRates') {
+    return <ManageExchangeRatesScreen session={session!} onBack={() => setView({ name: 'dashboard' })} />;
+  }
+
+  if (view.name === 'runFxRevaluation') {
+    return <RunFxRevaluationScreen session={session!} onBack={() => setView({ name: 'dashboard' })} />;
+  }
+
   return (
     <DashboardScreen
       session={session!}
@@ -596,6 +626,11 @@ function AppRoutes() {
       onFixedAssetRegister={() => setView({ name: 'fixedAssetRegister' })}
       onRunDepreciation={() => setView({ name: 'runDepreciation' })}
       onManageFixedAssetRates={() => setView({ name: 'manageFixedAssetRates' })}
+      onBranches={() => setView({ name: 'branches' })}
+      onInterBranchTransfer={() => setView({ name: 'interBranchTransfer' })}
+      onBranchReports={() => setView({ name: 'branchReports' })}
+      onManageExchangeRates={() => setView({ name: 'manageExchangeRates' })}
+      onRunFxRevaluation={() => setView({ name: 'runFxRevaluation' })}
       onLogout={async () => {
         await window.mhts.logout();
         setSession(null);

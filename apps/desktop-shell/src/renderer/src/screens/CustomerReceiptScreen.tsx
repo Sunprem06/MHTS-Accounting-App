@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { LedgerAccountSummary, OutstandingInvoiceRow, PartySummary } from '../../../shared/ipc';
+import { foreignUnitsToBaseRupees } from '../fx';
 
 interface Props {
   onCreated: () => void;
@@ -16,8 +17,18 @@ export function CustomerReceiptScreen({ onCreated, onBack }: Props) {
   const [narration, setNarration] = useState('');
   const [invoices, setInvoices] = useState<OutstandingInvoiceRow[]>([]);
   const [amounts, setAmounts] = useState<Record<string, number>>({});
+  /** Only meaningful for an FX invoice — foreign amount applied and the actual settlement-day rate (may differ from the invoice's own booking rate, producing a realized gain/loss). */
+  const [foreignAmounts, setForeignAmounts] = useState<Record<string, number>>({});
+  const [settlementRates, setSettlementRates] = useState<Record<string, number>>({});
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  function applyForeignAmount(invoice: OutstandingInvoiceRow, foreignAmountUnits: number) {
+    setForeignAmounts((prev) => ({ ...prev, [invoice.invoiceId]: foreignAmountUnits }));
+    if (invoice.exchangeRate) {
+      setAmounts((prev) => ({ ...prev, [invoice.invoiceId]: foreignUnitsToBaseRupees(foreignAmountUnits, invoice.exchangeRate!) }));
+    }
+  }
 
   useEffect(() => {
     (async () => {
@@ -45,6 +56,8 @@ export function CustomerReceiptScreen({ onCreated, onBack }: Props) {
       if (result.ok && result.data) {
         setInvoices(result.data);
         setAmounts({});
+        setForeignAmounts({});
+        setSettlementRates(Object.fromEntries(result.data.filter((inv) => inv.exchangeRate !== null).map((inv) => [inv.invoiceId, inv.exchangeRate!])));
       }
     })();
   }, [partyId]);
@@ -54,7 +67,14 @@ export function CustomerReceiptScreen({ onCreated, onBack }: Props) {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    const settlements = invoices.filter((inv) => (amounts[inv.invoiceId] ?? 0) > 0).map((inv) => ({ invoiceId: inv.invoiceId, amountRupees: Number(amounts[inv.invoiceId]) }));
+    const settlements = invoices
+      .filter((inv) => (amounts[inv.invoiceId] ?? 0) > 0)
+      .map((inv) => ({
+        invoiceId: inv.invoiceId,
+        amountRupees: Number(amounts[inv.invoiceId]),
+        foreignAmountUnits: inv.currency ? foreignAmounts[inv.invoiceId] : undefined,
+        settlementExchangeRate: inv.currency ? settlementRates[inv.invoiceId] : undefined,
+      }));
     if (settlements.length === 0) {
       setError('Enter an amount against at least one invoice.');
       return;
@@ -117,6 +137,7 @@ export function CustomerReceiptScreen({ onCreated, onBack }: Props) {
                 <th style={{ textAlign: 'left' }}>Date</th>
                 <th style={{ textAlign: 'right' }}>Outstanding (₹)</th>
                 <th style={{ textAlign: 'right' }}>Apply (₹)</th>
+                <th style={{ textAlign: 'left' }}>Foreign settlement</th>
               </tr>
             </thead>
             <tbody>
@@ -132,9 +153,36 @@ export function CustomerReceiptScreen({ onCreated, onBack }: Props) {
                       min="0"
                       max={invoice.outstandingAmount}
                       value={amounts[invoice.invoiceId] || ''}
+                      disabled={Boolean(invoice.currency)}
                       onChange={(e) => setAmounts((prev) => ({ ...prev, [invoice.invoiceId]: Number(e.target.value) || 0 }))}
                       style={{ width: 100, textAlign: 'right' }}
                     />
+                  </td>
+                  <td>
+                    {invoice.currency && (
+                      <span style={{ fontSize: 12 }}>
+                        {invoice.currency}{' '}
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          max={invoice.outstandingForeignAmountUnits ?? undefined}
+                          value={foreignAmounts[invoice.invoiceId] || ''}
+                          onChange={(e) => applyForeignAmount(invoice, Number(e.target.value) || 0)}
+                          style={{ width: 90 }}
+                          placeholder={`of ${invoice.outstandingForeignAmountUnits?.toFixed(2)}`}
+                        />{' '}
+                        @ rate{' '}
+                        <input
+                          type="number"
+                          step="0.0001"
+                          value={settlementRates[invoice.invoiceId] || ''}
+                          onChange={(e) => setSettlementRates((prev) => ({ ...prev, [invoice.invoiceId]: Number(e.target.value) || 0 }))}
+                          style={{ width: 80 }}
+                        />{' '}
+                        (booked @ {invoice.exchangeRate?.toFixed(4)})
+                      </span>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -145,6 +193,7 @@ export function CustomerReceiptScreen({ onCreated, onBack }: Props) {
                   Total
                 </td>
                 <td style={{ textAlign: 'right', fontWeight: 'bold' }}>₹{total.toFixed(2)}</td>
+                <td />
               </tr>
             </tfoot>
           </table>

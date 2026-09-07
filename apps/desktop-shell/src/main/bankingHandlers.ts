@@ -117,6 +117,10 @@ export async function recordBankVoucher(systemDb: Kysely<SystemDatabase>, input:
         creditAmount: rupeesToPaise(line.creditRupees),
         lineNarration: line.lineNarration,
         costCentreId: line.costCentreId,
+        branchId: line.branchId,
+        ...(line.foreignCurrency !== undefined && line.foreignAmountUnits !== undefined && line.exchangeRate !== undefined
+          ? { foreignCurrency: line.foreignCurrency, foreignAmount: rupeesToPaise(line.foreignAmountUnits), exchangeRateMicros: Math.round(line.exchangeRate * 1_000_000) }
+          : {}),
       })),
     },
     input.instrument,

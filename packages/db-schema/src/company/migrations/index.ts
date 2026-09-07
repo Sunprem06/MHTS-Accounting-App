@@ -13,6 +13,8 @@ import * as m011ExpensesDocuments from './011_expenses_documents';
 import * as m012Payroll from './012_payroll';
 import * as m013CostCentresBudgets from './013_cost_centres_budgets';
 import * as m014FixedAssets from './014_fixed_assets';
+import * as m015MultiCurrency from './015_multi_currency';
+import * as m016MultiBranch from './016_multi_branch';
 
 export const migrations: Record<string, Migration> = {
   '001_init': m001Init,
@@ -29,4 +31,6 @@ export const migrations: Record<string, Migration> = {
   '012_payroll': m012Payroll,
   '013_cost_centres_budgets': m013CostCentresBudgets,
   '014_fixed_assets': m014FixedAssets,
+  '015_multi_currency': m015MultiCurrency,
+  '016_multi_branch': m016MultiBranch,
 };

@@ -149,6 +149,18 @@ import {
   type PostDepreciationResult,
   type CreateOrUpdateFixedAssetRateInput,
   type FixedAssetRateVersionSummary,
+  type BranchSummary,
+  type CreateBranchInput,
+  type UpdateBranchInput,
+  type RecordInterBranchTransferInput,
+  type BranchProfitAndLossRow,
+  type BranchReportInput,
+  type BranchBalanceSheetResult,
+  type ExchangeRateVersionSummary,
+  type SetExchangeRateInput,
+  type FxRevaluationPreviewResult,
+  type RunFxRevaluationInput,
+  type FxRevaluationRunResult,
 } from '../shared/ipc';
 
 const api = {
@@ -319,6 +331,19 @@ const api = {
   createOrUpdateFixedAssetRate: (input: CreateOrUpdateFixedAssetRateInput): Promise<IpcResult<string>> => ipcRenderer.invoke(IPC.CREATE_OR_UPDATE_FIXED_ASSET_RATE, input),
   listActiveFixedAssetRates: (): Promise<IpcResult<FixedAssetRateVersionSummary[]>> => ipcRenderer.invoke(IPC.LIST_ACTIVE_FIXED_ASSET_RATES),
   listFixedAssetRateVersions: (ruleType: string): Promise<IpcResult<FixedAssetRateVersionSummary[]>> => ipcRenderer.invoke(IPC.LIST_FIXED_ASSET_RATE_VERSIONS, ruleType),
+
+  createBranch: (input: CreateBranchInput): Promise<IpcResult<string>> => ipcRenderer.invoke(IPC.CREATE_BRANCH, input),
+  listBranches: (): Promise<IpcResult<BranchSummary[]>> => ipcRenderer.invoke(IPC.LIST_BRANCHES),
+  updateBranch: (input: UpdateBranchInput): Promise<IpcResult<void>> => ipcRenderer.invoke(IPC.UPDATE_BRANCH, input),
+  recordInterBranchTransfer: (input: RecordInterBranchTransferInput): Promise<IpcResult<string>> => ipcRenderer.invoke(IPC.RECORD_INTER_BRANCH_TRANSFER, input),
+  getBranchProfitAndLoss: (input: BranchReportInput): Promise<IpcResult<BranchProfitAndLossRow[]>> => ipcRenderer.invoke(IPC.GET_BRANCH_PROFIT_AND_LOSS, input),
+  getBranchBalanceSheet: (asOfDate: string): Promise<IpcResult<BranchBalanceSheetResult>> => ipcRenderer.invoke(IPC.GET_BRANCH_BALANCE_SHEET, asOfDate),
+  setExchangeRate: (input: SetExchangeRateInput): Promise<IpcResult<string>> => ipcRenderer.invoke(IPC.SET_EXCHANGE_RATE, input),
+  listActiveExchangeRates: (): Promise<IpcResult<ExchangeRateVersionSummary[]>> => ipcRenderer.invoke(IPC.LIST_ACTIVE_EXCHANGE_RATES),
+  listExchangeRateVersions: (currency: string): Promise<IpcResult<ExchangeRateVersionSummary[]>> => ipcRenderer.invoke(IPC.LIST_EXCHANGE_RATE_VERSIONS, currency),
+  previewFxRevaluation: (input: RunFxRevaluationInput): Promise<IpcResult<FxRevaluationPreviewResult>> => ipcRenderer.invoke(IPC.PREVIEW_FX_REVALUATION, input),
+  postFxRevaluation: (input: RunFxRevaluationInput): Promise<IpcResult<FxRevaluationRunResult>> => ipcRenderer.invoke(IPC.POST_FX_REVALUATION, input),
+  listFxRevaluationRuns: (): Promise<IpcResult<{ id: string; runDate: string; financialYear: string; voucherId: string | null }[]>> => ipcRenderer.invoke(IPC.LIST_FX_REVALUATION_RUNS),
 };
 
 export type MhtsApi = typeof api;

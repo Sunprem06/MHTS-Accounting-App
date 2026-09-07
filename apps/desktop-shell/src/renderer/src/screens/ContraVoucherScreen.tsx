@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { LedgerAccountSummary, PaymentInstrumentInput, SessionInfo } from '../../../shared/ipc';
+import type { BranchSummary, LedgerAccountSummary, PaymentInstrumentInput, SessionInfo } from '../../../shared/ipc';
 import { PaymentInstrumentFields } from './PaymentInstrumentFields';
 
 interface Props {
@@ -10,11 +10,23 @@ interface Props {
 
 const BANK_ACCOUNTS_GROUP = 'Bank Accounts';
 
-/** A transfer between the business's own Cash/Bank ledgers — no external party, so just two ledgers and one amount. */
+/**
+ * A transfer between the business's own Cash/Bank ledgers — no external
+ * party, so just two ledgers and one amount. Each side can optionally carry
+ * a branch tag (unlike cost centres, Contra is not excluded — a branch is a
+ * balance-sheet dimension too, so a branch's own Cash/Bank movement still
+ * matters even though Contra never touches P&L). Foreign-currency support is
+ * deliberately out of scope here — Contra's single-amount-both-sides shape
+ * doesn't map cleanly onto per-line FX the way Journal/Payment/Receipt's
+ * independent line amounts do.
+ */
 export function ContraVoucherScreen({ session, onCreated, onBack }: Props) {
   const [ledgers, setLedgers] = useState<LedgerAccountSummary[]>([]);
+  const [branches, setBranches] = useState<BranchSummary[]>([]);
   const [fromLedgerId, setFromLedgerId] = useState('');
   const [toLedgerId, setToLedgerId] = useState('');
+  const [fromBranchId, setFromBranchId] = useState('');
+  const [toBranchId, setToBranchId] = useState('');
   const [voucherDate, setVoucherDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [narration, setNarration] = useState('');
   const [amountRupees, setAmountRupees] = useState(0);
@@ -35,6 +47,7 @@ export function ContraVoucherScreen({ session, onCreated, onBack }: Props) {
         setToLedgerId(result.data[1]?.id ?? result.data[0]?.id ?? '');
       }
     })();
+    window.mhts.listBranches().then((r) => r.ok && r.data && setBranches(r.data));
   }, []);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -54,8 +67,8 @@ export function ContraVoucherScreen({ session, onCreated, onBack }: Props) {
       voucherDate,
       narration: narration || undefined,
       lines: [
-        { ledgerId: toLedgerId, debitRupees: amountRupees, creditRupees: 0 },
-        { ledgerId: fromLedgerId, debitRupees: 0, creditRupees: amountRupees },
+        { ledgerId: toLedgerId, debitRupees: amountRupees, creditRupees: 0, branchId: toBranchId || undefined },
+        { ledgerId: fromLedgerId, debitRupees: 0, creditRupees: amountRupees, branchId: fromBranchId || undefined },
       ],
       instrument: eitherSideIsBank ? instrument : null,
     });
@@ -80,6 +93,17 @@ export function ContraVoucherScreen({ session, onCreated, onBack }: Props) {
               </option>
             ))}
           </select>
+        </label>{' '}
+        <label>
+          From branch
+          <select value={fromBranchId} onChange={(e) => setFromBranchId(e.target.value)}>
+            <option value="">—</option>
+            {branches.map((b) => (
+              <option key={b.id} value={b.id}>
+                {b.name}
+              </option>
+            ))}
+          </select>
         </label>
         <br />
         <label>
@@ -88,6 +112,17 @@ export function ContraVoucherScreen({ session, onCreated, onBack }: Props) {
             {ledgers.map((ledger) => (
               <option key={ledger.id} value={ledger.id}>
                 {ledger.name}
+              </option>
+            ))}
+          </select>
+        </label>{' '}
+        <label>
+          To branch
+          <select value={toBranchId} onChange={(e) => setToBranchId(e.target.value)}>
+            <option value="">—</option>
+            {branches.map((b) => (
+              <option key={b.id} value={b.id}>
+                {b.name}
               </option>
             ))}
           </select>

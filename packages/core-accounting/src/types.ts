@@ -25,6 +25,10 @@ export const VOUCHER_TYPES = [
   'ASSET_ACQUISITION',
   'DEPRECIATION',
   'ASSET_DISPOSAL',
+  /** Phase 8 Increment 2 (multi-currency) — see @mhts/core-multi-currency's revaluation.ts. */
+  'FX_REVALUATION',
+  /** Phase 8 Increment 2 (multi-branch) — see @mhts/core-accounting's interBranchTransfer.ts. */
+  'INTER_BRANCH_TRANSFER',
 ] as const;
 export type VoucherType = (typeof VOUCHER_TYPES)[number];
 
@@ -49,12 +53,20 @@ export interface LedgerAccountSummary {
 
 export interface VoucherLineInput {
   ledgerId: string;
-  /** Paise. Exactly one of debitAmount/creditAmount must be > 0. */
+  /** Paise. Exactly one of debitAmount/creditAmount must be > 0. When foreignCurrency is set, this must exactly equal convertForeignToBase(foreignAmount, exchangeRateMicros) — validated in vouchers.ts. */
   debitAmount: number;
   creditAmount: number;
   lineNarration?: string;
   /** Phase 8 (Advanced ERP) — optional dimension tag, see costCentres.ts. */
   costCentreId?: string;
+  /** Phase 8 Increment 2 — optional dimension tag, see branches.ts. Unlike costCentreId, valid on Contra lines too. */
+  branchId?: string;
+  /** Phase 8 Increment 2 (multi-currency) — all three of foreignCurrency/foreignAmount/exchangeRateMicros must be set together or not at all. See fx.ts. */
+  foreignCurrency?: string;
+  /** Minor units of foreignCurrency (e.g. USD cents). */
+  foreignAmount?: number;
+  /** Base-currency units per 1 foreign unit, scaled x1,000,000. */
+  exchangeRateMicros?: number;
 }
 
 export interface CreateVoucherInput {
@@ -132,4 +144,14 @@ export interface BalanceSheet {
   totalAssets: number;
   /** liabilityRows + equityRows + currentEarnings. Should equal totalAssets when the books are consistent. */
   totalLiabilitiesAndEquity: number;
+}
+
+/** Phase 8 Increment 2 — a branch, or null/'__unassigned__' meaning "Head Office / Unassigned" (see branchBalanceSheet.ts's doc comment for why opening balances and untagged lines can't be attributed to any one branch). */
+export interface BranchSummary {
+  id: string;
+  name: string;
+  code: string | null;
+  address: string | null;
+  interBranchLedgerId: string;
+  isActive: boolean;
 }

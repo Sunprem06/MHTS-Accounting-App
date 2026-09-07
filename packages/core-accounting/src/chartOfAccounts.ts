@@ -9,6 +9,7 @@ export const ACCOUNTING_PERMISSIONS = [
   { code: 'ACCOUNTING.VIEW_REPORTS', description: 'View Trial Balance and other financial reports' },
   { code: 'ACCOUNTING.MANAGE_COST_CENTRES', description: 'Create and edit cost centres' },
   { code: 'ACCOUNTING.MANAGE_BUDGETS', description: 'Create budgets and view budget vs actual reports' },
+  { code: 'ACCOUNTING.MANAGE_BRANCHES', description: 'Create branches and record inter-branch transfers' },
 ] as const;
 
 /** Grants this module's own permissions to a role — called alongside @mhts/core-identity's seedAdminRole at company creation, same pattern each business module follows as it's added. */
@@ -65,6 +66,11 @@ const DEFAULT_GROUPS: GroupSeed[] = [
   { name: 'Indirect Income', nature: 'INCOME' },
   { name: 'Direct Expenses', nature: 'EXPENSE', children: [{ name: 'Purchase Accounts', nature: 'EXPENSE' }] },
   { name: 'Indirect Expenses', nature: 'EXPENSE' },
+  // Phase 8 Increment 2: each branch gets its own dedicated ledger here (see
+  // branches.ts's createBranch) — a real branch-accounting current-account
+  // mechanism (see interBranchTransfer.ts), allowed to swing debit/credit
+  // like Accumulated Depreciation above.
+  { name: 'Inter-Branch Accounts', nature: 'ASSET' },
 ];
 
 /** Seeds the default Chart of Accounts (groups + a Cash ledger every business needs) at company creation. */

@@ -117,6 +117,14 @@ export interface DocumentLineInput {
   batchNumber?: string;
   expiryDate?: string;
   manufactureDate?: string;
+  /**
+   * Phase 8 Increment 2 (multi-currency) — this line's taxable value in the
+   * invoice's own currency, for display only. `amount` (paise, above) stays
+   * the authoritative base-currency figure — when both this and the
+   * invoice's exchangeRateMicros are set, amount must equal
+   * convertForeignToBase(foreignAmount, exchangeRateMicros) exactly.
+   */
+  foreignAmount?: number;
 }
 
 export interface CreateSalesInvoiceInput {
@@ -128,6 +136,12 @@ export interface CreateSalesInvoiceInput {
   companyStateCode?: string | null;
   /** Phase 4 increment 2 (composition scheme) — resolved by the caller from the company record. Defaults to 'REGULAR' (unset) if omitted, so existing callers/tests are unaffected. A COMPOSITION company never collects GST from customers — see salesInvoices.ts. */
   companyGstRegistrationType?: GstRegistrationType;
+  /** Phase 8 Increment 2 (multi-currency). Omit (or set to the company's own base currency) for an ordinary base-currency invoice — the existing, unchanged path. */
+  currency?: string;
+  /** Base-currency units per 1 foreign unit x1,000,000. Required together with currency. */
+  exchangeRateMicros?: number;
+  /** Phase 8 Increment 2 (multi-branch) — which branch made this sale, carried onto every line of the generated voucher. */
+  branchId?: string;
   lines: DocumentLineInput[];
 }
 
@@ -141,6 +155,11 @@ export interface CreatePurchaseInvoiceInput {
   companyStateCode?: string | null;
   /** Phase 4 increment 2 (composition scheme) — see CreateSalesInvoiceInput's identical field. A COMPOSITION company can never claim ITC, regardless of any line's own itcEligible flag. */
   companyGstRegistrationType?: GstRegistrationType;
+  /** Phase 8 Increment 2 (multi-currency). See CreateSalesInvoiceInput's identical field. */
+  currency?: string;
+  exchangeRateMicros?: number;
+  /** Phase 8 Increment 2 (multi-branch). */
+  branchId?: string;
   lines: DocumentLineInput[];
 }
 

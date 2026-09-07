@@ -104,6 +104,7 @@ function toCoreLines(lines: DocumentLineInput[]): CoreDocumentLineInput[] {
     batchNumber: line.batchNumber,
     expiryDate: line.expiryDate,
     manufactureDate: line.manufactureDate,
+    foreignAmount: line.foreignAmountUnits !== undefined ? rupeesToPaise(line.foreignAmountUnits) : undefined,
   }));
 }
 
@@ -141,7 +142,18 @@ export async function createSalesInvoice(systemDb: Kysely<SystemDatabase>, input
   return coreCreateSalesInvoice(
     companyDb,
     systemDb,
-    { partyId: input.partyId, financialYear, invoiceDate: input.invoiceDate, narration: input.narration, companyStateCode, companyGstRegistrationType, lines: toCoreLines(input.lines) },
+    {
+      partyId: input.partyId,
+      financialYear,
+      invoiceDate: input.invoiceDate,
+      narration: input.narration,
+      companyStateCode,
+      companyGstRegistrationType,
+      currency: input.currency,
+      exchangeRateMicros: input.exchangeRate !== undefined ? Math.round(input.exchangeRate * 1_000_000) : undefined,
+      branchId: input.branchId,
+      lines: toCoreLines(input.lines),
+    },
     info.userId,
   );
 }
@@ -167,7 +179,19 @@ export async function createPurchaseInvoice(systemDb: Kysely<SystemDatabase>, in
   return coreCreatePurchaseInvoice(
     companyDb,
     systemDb,
-    { partyId: input.partyId, financialYear, invoiceDate: input.invoiceDate, narration: input.narration, tdsSection: input.tdsSection, companyStateCode, companyGstRegistrationType, lines: toCoreLines(input.lines) },
+    {
+      partyId: input.partyId,
+      financialYear,
+      invoiceDate: input.invoiceDate,
+      narration: input.narration,
+      tdsSection: input.tdsSection,
+      companyStateCode,
+      companyGstRegistrationType,
+      currency: input.currency,
+      exchangeRateMicros: input.exchangeRate !== undefined ? Math.round(input.exchangeRate * 1_000_000) : undefined,
+      branchId: input.branchId,
+      lines: toCoreLines(input.lines),
+    },
     info.userId,
   );
 }
@@ -273,8 +297,22 @@ export async function listMsmeAgeing(asOfDate: string): Promise<MsmeAgeingRow[]>
   return rows.map((row) => ({ ...row, estimatedOutstanding: paiseToRupees(row.estimatedOutstanding) }));
 }
 
-function outstandingInvoiceToRupees(row: OutstandingInvoiceRow): OutstandingInvoiceRow {
-  return { ...row, netAmount: paiseToRupees(row.netAmount), settledAmount: paiseToRupees(row.settledAmount), outstandingAmount: paiseToRupees(row.outstandingAmount) };
+function outstandingInvoiceToRupees(row: Awaited<ReturnType<typeof coreListOutstandingSalesInvoices>>[number]): OutstandingInvoiceRow {
+  return {
+    invoiceId: row.invoiceId,
+    voucherId: row.voucherId,
+    voucherNumber: row.voucherNumber,
+    invoiceDate: row.invoiceDate,
+    dueDate: row.dueDate,
+    partyId: row.partyId,
+    partyName: row.partyName,
+    netAmount: paiseToRupees(row.netAmount),
+    settledAmount: paiseToRupees(row.settledAmount),
+    outstandingAmount: paiseToRupees(row.outstandingAmount),
+    currency: row.currency,
+    exchangeRate: row.exchangeRateMicros !== null ? row.exchangeRateMicros / 1_000_000 : null,
+    outstandingForeignAmountUnits: row.outstandingForeignAmount !== null ? paiseToRupees(row.outstandingForeignAmount) : null,
+  };
 }
 
 export async function listOutstandingSalesInvoices(partyId: string): Promise<OutstandingInvoiceRow[]> {
@@ -300,7 +338,12 @@ export async function recordSalesReceipt(systemDb: Kysely<SystemDatabase>, input
       receiptDate: input.receiptDate,
       financialYear,
       narration: input.narration,
-      settlements: input.settlements.map((s) => ({ invoiceId: s.invoiceId, amount: rupeesToPaise(s.amountRupees) })),
+      settlements: input.settlements.map((s) => ({
+        invoiceId: s.invoiceId,
+        amount: rupeesToPaise(s.amountRupees),
+        foreignAmount: s.foreignAmountUnits !== undefined ? rupeesToPaise(s.foreignAmountUnits) : undefined,
+        settlementExchangeRateMicros: s.settlementExchangeRate !== undefined ? Math.round(s.settlementExchangeRate * 1_000_000) : undefined,
+      })),
     },
     info.userId,
   );
@@ -317,7 +360,12 @@ export async function recordPurchasePayment(systemDb: Kysely<SystemDatabase>, in
       paymentDate: input.paymentDate,
       financialYear,
       narration: input.narration,
-      settlements: input.settlements.map((s) => ({ invoiceId: s.invoiceId, amount: rupeesToPaise(s.amountRupees) })),
+      settlements: input.settlements.map((s) => ({
+        invoiceId: s.invoiceId,
+        amount: rupeesToPaise(s.amountRupees),
+        foreignAmount: s.foreignAmountUnits !== undefined ? rupeesToPaise(s.foreignAmountUnits) : undefined,
+        settlementExchangeRateMicros: s.settlementExchangeRate !== undefined ? Math.round(s.settlementExchangeRate * 1_000_000) : undefined,
+      })),
     },
     info.userId,
   );

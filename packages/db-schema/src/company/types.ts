@@ -94,6 +94,14 @@ export interface VoucherLineTable {
   line_narration: string | null;
   /** Phase 8 (Advanced ERP) — optional dimension tag, see @mhts/core-accounting's costCentres.ts. Null for any voucher line not tagged to a cost centre. */
   cost_centre_id: string | null;
+  /** Phase 8 Increment 2 — optional dimension tag, see @mhts/core-accounting's branches.ts. Unlike cost_centre_id, valid on Contra lines too (a branch is a balance-sheet dimension, not just P&L). */
+  branch_id: string | null;
+  /** Phase 8 Increment 2 (multi-currency) — all three of foreign_currency/foreign_amount/exchange_rate_micros are set together or not at all. See @mhts/core-accounting's fx.ts. */
+  foreign_currency: string | null;
+  /** Minor units of foreign_currency (e.g. USD cents) — same "integer, never float" convention as paise. */
+  foreign_amount: number | null;
+  /** Base-currency units per 1 foreign unit, scaled x1,000,000 (e.g. 83.25 -> 83250000). */
+  exchange_rate_micros: number | null;
 }
 
 export interface BusinessPartyTable {
@@ -111,6 +119,8 @@ export interface BusinessPartyTable {
   ledger_account_id: string;
   is_active: ColumnType<boolean, boolean | number, boolean | number>;
   created_at: ColumnType<string, string | undefined, never>;
+  /** Phase 8 Increment 2 — this party's usual transaction currency. A UX default only (pre-fills invoice currency), never enforced. */
+  default_currency: string | null;
 }
 
 export interface SalesInvoiceTable {
@@ -122,6 +132,12 @@ export interface SalesInvoiceTable {
   voucher_id: string;
   created_by: string | null;
   created_at: ColumnType<string, string | undefined, never>;
+  /** Phase 8 Increment 2 (multi-currency). Null (or equal to the company's base currency) means an ordinary base-currency invoice — the existing, unchanged path. */
+  currency: string | null;
+  /** Base-currency units per 1 foreign unit x1,000,000. Set only when currency is a foreign currency. */
+  exchange_rate_micros: number | null;
+  /** Phase 8 Increment 2 (multi-branch) — which branch made this sale. Carried onto every line of the generated voucher. */
+  branch_id: string | null;
 }
 
 export interface SalesInvoiceLineTable {
@@ -129,7 +145,7 @@ export interface SalesInvoiceLineTable {
   sales_invoice_id: string;
   description: string;
   income_ledger_id: string;
-  /** Paise. Taxable value. */
+  /** Paise. Taxable value — always base-currency, authoritative for GL regardless of invoice currency. */
   amount: number;
   /** Manual tax entry (pre-Phase-4). Mutually exclusive with hsn_sac_code — see core-sales-purchase's lineValidation. */
   tax_ledger_id: string | null;
@@ -147,6 +163,8 @@ export interface SalesInvoiceLineTable {
   cess_amount: number;
   /** Phase 4 increment 2 (RCM) — true means the buyer self-assesses; this line collects zero tax from the customer. */
   is_reverse_charge: ColumnType<boolean, boolean | number, boolean | number>;
+  /** Phase 8 Increment 2 (multi-currency) — this line's taxable value in the invoice's own currency, for display only; `amount` (paise) is the authoritative base-currency figure it's derived from. Null for a base-currency invoice. */
+  foreign_amount: number | null;
 }
 
 export interface PurchaseInvoiceTable {
@@ -163,6 +181,11 @@ export interface PurchaseInvoiceTable {
   tds_amount: number;
   created_by: string | null;
   created_at: ColumnType<string, string | undefined, never>;
+  /** Phase 8 Increment 2 (multi-currency). Null (or equal to the company's base currency) means an ordinary base-currency invoice. */
+  currency: string | null;
+  exchange_rate_micros: number | null;
+  /** Phase 8 Increment 2 (multi-branch). */
+  branch_id: string | null;
 }
 
 export interface PurchaseInvoiceLineTable {
@@ -170,7 +193,7 @@ export interface PurchaseInvoiceLineTable {
   purchase_invoice_id: string;
   description: string;
   expense_ledger_id: string;
-  /** Paise. Taxable value. */
+  /** Paise. Taxable value — always base-currency, authoritative for GL regardless of invoice currency. */
   amount: number;
   tax_ledger_id: string | null;
   tax_amount: number;
@@ -188,6 +211,8 @@ export interface PurchaseInvoiceLineTable {
   itc_ineligibility_reason: string | null;
   /** Phase 4 increment 2 (RCM) — true means WE self-assess this purchase's GST; see core-sales-purchase's buildPurchaseVoucherLines. */
   is_reverse_charge: ColumnType<boolean, boolean | number, boolean | number>;
+  /** Phase 8 Increment 2 (multi-currency) — this line's taxable value in the invoice's own currency, display only. Null for a base-currency invoice. */
+  foreign_amount: number | null;
 }
 
 export interface SalesOrderTable {
@@ -263,9 +288,11 @@ export interface SalesInvoiceSettlementTable {
   sales_invoice_id: string;
   /** The Receipt voucher that applies this amount against the invoice. */
   voucher_id: string;
-  /** Paise. Always > 0. */
+  /** Paise. Always > 0. The invoice's ORIGINAL booked base-currency value for the portion settled — clears AR at its booked value regardless of rate movement. See @mhts/core-multi-currency's realized gain/loss handling. */
   amount_applied: number;
   created_at: ColumnType<string, string | undefined, never>;
+  /** Phase 8 Increment 2 (multi-currency) — how much of the invoice's foreign-currency amount this settles. Null for a base-currency invoice. */
+  foreign_amount_applied: number | null;
 }
 
 export interface PurchaseInvoiceSettlementTable {
@@ -275,6 +302,8 @@ export interface PurchaseInvoiceSettlementTable {
   voucher_id: string;
   amount_applied: number;
   created_at: ColumnType<string, string | undefined, never>;
+  /** Phase 8 Increment 2 (multi-currency). Null for a base-currency invoice. */
+  foreign_amount_applied: number | null;
 }
 
 export interface UnitOfMeasureTable {
@@ -373,6 +402,8 @@ export interface BankAccountTable {
   account_type: string;
   is_active: ColumnType<boolean, boolean | number, boolean | number>;
   created_at: ColumnType<string, string | undefined, never>;
+  /** Phase 8 Increment 2 — set only when this account is actually held/tracked in a foreign currency. */
+  account_currency: string | null;
 }
 
 export interface VoucherPaymentInstrumentTable {
@@ -769,6 +800,40 @@ export interface AssetDepreciationEntryTable {
   created_at: ColumnType<string, string | undefined, never>;
 }
 
+export interface FxRevaluationRunTable {
+  id: string;
+  run_date: string;
+  financial_year: string;
+  /** Null only when every exposure's adjustment computed to zero — no voucher was needed (idempotent re-run). */
+  voucher_id: string | null;
+  created_by: string | null;
+  created_at: ColumnType<string, string | undefined, never>;
+}
+
+export interface FxRevaluationLineTable {
+  id: string;
+  run_id: string;
+  ledger_id: string;
+  currency: string;
+  /** Foreign-currency minor units, debit-positive. */
+  foreign_balance: number;
+  /** Paise, all three. */
+  base_balance_before: number;
+  base_balance_after: number;
+  adjustment_amount: number;
+}
+
+export interface BranchTable {
+  id: string;
+  name: string;
+  code: string | null;
+  address: string | null;
+  /** This branch's own dedicated "Inter-Branch Current Account" ledger under the "Inter-Branch Accounts" group — same own-ledger-per-record pattern as business_party/bank_account/employee/asset_class. */
+  inter_branch_ledger_id: string;
+  is_active: ColumnType<boolean, boolean | number, boolean | number>;
+  created_at: ColumnType<string, string | undefined, never>;
+}
+
 export interface CompanyDatabase {
   role: RoleTable;
   permission: PermissionTable;
@@ -827,4 +892,7 @@ export interface CompanyDatabase {
   asset_class: AssetClassTable;
   fixed_asset: FixedAssetTable;
   asset_depreciation_entry: AssetDepreciationEntryTable;
+  fx_revaluation_run: FxRevaluationRunTable;
+  fx_revaluation_line: FxRevaluationLineTable;
+  branch: BranchTable;
 }

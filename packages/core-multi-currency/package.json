@@ -1,5 +1,5 @@
 {
-  "name": "@mhts/core-sales-purchase",
+  "name": "@mhts/core-multi-currency",
   "version": "0.0.0",
   "private": true,
   "main": "src/index.ts",
@@ -7,9 +7,6 @@
   "dependencies": {
     "@mhts/core-accounting": "*",
     "@mhts/core-audit": "*",
-    "@mhts/core-gst-engine": "*",
-    "@mhts/core-inventory": "*",
-    "@mhts/core-multi-currency": "*",
     "@mhts/core-rules-engine": "*",
     "@mhts/db-schema": "*",
     "@mhts/shared-types": "*"
