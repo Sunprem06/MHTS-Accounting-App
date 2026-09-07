@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import type { Kysely, Transaction } from 'kysely';
 import type { CompanyDatabase } from '@mhts/db-schema';
 import { writeAuditLog } from '@mhts/core-audit';
+import { convertForeignToBase } from './fx';
 import { VOUCHER_TYPES } from './types';
 import type { CreateVoucherInput, VoucherLineInput, VoucherSummary, VoucherType } from './types';
 
@@ -24,6 +25,21 @@ function validateLines(lines: VoucherLineInput[]): { totalDebit: number; totalCr
     if (line.debitAmount < 0 || line.creditAmount < 0) {
       throw new Error('Amounts cannot be negative');
     }
+
+    const fxFieldsSet = [line.foreignCurrency !== undefined, line.foreignAmount !== undefined, line.exchangeRateMicros !== undefined];
+    if (fxFieldsSet.some(Boolean) && !fxFieldsSet.every(Boolean)) {
+      throw new Error('foreignCurrency, foreignAmount and exchangeRateMicros must be set together, or not at all');
+    }
+    if (line.foreignCurrency !== undefined && line.foreignAmount !== undefined && line.exchangeRateMicros !== undefined) {
+      const expectedBase = convertForeignToBase(line.foreignAmount, line.exchangeRateMicros);
+      const actualBase = line.debitAmount > 0 ? line.debitAmount : line.creditAmount;
+      if (actualBase !== expectedBase) {
+        throw new Error(
+          `Line amount (${actualBase} paise) does not match the foreign amount converted at the given exchange rate (${expectedBase} paise)`,
+        );
+      }
+    }
+
     totalDebit += line.debitAmount;
     totalCredit += line.creditAmount;
   }
@@ -85,6 +101,10 @@ async function insertVoucherWithLines(trx: Transaction<CompanyDatabase>, options
         credit_amount: line.creditAmount,
         line_narration: line.lineNarration ?? null,
         cost_centre_id: line.costCentreId ?? null,
+        branch_id: line.branchId ?? null,
+        foreign_currency: line.foreignCurrency ?? null,
+        foreign_amount: line.foreignAmount ?? null,
+        exchange_rate_micros: line.exchangeRateMicros ?? null,
       })
       .execute();
   }
@@ -215,6 +235,10 @@ export async function cancelVoucherInTransaction(
     creditAmount: line.debit_amount,
     lineNarration: line.line_narration ?? undefined,
     costCentreId: line.cost_centre_id ?? undefined,
+    branchId: line.branch_id ?? undefined,
+    foreignCurrency: line.foreign_currency ?? undefined,
+    foreignAmount: line.foreign_amount ?? undefined,
+    exchangeRateMicros: line.exchange_rate_micros ?? undefined,
   }));
 
   const reversalId = randomUUID();

@@ -16,6 +16,7 @@ export type {
   BalanceSheetRow,
   BalanceSheet,
   VoucherSummary,
+  BranchSummary,
 } from './types';
 export {
   ACCOUNTING_PERMISSIONS,
@@ -42,3 +43,12 @@ export { createBudget, listBudgets, updateBudgetLine, splitAnnualBudgetEvenly } 
 export type { BudgetLineInput, CreateBudgetInput, BudgetSummary } from './budgets';
 export { computeBudgetVsActual } from './budgetVsActual';
 export type { BudgetVsActualRow } from './budgetVsActual';
+export { convertForeignToBase, foreignAmountForBase } from './fx';
+export { createBranch, listBranches, updateBranch } from './branches';
+export type { CreateBranchInput, UpdateBranchInput } from './branches';
+export { recordInterBranchTransfer } from './interBranchTransfer';
+export type { RecordInterBranchTransferInput } from './interBranchTransfer';
+export { computeBranchProfitAndLoss } from './branchProfitAndLoss';
+export type { BranchProfitAndLossRow } from './branchProfitAndLoss';
+export { computeBranchBalanceSheet } from './branchBalanceSheet';
+export type { BranchBalanceSheetRow, BranchBalanceSheetSummary, BranchBalanceSheet } from './branchBalanceSheet';

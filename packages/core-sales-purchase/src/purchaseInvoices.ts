@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { sql, type Kysely, type Transaction } from 'kysely';
 import type { CompanyDatabase, SystemDatabase } from '@mhts/db-schema';
-import { cancelVoucherInTransaction, createVoucherInTransaction } from '@mhts/core-accounting';
+import { cancelVoucherInTransaction, convertForeignToBase, createVoucherInTransaction, foreignAmountForBase } from '@mhts/core-accounting';
 import type { VoucherLineInput } from '@mhts/core-accounting';
 import { writeAuditLog } from '@mhts/core-audit';
 import { getInventoryLedgerIds, getItemOrThrow, postPurchaseReceiptInTransaction, reverseStockMovementsForReferenceInTransaction } from '@mhts/core-inventory';
@@ -59,6 +59,8 @@ function buildPurchaseVoucherLines(
   lineGst: (ResolvedLineGst | null)[],
   gstLedgerIds: GstLedgerIds | null,
   forceItcIneligible: boolean,
+  branchId: string | undefined,
+  fx: { currency: string; exchangeRateMicros: number } | undefined,
 ): { voucherLines: VoucherLineInput[]; taxableAmount: number; taxAmount: number; lineEligibility: boolean[] } {
   const debitTaxByLedger = new Map<string, number>();
   const rcmLiabilityByLedger = new Map<string, number>();
@@ -121,16 +123,16 @@ function buildPurchaseVoucherLines(
       }
     }
 
-    voucherLines.push({ ledgerId: line.ledgerId, debitAmount: line.amount + ownLedgerExtraDebit, creditAmount: 0, lineNarration: line.lineNarration });
+    voucherLines.push({ ledgerId: line.ledgerId, debitAmount: line.amount + ownLedgerExtraDebit, creditAmount: 0, lineNarration: line.lineNarration, branchId });
     taxableAmount += line.amount;
     lineEligibility.push(eligible);
   });
 
   for (const [ledgerId, amount] of debitTaxByLedger) {
-    voucherLines.push({ ledgerId, debitAmount: amount, creditAmount: 0 });
+    voucherLines.push({ ledgerId, debitAmount: amount, creditAmount: 0, branchId });
   }
   for (const [ledgerId, amount] of rcmLiabilityByLedger) {
-    voucherLines.push({ ledgerId, debitAmount: 0, creditAmount: amount });
+    voucherLines.push({ ledgerId, debitAmount: 0, creditAmount: amount, branchId });
   }
 
   const grossTotal = taxableAmount + taxAmount;
@@ -138,9 +140,16 @@ function buildPurchaseVoucherLines(
     if (!tdsPayableLedgerId) {
       throw new Error('TDS Payable ledger not found — seedSalesPurchaseLedgers must run at company creation');
     }
-    voucherLines.push({ ledgerId: tdsPayableLedgerId, debitAmount: 0, creditAmount: tdsAmount });
+    voucherLines.push({ ledgerId: tdsPayableLedgerId, debitAmount: 0, creditAmount: tdsAmount, branchId });
   }
-  voucherLines.push({ ledgerId: partyLedgerId, debitAmount: 0, creditAmount: grossTotal - tdsAmount });
+  const partyNet = grossTotal - tdsAmount;
+  voucherLines.push({
+    ledgerId: partyLedgerId,
+    debitAmount: 0,
+    creditAmount: partyNet,
+    branchId,
+    ...(fx ? { foreignCurrency: fx.currency, exchangeRateMicros: fx.exchangeRateMicros, foreignAmount: foreignAmountForBase(partyNet, fx.exchangeRateMicros) } : {}),
+  });
 
   return { voucherLines, taxableAmount, taxAmount, lineEligibility };
 }
@@ -161,6 +170,16 @@ export async function createPurchaseInvoiceInTransaction(
   actorUserId: string | null,
 ): Promise<string> {
   validateDocumentLines(input.lines);
+  if (input.currency && !input.exchangeRateMicros) {
+    throw new Error('An exchange rate is required when an invoice currency is set');
+  }
+  if (input.exchangeRateMicros) {
+    for (const line of input.lines) {
+      if (line.foreignAmount !== undefined && convertForeignToBase(line.foreignAmount, input.exchangeRateMicros) !== line.amount) {
+        throw new Error(`Line amount does not match the foreign amount converted at the invoice's exchange rate (line: "${line.description}")`);
+      }
+    }
+  }
 
   const party = await trx.selectFrom('business_party').selectAll().where('id', '=', input.partyId).executeTakeFirst();
   if (!party) {
@@ -190,7 +209,18 @@ export async function createPurchaseInvoiceInTransaction(
   const gstLedgerIds = lineGst.some((g) => g !== null) ? await getGstLedgerIds(trx) : null;
   // A composition-scheme company can never claim ITC — see buildPurchaseVoucherLines's own doc comment.
   const forceItcIneligible = input.companyGstRegistrationType === 'COMPOSITION';
-  const { voucherLines, taxAmount, lineEligibility } = buildPurchaseVoucherLines(party.ledger_account_id, tdsPayableLedger?.id ?? null, tdsAmount, input.lines, lineGst, gstLedgerIds, forceItcIneligible);
+  const fx = input.currency && input.exchangeRateMicros ? { currency: input.currency, exchangeRateMicros: input.exchangeRateMicros } : undefined;
+  const { voucherLines, taxAmount, lineEligibility } = buildPurchaseVoucherLines(
+    party.ledger_account_id,
+    tdsPayableLedger?.id ?? null,
+    tdsAmount,
+    input.lines,
+    lineGst,
+    gstLedgerIds,
+    forceItcIneligible,
+    input.branchId,
+    fx,
+  );
 
   const invoiceId = randomUUID();
 
@@ -256,6 +286,9 @@ export async function createPurchaseInvoiceInTransaction(
       tds_section: input.tdsSection ?? null,
       tds_amount: tdsAmount,
       created_by: actorUserId,
+      currency: input.currency ?? null,
+      exchange_rate_micros: input.exchangeRateMicros ?? null,
+      branch_id: input.branchId ?? null,
     })
     .execute();
 
@@ -282,6 +315,7 @@ export async function createPurchaseInvoiceInTransaction(
         itc_eligible: lineEligibility[index] ? 1 : 0,
         itc_ineligibility_reason: lineEligibility[index] ? null : (line.itcIneligibilityReason ?? null),
         is_reverse_charge: line.isReverseCharge ? 1 : 0,
+        foreign_amount: line.foreignAmount ?? null,
       })
       .execute();
   }

@@ -4,6 +4,7 @@ import { seedDefaultTdsRates } from '@mhts/core-sales-purchase';
 import { seedDefaultGstRates } from '@mhts/core-gst-engine';
 import { seedDefaultPayrollRules } from '@mhts/core-payroll-engine';
 import { seedDefaultFixedAssetRules } from '@mhts/core-fixed-assets';
+import { seedDefaultExchangeRates } from '@mhts/core-multi-currency';
 import { resolveAppPaths, openAndMigrateSystemDb } from './db';
 import {
   listCompanies,
@@ -161,6 +162,15 @@ import {
   listActiveFixedAssetRates,
   listFixedAssetRateVersions,
 } from './fixedAssetsHandlers';
+import { createBranch, listBranches, updateBranch, recordInterBranchTransfer, getBranchProfitAndLoss, getBranchBalanceSheet } from './branchHandlers';
+import {
+  setExchangeRate,
+  listActiveExchangeRates,
+  listExchangeRateVersions,
+  previewFxRevaluation,
+  postFxRevaluation,
+  listFxRevaluationRuns,
+} from './multiCurrencyHandlers';
 import { session } from './session';
 import {
   IPC,
@@ -239,6 +249,12 @@ import {
   type DisposeFixedAssetInput,
   type RunDepreciationInput,
   type CreateOrUpdateFixedAssetRateInput,
+  type CreateBranchInput,
+  type UpdateBranchInput,
+  type RecordInterBranchTransferInput,
+  type BranchReportInput,
+  type SetExchangeRateInput,
+  type RunFxRevaluationInput,
 } from '../shared/ipc';
 
 function handle<T>(channel: string, fn: () => Promise<T>): void {
@@ -273,6 +289,7 @@ async function bootstrap(): Promise<void> {
   await seedDefaultGstRates(systemDb);
   await seedDefaultPayrollRules(systemDb);
   await seedDefaultFixedAssetRules(systemDb);
+  await seedDefaultExchangeRates(systemDb);
 
   handle(IPC.LIST_COMPANIES, () => listCompanies(systemDb));
   handleWithArg(IPC.CREATE_COMPANY, (input: CreateCompanyInput) => createCompany(systemDb, paths, input));
@@ -448,6 +465,19 @@ async function bootstrap(): Promise<void> {
   handleWithArg(IPC.CREATE_OR_UPDATE_FIXED_ASSET_RATE, (input: CreateOrUpdateFixedAssetRateInput) => createOrUpdateFixedAssetRate(systemDb, input));
   handle(IPC.LIST_ACTIVE_FIXED_ASSET_RATES, () => listActiveFixedAssetRates(systemDb));
   handleWithArg(IPC.LIST_FIXED_ASSET_RATE_VERSIONS, (ruleType: string) => listFixedAssetRateVersions(systemDb, ruleType));
+
+  handleWithArg(IPC.CREATE_BRANCH, (input: CreateBranchInput) => createBranch(input));
+  handle(IPC.LIST_BRANCHES, () => listBranches());
+  handleWithArg(IPC.UPDATE_BRANCH, (input: UpdateBranchInput) => updateBranch(input));
+  handleWithArg(IPC.RECORD_INTER_BRANCH_TRANSFER, (input: RecordInterBranchTransferInput) => recordInterBranchTransfer(systemDb, input));
+  handleWithArg(IPC.GET_BRANCH_PROFIT_AND_LOSS, (input: BranchReportInput) => getBranchProfitAndLoss(input));
+  handleWithArg(IPC.GET_BRANCH_BALANCE_SHEET, (asOfDate: string) => getBranchBalanceSheet(asOfDate));
+  handleWithArg(IPC.SET_EXCHANGE_RATE, (input: SetExchangeRateInput) => setExchangeRate(systemDb, input));
+  handle(IPC.LIST_ACTIVE_EXCHANGE_RATES, () => listActiveExchangeRates(systemDb));
+  handleWithArg(IPC.LIST_EXCHANGE_RATE_VERSIONS, (currency: string) => listExchangeRateVersions(systemDb, currency));
+  handleWithArg(IPC.PREVIEW_FX_REVALUATION, (input: RunFxRevaluationInput) => previewFxRevaluation(systemDb, input));
+  handleWithArg(IPC.POST_FX_REVALUATION, (input: RunFxRevaluationInput) => postFxRevaluation(systemDb, input));
+  handle(IPC.LIST_FX_REVALUATION_RUNS, () => listFxRevaluationRuns());
 
   createWindow();
 }

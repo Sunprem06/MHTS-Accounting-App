@@ -85,6 +85,10 @@ export async function createVoucher(systemDb: Kysely<SystemDatabase>, input: Cre
         creditAmount: rupeesToPaise(line.creditRupees),
         lineNarration: line.lineNarration,
         costCentreId: line.costCentreId,
+        branchId: line.branchId,
+        ...(line.foreignCurrency !== undefined && line.foreignAmountUnits !== undefined && line.exchangeRate !== undefined
+          ? { foreignCurrency: line.foreignCurrency, foreignAmount: rupeesToPaise(line.foreignAmountUnits), exchangeRateMicros: Math.round(line.exchangeRate * 1_000_000) }
+          : {}),
       })),
     },
     info.userId,

@@ -65,6 +65,11 @@ interface Props {
   onFixedAssetRegister: () => void;
   onRunDepreciation: () => void;
   onManageFixedAssetRates: () => void;
+  onBranches: () => void;
+  onInterBranchTransfer: () => void;
+  onBranchReports: () => void;
+  onManageExchangeRates: () => void;
+  onRunFxRevaluation: () => void;
 }
 
 export function DashboardScreen({
@@ -132,6 +137,11 @@ export function DashboardScreen({
   onFixedAssetRegister,
   onRunDepreciation,
   onManageFixedAssetRates,
+  onBranches,
+  onInterBranchTransfer,
+  onBranchReports,
+  onManageExchangeRates,
+  onRunFxRevaluation,
 }: Props) {
   return (
     <div style={{ padding: 24, fontFamily: 'sans-serif', maxWidth: 480 }}>
@@ -295,6 +305,18 @@ export function DashboardScreen({
           {session.permissions.includes('FIXED_ASSETS.MANAGE_ASSETS') && <button onClick={onFixedAssetRegister}>Fixed asset register</button>}{' '}
           {session.permissions.includes('FIXED_ASSETS.RUN_DEPRECIATION') && <button onClick={onRunDepreciation}>Run depreciation</button>}{' '}
           {session.permissions.includes('FIXED_ASSETS.MANAGE_ASSET_CLASSES') && <button onClick={onManageFixedAssetRates}>Manage fixed asset rates</button>}
+        </p>
+      )}
+      {(session.permissions.includes('ACCOUNTING.MANAGE_BRANCHES') ||
+        session.permissions.includes('ACCOUNTING.VIEW_REPORTS') ||
+        session.permissions.includes('MULTI_CURRENCY.MANAGE_EXCHANGE_RATES') ||
+        session.permissions.includes('MULTI_CURRENCY.RUN_REVALUATION')) && (
+        <p>
+          {session.permissions.includes('ACCOUNTING.VIEW_REPORTS') && <button onClick={onBranches}>Branches</button>}{' '}
+          {session.permissions.includes('ACCOUNTING.MANAGE_BRANCHES') && <button onClick={onInterBranchTransfer}>Inter-branch transfer</button>}{' '}
+          {session.permissions.includes('ACCOUNTING.VIEW_REPORTS') && <button onClick={onBranchReports}>Branch-wise reports</button>}{' '}
+          {session.permissions.includes('MULTI_CURRENCY.MANAGE_EXCHANGE_RATES') && <button onClick={onManageExchangeRates}>Manage exchange rates</button>}{' '}
+          {session.permissions.includes('MULTI_CURRENCY.RUN_REVALUATION') && <button onClick={onRunFxRevaluation}>Run FX revaluation</button>}
         </p>
       )}
       <p>

@@ -126,7 +126,9 @@ export type VoucherType =
   | 'GRATUITY_PROVISION'
   | 'ASSET_ACQUISITION'
   | 'DEPRECIATION'
-  | 'ASSET_DISPOSAL';
+  | 'ASSET_DISPOSAL'
+  | 'FX_REVALUATION'
+  | 'INTER_BRANCH_TRANSFER';
 
 export interface AccountGroupSummary {
   id: string;
@@ -163,6 +165,12 @@ export interface VoucherLineInput {
   lineNarration?: string;
   /** Phase 8 (Advanced ERP) — optional dimension tag. */
   costCentreId?: string;
+  /** Phase 8 Increment 2 — optional dimension tag. */
+  branchId?: string;
+  /** Phase 8 Increment 2 (multi-currency) — all three set together or not at all. exchangeRate is a plain decimal (e.g. 83.25); converted to micros at the IPC boundary. foreignAmountUnits is in the foreign currency's major units (e.g. USD dollars), matching debitRupees/creditRupees's own convention. */
+  foreignCurrency?: string;
+  foreignAmountUnits?: number;
+  exchangeRate?: number;
 }
 
 export interface CreateVoucherInput {
@@ -297,12 +305,19 @@ export interface DocumentLineInput {
   batchNumber?: string;
   expiryDate?: string;
   manufactureDate?: string;
+  /** Phase 8 Increment 2 (multi-currency) — this line's amount in the invoice's own currency, for display. Only meaningful when the invoice itself carries a currency/exchangeRate. */
+  foreignAmountUnits?: number;
 }
 
 export interface CreateSalesInvoiceInput {
   partyId: string;
   invoiceDate: string;
   narration?: string;
+  /** Phase 8 Increment 2 (multi-currency). Omit for an ordinary base-currency invoice. exchangeRate is a plain decimal (e.g. 83.25). */
+  currency?: string;
+  exchangeRate?: number;
+  /** Phase 8 Increment 2 (multi-branch). */
+  branchId?: string;
   lines: DocumentLineInput[];
 }
 
@@ -311,6 +326,9 @@ export interface CreatePurchaseInvoiceInput {
   invoiceDate: string;
   narration?: string;
   tdsSection?: TdsSectionCode;
+  currency?: string;
+  exchangeRate?: number;
+  branchId?: string;
   lines: DocumentLineInput[];
 }
 
@@ -388,11 +406,20 @@ export interface OutstandingInvoiceRow {
   netAmount: number;
   settledAmount: number;
   outstandingAmount: number;
+  /** Phase 8 Increment 2 (multi-currency). Null for a base-currency invoice. */
+  currency: string | null;
+  /** This invoice's own booking rate, as a plain decimal (e.g. 83.25) — the rate a settlement line's amountRupees must be consistent with. Null for a base-currency invoice. */
+  exchangeRate: number | null;
+  /** Foreign currency major units, only when currency is set. */
+  outstandingForeignAmountUnits: number | null;
 }
 
 export interface SettlementLineInput {
   invoiceId: string;
   amountRupees: number;
+  /** Phase 8 Increment 2 (multi-currency) — required together, only when settling against an FX invoice. See core-sales-purchase's SettlementLineInput for the realized-gain/loss mechanics. */
+  foreignAmountUnits?: number;
+  settlementExchangeRate?: number;
 }
 
 export interface RecordSalesReceiptInput {
@@ -1612,6 +1639,130 @@ export interface CreateOrUpdateFixedAssetRateInput {
   sourceReference?: string;
 }
 
+// --- Phase 8 Increment 2: Advanced ERP (Multi-Currency, Multi-Branch) ---
+
+export interface BranchSummary {
+  id: string;
+  name: string;
+  code: string | null;
+  address: string | null;
+  interBranchLedgerId: string;
+  isActive: boolean;
+}
+
+export interface CreateBranchInput {
+  name: string;
+  code?: string;
+  address?: string;
+}
+
+export interface UpdateBranchInput {
+  branchId: string;
+  name?: string;
+  code?: string | null;
+  address?: string | null;
+  isActive?: boolean;
+}
+
+export interface RecordInterBranchTransferInput {
+  fromBranchId: string;
+  toBranchId: string;
+  fromLedgerId: string;
+  toLedgerId: string;
+  /** Rupees, as typed by the user. */
+  amountRupees: number;
+  transferDate: string;
+  narration?: string;
+}
+
+export interface BranchProfitAndLossRow {
+  branchId: string | null;
+  branchName: string;
+  /** Rupees. */
+  totalIncome: number;
+  totalExpense: number;
+  net: number;
+}
+
+export interface BranchReportInput {
+  fromDate?: string;
+  toDate?: string;
+}
+
+export interface BranchBalanceSheetRow {
+  branchId: string | null;
+  branchName: string;
+  ledgerId: string;
+  ledgerName: string;
+  nature: AccountNature;
+  /** Rupees. */
+  amount: number;
+}
+
+export interface BranchBalanceSheetSummaryRow {
+  branchId: string | null;
+  branchName: string;
+  totalAssets: number;
+  totalLiabilitiesAndEquity: number;
+  currentEarnings: number;
+}
+
+export interface BranchBalanceSheetResult {
+  asOfDate: string;
+  rows: BranchBalanceSheetRow[];
+  branchSummaries: BranchBalanceSheetSummaryRow[];
+  consolidatedTotalAssets: number;
+  consolidatedTotalLiabilitiesAndEquity: number;
+}
+
+export interface ExchangeRateVersionSummary {
+  id: string;
+  currency: string;
+  effectiveFrom: string;
+  effectiveTo: string | null;
+  version: number;
+  /** Plain decimal (e.g. 83.25), not micros — converted at the IPC boundary. */
+  rate: number;
+  sourceReference: string | null;
+}
+
+export interface SetExchangeRateInput {
+  currency: string;
+  effectiveFrom: string;
+  rate: number;
+  sourceReference?: string;
+}
+
+export interface FxRevaluationLineDetail {
+  ledgerId: string;
+  ledgerName: string;
+  currency: string;
+  /** Foreign currency major units. */
+  foreignBalanceUnits: number;
+  /** Rupees, all three. */
+  baseBalanceBeforeRupees: number;
+  baseBalanceAfterRupees: number;
+  adjustmentAmountRupees: number;
+}
+
+export interface FxRevaluationPreviewResult {
+  asOfDate: string;
+  lines: FxRevaluationLineDetail[];
+  totalAdjustmentMagnitudeRupees: number;
+}
+
+export interface RunFxRevaluationInput {
+  asOfDate: string;
+}
+
+export interface FxRevaluationRunResult {
+  id: string;
+  runDate: string;
+  financialYear: string;
+  voucherId: string | null;
+  lines: FxRevaluationLineDetail[];
+}
+
 export interface IpcResult<T> {
   ok: boolean;
   data?: T;
@@ -1787,4 +1938,18 @@ export const IPC = {
   CREATE_OR_UPDATE_FIXED_ASSET_RATE: 'fixedAssets:createOrUpdateFixedAssetRate',
   LIST_ACTIVE_FIXED_ASSET_RATES: 'fixedAssets:listActiveFixedAssetRates',
   LIST_FIXED_ASSET_RATE_VERSIONS: 'fixedAssets:listFixedAssetRateVersions',
+
+  // Phase 8 Increment 2: Advanced ERP (Multi-Currency, Multi-Branch)
+  CREATE_BRANCH: 'accounting:createBranch',
+  LIST_BRANCHES: 'accounting:listBranches',
+  UPDATE_BRANCH: 'accounting:updateBranch',
+  RECORD_INTER_BRANCH_TRANSFER: 'accounting:recordInterBranchTransfer',
+  GET_BRANCH_PROFIT_AND_LOSS: 'accounting:getBranchProfitAndLoss',
+  GET_BRANCH_BALANCE_SHEET: 'accounting:getBranchBalanceSheet',
+  SET_EXCHANGE_RATE: 'multiCurrency:setExchangeRate',
+  LIST_ACTIVE_EXCHANGE_RATES: 'multiCurrency:listActiveExchangeRates',
+  LIST_EXCHANGE_RATE_VERSIONS: 'multiCurrency:listExchangeRateVersions',
+  PREVIEW_FX_REVALUATION: 'multiCurrency:previewFxRevaluation',
+  POST_FX_REVALUATION: 'multiCurrency:postFxRevaluation',
+  LIST_FX_REVALUATION_RUNS: 'multiCurrency:listFxRevaluationRuns',
 } as const;

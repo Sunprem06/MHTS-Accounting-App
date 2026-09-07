@@ -1,0 +1,17 @@
+{
+  "name": "core-multi-currency",
+  "sourceRoot": "packages/core-multi-currency/src",
+  "projectType": "library",
+  "tags": ["type:core"],
+  "targets": {
+    "build": {
+      "executor": "@nx/js:tsc",
+      "outputs": ["{options.outputPath}"],
+      "options": {
+        "outputPath": "dist/packages/core-multi-currency",
+        "main": "packages/core-multi-currency/src/index.ts",
+        "tsConfig": "packages/core-multi-currency/tsconfig.json"
+      }
+    }
+  }
+}

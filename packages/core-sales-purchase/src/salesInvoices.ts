@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { sql, type Kysely, type Transaction } from 'kysely';
 import type { CompanyDatabase, SystemDatabase } from '@mhts/db-schema';
-import { cancelVoucherInTransaction, createVoucherInTransaction } from '@mhts/core-accounting';
+import { cancelVoucherInTransaction, convertForeignToBase, createVoucherInTransaction, foreignAmountForBase } from '@mhts/core-accounting';
 import type { VoucherLineInput } from '@mhts/core-accounting';
 import { writeAuditLog } from '@mhts/core-audit';
 import { getInventoryLedgerIds, getItemOrThrow, postSalesIssueInTransaction, reverseStockMovementsForReferenceInTransaction } from '@mhts/core-inventory';
@@ -25,6 +25,8 @@ function buildSalesVoucherLines(
   lines: DocumentLineInput[],
   lineGst: (ResolvedLineGst | null)[],
   gstLedgerIds: GstLedgerIds | null,
+  branchId: string | undefined,
+  fx: { currency: string; exchangeRateMicros: number } | undefined,
 ): { voucherLines: VoucherLineInput[]; taxableAmount: number; taxAmount: number } {
   const taxByLedger = new Map<string, number>();
   let taxableAmount = 0;
@@ -32,7 +34,7 @@ function buildSalesVoucherLines(
 
   const voucherLines: VoucherLineInput[] = [];
   lines.forEach((line, index) => {
-    voucherLines.push({ ledgerId: line.ledgerId, debitAmount: 0, creditAmount: line.amount, lineNarration: line.lineNarration });
+    voucherLines.push({ ledgerId: line.ledgerId, debitAmount: 0, creditAmount: line.amount, lineNarration: line.lineNarration, branchId });
     taxableAmount += line.amount;
     if (line.taxLedgerId && line.taxAmount) {
       taxByLedger.set(line.taxLedgerId, (taxByLedger.get(line.taxLedgerId) ?? 0) + line.taxAmount);
@@ -56,9 +58,18 @@ function buildSalesVoucherLines(
     }
   });
   for (const [taxLedgerId, amount] of taxByLedger) {
-    voucherLines.push({ ledgerId: taxLedgerId, debitAmount: 0, creditAmount: amount });
+    voucherLines.push({ ledgerId: taxLedgerId, debitAmount: 0, creditAmount: amount, branchId });
   }
-  voucherLines.push({ ledgerId: partyLedgerId, debitAmount: taxableAmount + taxAmount, creditAmount: 0 });
+  const partyTotal = taxableAmount + taxAmount;
+  voucherLines.push({
+    ledgerId: partyLedgerId,
+    debitAmount: partyTotal,
+    creditAmount: 0,
+    branchId,
+    ...(fx
+      ? { foreignCurrency: fx.currency, exchangeRateMicros: fx.exchangeRateMicros, foreignAmount: foreignAmountForBase(partyTotal, fx.exchangeRateMicros) }
+      : {}),
+  });
 
   return { voucherLines, taxableAmount, taxAmount };
 }
@@ -77,6 +88,16 @@ export async function createSalesInvoiceInTransaction(
   actorUserId: string | null,
 ): Promise<string> {
   validateDocumentLines(input.lines);
+  if (input.currency && !input.exchangeRateMicros) {
+    throw new Error('An exchange rate is required when an invoice currency is set');
+  }
+  if (input.exchangeRateMicros) {
+    for (const line of input.lines) {
+      if (line.foreignAmount !== undefined && convertForeignToBase(line.foreignAmount, input.exchangeRateMicros) !== line.amount) {
+        throw new Error(`Line amount does not match the foreign amount converted at the invoice's exchange rate (line: "${line.description}")`);
+      }
+    }
+  }
 
   const party = await trx.selectFrom('business_party').selectAll().where('id', '=', input.partyId).executeTakeFirst();
   if (!party) {
@@ -99,7 +120,8 @@ export async function createSalesInvoiceInTransaction(
       ? resolvedLineGst.map((gst) => (gst ? { ...gst, cgstAmount: 0, sgstAmount: 0, igstAmount: 0, cessAmount: 0, totalTaxAmount: 0 } : null))
       : resolvedLineGst;
   const gstLedgerIds = lineGst.some((g) => g !== null) ? await getGstLedgerIds(trx) : null;
-  const { voucherLines, taxableAmount, taxAmount } = buildSalesVoucherLines(party.ledger_account_id, input.lines, lineGst, gstLedgerIds);
+  const fx = input.currency && input.exchangeRateMicros ? { currency: input.currency, exchangeRateMicros: input.exchangeRateMicros } : undefined;
+  const { voucherLines, taxableAmount, taxAmount } = buildSalesVoucherLines(party.ledger_account_id, input.lines, lineGst, gstLedgerIds, input.branchId, fx);
   const invoiceId = randomUUID();
 
   // Each stockable item line moves stock (via core-inventory) AND contributes to one
@@ -128,8 +150,8 @@ export async function createSalesInvoiceInTransaction(
   }
   if (totalCostPaise > 0) {
     const { stockInHandLedgerId, cogsLedgerId } = await getInventoryLedgerIds(trx);
-    voucherLines.push({ ledgerId: cogsLedgerId, debitAmount: totalCostPaise, creditAmount: 0 });
-    voucherLines.push({ ledgerId: stockInHandLedgerId, debitAmount: 0, creditAmount: totalCostPaise });
+    voucherLines.push({ ledgerId: cogsLedgerId, debitAmount: totalCostPaise, creditAmount: 0, branchId: input.branchId });
+    voucherLines.push({ ledgerId: stockInHandLedgerId, debitAmount: 0, creditAmount: totalCostPaise, branchId: input.branchId });
   }
 
   const { voucherId } = await createVoucherInTransaction(
@@ -153,6 +175,9 @@ export async function createSalesInvoiceInTransaction(
       narration: input.narration ?? null,
       voucher_id: voucherId,
       created_by: actorUserId,
+      currency: input.currency ?? null,
+      exchange_rate_micros: input.exchangeRateMicros ?? null,
+      branch_id: input.branchId ?? null,
     })
     .execute();
 
@@ -177,6 +202,7 @@ export async function createSalesInvoiceInTransaction(
         igst_amount: gst?.igstAmount ?? 0,
         cess_amount: gst?.cessAmount ?? 0,
         is_reverse_charge: line.isReverseCharge ? 1 : 0,
+        foreign_amount: line.foreignAmount ?? null,
       })
       .execute();
   }
