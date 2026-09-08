@@ -1,5 +1,6 @@
 import { join } from 'node:path';
-import { mkdirSync } from 'node:fs';
+import { mkdirSync, copyFileSync, unlinkSync, existsSync } from 'node:fs';
+import { randomUUID } from 'node:crypto';
 import { app } from 'electron';
 import type { Kysely } from 'kysely';
 import {
@@ -41,13 +42,39 @@ export function companyDbFilePath(paths: AppPaths, companyId: string): string {
   return join(paths.companiesDir, `${companyId}.db`);
 }
 
-export async function createAndMigrateCompanyDb(filePath: string, rawKey: Buffer): Promise<Kysely<CompanyDatabase>> {
-  mkdirSync(join(filePath, '..'), { recursive: true });
+/**
+ * Opens a company DB and brings it forward to the latest schema — called on
+ * every login (and by restore's own verify-after-restore step), not just at
+ * creation. `migrateCompanyDb` is idempotent (Kysely's Migrator tracks which
+ * migrations already ran), so this is a no-op for a DB that's already
+ * current; it only does real work for a DB created on an older app version
+ * that's since been updated. If the file already exists, a pre-migration
+ * safety copy is made first and restored on any migration failure — same
+ * copy/verify/rollback shape `restoreCompany` already uses elsewhere.
+ */
+export async function openExistingCompanyDb(filePath: string, rawKey: Buffer): Promise<Kysely<CompanyDatabase>> {
+  const backupPath = existsSync(filePath) ? `${filePath}.pre-migration-${randomUUID()}.bak` : null;
+  if (backupPath) {
+    copyFileSync(filePath, backupPath);
+  }
+
   const db = openCompanyDb({ filePath, rawKey });
-  await migrateCompanyDb(db);
-  return db;
+  try {
+    await migrateCompanyDb(db);
+    if (backupPath) {
+      unlinkSync(backupPath);
+    }
+    return db;
+  } catch (error) {
+    await db.destroy();
+    if (backupPath) {
+      copyFileSync(backupPath, filePath);
+    }
+    throw error;
+  }
 }
 
-export function openExistingCompanyDb(filePath: string, rawKey: Buffer): Kysely<CompanyDatabase> {
-  return openCompanyDb({ filePath, rawKey });
+export async function createAndMigrateCompanyDb(filePath: string, rawKey: Buffer): Promise<Kysely<CompanyDatabase>> {
+  mkdirSync(join(filePath, '..'), { recursive: true });
+  return openExistingCompanyDb(filePath, rawKey);
 }

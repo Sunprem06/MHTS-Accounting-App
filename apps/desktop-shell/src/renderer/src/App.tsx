@@ -7,6 +7,7 @@ import { LoginScreen } from './screens/LoginScreen';
 import { PasswordHelpScreen } from './screens/PasswordHelpScreen';
 import { ForgotPasswordScreen } from './screens/ForgotPasswordScreen';
 import { SetNewPasswordScreen } from './screens/SetNewPasswordScreen';
+import { SetupWizardScreen } from './screens/SetupWizardScreen';
 import { DashboardScreen } from './screens/DashboardScreen';
 import { ManageUsersScreen } from './screens/ManageUsersScreen';
 import { ChartOfAccountsScreen } from './screens/ChartOfAccountsScreen';
@@ -33,6 +34,7 @@ import { MsmeAgeingScreen } from './screens/MsmeAgeingScreen';
 import { CustomerReceiptScreen } from './screens/CustomerReceiptScreen';
 import { SupplierPaymentScreen } from './screens/SupplierPaymentScreen';
 import { ThemeToggle } from './ThemeToggle';
+import { UpdateStatusBanner } from './UpdateStatusBanner';
 import { BackupScreen } from './screens/BackupScreen';
 import { ManageRolesScreen } from './screens/ManageRolesScreen';
 import { ManageUnitsScreen } from './screens/ManageUnitsScreen';
@@ -87,11 +89,12 @@ type View =
   | { name: 'loading' }
   | { name: 'companyList' }
   | { name: 'createCompany' }
-  | { name: 'recoveryKey'; company: CompanySummary; recoveryKey: string }
-  | { name: 'login'; company: CompanySummary }
+  | { name: 'recoveryKey'; company: CompanySummary; recoveryKey: string; fromCreation?: boolean }
+  | { name: 'login'; company: CompanySummary; fromCreation?: boolean }
   | { name: 'passwordHelp'; company: CompanySummary }
   | { name: 'forgotPassword'; company: CompanySummary }
-  | { name: 'setNewPassword'; company: CompanySummary }
+  | { name: 'setNewPassword'; company: CompanySummary; fromCreation?: boolean }
+  | { name: 'setupWizard'; companyName: string }
   | { name: 'dashboard' }
   | { name: 'manageUsers' }
   | { name: 'chartOfAccounts' }
@@ -171,6 +174,7 @@ export function App() {
   return (
     <>
       <ThemeToggle />
+      <UpdateStatusBanner />
       <AppRoutes />
     </>
   );
@@ -226,7 +230,7 @@ function AppRoutes() {
         onCancel={() => setView({ name: 'companyList' })}
         onCreated={async (result) => {
           await refreshCompanies();
-          setView({ name: 'recoveryKey', company: result.company, recoveryKey: result.recoveryKey });
+          setView({ name: 'recoveryKey', company: result.company, recoveryKey: result.recoveryKey, fromCreation: true });
         }}
       />
     );
@@ -237,7 +241,7 @@ function AppRoutes() {
       <RecoveryKeyScreen
         companyName={view.company.tradeName ?? view.company.legalName}
         recoveryKey={view.recoveryKey}
-        onContinue={() => setView({ name: 'login', company: view.company })}
+        onContinue={() => setView({ name: 'login', company: view.company, fromCreation: view.fromCreation })}
       />
     );
   }
@@ -250,10 +254,14 @@ function AppRoutes() {
         onForgotPassword={() => setView({ name: 'passwordHelp', company: view.company })}
         onLoginResult={(result) => {
           if (result.mustChangePassword) {
-            setView({ name: 'setNewPassword', company: view.company });
+            setView({ name: 'setNewPassword', company: view.company, fromCreation: view.fromCreation });
           } else {
             setSession(result.session);
-            setView({ name: 'dashboard' });
+            if (view.fromCreation) {
+              setView({ name: 'setupWizard', companyName: view.company.tradeName ?? view.company.legalName });
+            } else {
+              setView({ name: 'dashboard' });
+            }
           }
         }}
       />
@@ -290,8 +298,22 @@ function AppRoutes() {
         onBack={() => setView({ name: 'login', company: view.company })}
         onDone={(info) => {
           setSession(info);
-          setView({ name: 'dashboard' });
+          if (view.fromCreation) {
+            setView({ name: 'setupWizard', companyName: view.company.tradeName ?? view.company.legalName });
+          } else {
+            setView({ name: 'dashboard' });
+          }
         }}
+      />
+    );
+  }
+
+  if (view.name === 'setupWizard') {
+    return (
+      <SetupWizardScreen
+        companyName={view.companyName}
+        onGoToInvoice={() => setView({ name: 'newSalesInvoice' })}
+        onSkipToDashboard={() => setView({ name: 'dashboard' })}
       />
     );
   }

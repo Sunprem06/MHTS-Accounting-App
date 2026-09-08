@@ -178,6 +178,8 @@ import {
   type SaveTemplateLayoutInput,
   type TemplatePreviewData,
   type TemplateFieldCatalogEntry,
+  type UpdateStatus,
+  UPDATE_STATUS_EVENT,
 } from '../shared/ipc';
 
 const api = {
@@ -395,6 +397,15 @@ const api = {
   listTemplateLayoutVersions: (documentFamily: TemplateFamily): Promise<IpcResult<PrintTemplateLayoutSummary[]>> => ipcRenderer.invoke(IPC.LIST_TEMPLATE_LAYOUT_VERSIONS, documentFamily),
   getTemplatePreviewData: (documentFamily: TemplateFamily): Promise<IpcResult<TemplatePreviewData>> => ipcRenderer.invoke(IPC.GET_TEMPLATE_PREVIEW_DATA, documentFamily),
   getTemplateFieldCatalog: (documentFamily: TemplateFamily): Promise<IpcResult<TemplateFieldCatalogEntry[]>> => ipcRenderer.invoke(IPC.GET_TEMPLATE_FIELD_CATALOG, documentFamily),
+
+  checkForUpdate: (): Promise<IpcResult<void>> => ipcRenderer.invoke(IPC.CHECK_FOR_UPDATE),
+  quitAndInstall: (): Promise<IpcResult<void>> => ipcRenderer.invoke(IPC.QUIT_AND_INSTALL),
+  /** Push subscription (not request/response) — returns an unsubscribe function for a React effect's cleanup. */
+  onUpdateStatus: (callback: (status: UpdateStatus) => void): (() => void) => {
+    const listener = (_event: Electron.IpcRendererEvent, status: UpdateStatus) => callback(status);
+    ipcRenderer.on(UPDATE_STATUS_EVENT, listener);
+    return () => ipcRenderer.removeListener(UPDATE_STATUS_EVENT, listener);
+  },
 };
 
 export type MhtsApi = typeof api;

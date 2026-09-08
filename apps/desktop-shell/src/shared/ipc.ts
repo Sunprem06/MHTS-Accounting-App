@@ -822,6 +822,19 @@ export interface LicenseStatus {
   expiresInDays?: number | null;
 }
 
+/**
+ * Pushed from main to renderer over the plain (non-`invoke`) `UPDATE_STATUS_EVENT`
+ * channel — download progress can't be modeled as a request/response call, unlike
+ * every other IPC surface in this codebase.
+ */
+export interface UpdateStatus {
+  state: 'checking' | 'available' | 'not-available' | 'downloading' | 'downloaded' | 'error';
+  version?: string;
+  /** 0-100, only present while state is 'downloading'. */
+  percent?: number;
+  message?: string;
+}
+
 export interface SessionInfo {
   userId: string;
   userName: string;
@@ -2253,4 +2266,11 @@ export const IPC = {
   LIST_TEMPLATE_LAYOUT_VERSIONS: 'print:listTemplateLayoutVersions',
   GET_TEMPLATE_PREVIEW_DATA: 'print:getTemplatePreviewData',
   GET_TEMPLATE_FIELD_CATALOG: 'print:getTemplateFieldCatalog',
+
+  // Phase 10 Increment 1: Installer + Update/Migration Pipeline
+  CHECK_FOR_UPDATE: 'update:check',
+  QUIT_AND_INSTALL: 'update:quitAndInstall',
 } as const;
+
+/** Plain `webContents.send`/`ipcRenderer.on` channel name — not an `invoke`-style request/response channel, so it deliberately isn't part of the `IPC` object above (nothing calls `ipcRenderer.invoke` with it). */
+export const UPDATE_STATUS_EVENT = 'update:status';

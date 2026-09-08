@@ -121,7 +121,7 @@ export interface LicenseActivationTable {
   id: string;
   license_id: string;
   machine_id: string;
-  activated_at: ColumnType<string, string | undefined, never>;
+  activated_at: ColumnType<string, string | undefined, string>;
 }
 
 export interface SystemDatabase {

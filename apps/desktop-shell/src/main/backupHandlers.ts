@@ -88,7 +88,7 @@ export async function restoreCompany(systemDb: Kysely<SystemDatabase>): Promise<
   try {
     copyFileSync(backupFilePath, dbFilePath);
 
-    const verifyDb = openExistingCompanyDb(dbFilePath, actingDek);
+    const verifyDb = await openExistingCompanyDb(dbFilePath, actingDek);
     try {
       await sql`SELECT 1`.execute(verifyDb);
     } finally {

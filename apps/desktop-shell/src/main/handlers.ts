@@ -62,7 +62,7 @@ async function establishSession(
   roleId: string,
   dek: Buffer,
 ): Promise<SessionInfo> {
-  const companyDb = openExistingCompanyDb(company.db_file_path, dek);
+  const companyDb = await openExistingCompanyDb(company.db_file_path, dek);
   const role = await companyDb.selectFrom('role').selectAll().where('id', '=', roleId).executeTakeFirst();
   if (!role) {
     await companyDb.destroy();
