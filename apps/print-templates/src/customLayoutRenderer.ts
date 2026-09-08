@@ -28,12 +28,33 @@ function formatValue(value: unknown, format: TemplateValueFormat | undefined): s
   return escapeHtml(String(value));
 }
 
+const HEX_COLOR_PATTERN = /^#[0-9a-fA-F]{3}$|^#[0-9a-fA-F]{6}$|^#[0-9a-fA-F]{8}$/;
+
+/**
+ * Every value here is interpolated directly into an inline style="..."
+ * attribute (renderTextElement/renderTableElement below), unlike every
+ * other dynamic value in this file, which goes through escapeHtml(). A
+ * TemplateElementStyle is authored as JSON (print_template_layout.layout_json)
+ * and only TYPE-checked, never runtime-validated, before reaching here — a
+ * hand-edited or corrupted row could otherwise break out of the attribute
+ * (e.g. a colorHex containing a quote). Validate each value against its own
+ * known-safe shape and silently drop anything that doesn't match, rather
+ * than trust the stored JSON's shape at runtime.
+ */
 function styleToCss(style: TemplateElementStyle | undefined): string {
   const parts: string[] = [];
-  if (style?.fontSizePx) parts.push(`font-size:${style.fontSizePx}px`);
-  if (style?.fontWeight) parts.push(`font-weight:${style.fontWeight}`);
-  if (style?.align) parts.push(`text-align:${style.align}`);
-  if (style?.colorHex) parts.push(`color:${style.colorHex}`);
+  if (typeof style?.fontSizePx === 'number' && Number.isFinite(style.fontSizePx) && style.fontSizePx > 0) {
+    parts.push(`font-size:${style.fontSizePx}px`);
+  }
+  if (style?.fontWeight === 'normal' || style?.fontWeight === 'bold') {
+    parts.push(`font-weight:${style.fontWeight}`);
+  }
+  if (style?.align === 'left' || style?.align === 'center' || style?.align === 'right') {
+    parts.push(`text-align:${style.align}`);
+  }
+  if (typeof style?.colorHex === 'string' && HEX_COLOR_PATTERN.test(style.colorHex)) {
+    parts.push(`color:${style.colorHex}`);
+  }
   return parts.length ? `${parts.join(';')};` : '';
 }
 
@@ -52,7 +73,8 @@ function renderImageElement(el: ImageTemplateElement, data: unknown): string {
 }
 
 function renderLineElement(el: LineTemplateElement): string {
-  return `<div style="position:absolute;left:${el.xMm}mm;top:${el.yMm}mm;width:${el.widthMm}mm;border-top:1px solid ${el.colorHex ?? '#333'};"></div>`;
+  const color = typeof el.colorHex === 'string' && HEX_COLOR_PATTERN.test(el.colorHex) ? el.colorHex : '#333';
+  return `<div style="position:absolute;left:${el.xMm}mm;top:${el.yMm}mm;width:${el.widthMm}mm;border-top:1px solid ${color};"></div>`;
 }
 
 function renderTableElement(el: TableTemplateElement, data: unknown): string {
