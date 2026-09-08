@@ -36,6 +36,7 @@ import { SupplierPaymentScreen } from './screens/SupplierPaymentScreen';
 import { ThemeToggle } from './ThemeToggle';
 import { UpdateStatusBanner } from './UpdateStatusBanner';
 import { BackupScreen } from './screens/BackupScreen';
+import { VerifyAuditTrailScreen } from './screens/VerifyAuditTrailScreen';
 import { ManageRolesScreen } from './screens/ManageRolesScreen';
 import { ManageUnitsScreen } from './screens/ManageUnitsScreen';
 import { ManageWarehousesScreen } from './screens/ManageWarehousesScreen';
@@ -121,6 +122,7 @@ type View =
   | { name: 'customerReceipt' }
   | { name: 'supplierPayment' }
   | { name: 'backup' }
+  | { name: 'verifyAuditTrail' }
   | { name: 'manageRoles' }
   | { name: 'manageUnits' }
   | { name: 'manageWarehouses' }
@@ -432,6 +434,10 @@ function AppRoutes() {
     );
   }
 
+  if (view.name === 'verifyAuditTrail') {
+    return <VerifyAuditTrailScreen onBack={() => setView({ name: 'dashboard' })} />;
+  }
+
   if (view.name === 'manageRoles') {
     return <ManageRolesScreen onBack={() => setView({ name: 'dashboard' })} />;
   }
@@ -652,6 +658,7 @@ function AppRoutes() {
       onCustomerReceipt={() => setView({ name: 'customerReceipt' })}
       onSupplierPayment={() => setView({ name: 'supplierPayment' })}
       onBackup={() => setView({ name: 'backup' })}
+      onVerifyAuditTrail={() => setView({ name: 'verifyAuditTrail' })}
       onManageRoles={() => setView({ name: 'manageRoles' })}
       onManageUnits={() => setView({ name: 'manageUnits' })}
       onManageWarehouses={() => setView({ name: 'manageWarehouses' })}

@@ -37,7 +37,7 @@ import {
 } from '@mhts/core-payroll-engine';
 import type { PayrollRunSummary, PayslipSummary } from '@mhts/core-payroll-engine';
 import { computeFinancialYearLabel } from '@mhts/core-accounting';
-import { session } from './session';
+import { requireSessionWithCompanyDb } from './session';
 import type {
   AssignSalaryStructureInput,
   ApplyLeaveInput,
@@ -72,18 +72,6 @@ const PAISE_PER_RUPEE = 100;
 const rupeesToPaise = (rupees: number): number => Math.round(rupees * PAISE_PER_RUPEE);
 const paiseToRupees = (paise: number): number => paise / PAISE_PER_RUPEE;
 const tenthsToDays = (tenths: number): number => tenths / 10;
-
-function requireSessionWithCompanyDb(requiredPermission: string) {
-  const info = session.get();
-  const companyDb = session.getCompanyDb();
-  if (!info || !companyDb) {
-    throw new Error('Not logged in');
-  }
-  if (!info.permissions.includes(requiredPermission)) {
-    throw new Error(`You do not have permission (${requiredPermission}) for this action`);
-  }
-  return { info, companyDb };
-}
 
 async function financialYearStartMonth(systemDb: Kysely<SystemDatabase>, companyId: string): Promise<number> {
   const company = await systemDb.selectFrom('company').select('financial_year_start_month').where('id', '=', companyId).executeTakeFirstOrThrow();

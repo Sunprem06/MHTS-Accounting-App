@@ -4,6 +4,7 @@ import {
   type AccountGroupSummary,
   type AdminResetPasswordInput,
   type AdminResetPasswordResult,
+  type AuditChainVerificationResult,
   type BalanceSheetResult,
   type ChangePasswordInput,
   type CompanySummary,
@@ -409,6 +410,8 @@ const api = {
     ipcRenderer.on(UPDATE_STATUS_EVENT, listener);
     return () => ipcRenderer.removeListener(UPDATE_STATUS_EVENT, listener);
   },
+
+  verifyAuditTrail: (): Promise<IpcResult<AuditChainVerificationResult>> => ipcRenderer.invoke(IPC.VERIFY_AUDIT_TRAIL),
 };
 
 export type MhtsApi = typeof api;

@@ -28,6 +28,7 @@ interface Props {
   onCustomerReceipt: () => void;
   onSupplierPayment: () => void;
   onBackup: () => void;
+  onVerifyAuditTrail: () => void;
   onManageRoles: () => void;
   onManageUnits: () => void;
   onManageWarehouses: () => void;
@@ -106,6 +107,7 @@ export function DashboardScreen({
   onCustomerReceipt,
   onSupplierPayment,
   onBackup,
+  onVerifyAuditTrail,
   onManageRoles,
   onManageUnits,
   onManageWarehouses,
@@ -349,6 +351,7 @@ export function DashboardScreen({
         {session.permissions.includes('SYSTEM.MANAGE_USERS') && <button onClick={onManageUsers}>Manage users</button>}{' '}
         {session.permissions.includes('SYSTEM.MANAGE_ROLES') && <button onClick={onManageRoles}>Manage roles</button>}{' '}
         {session.permissions.includes('SYSTEM.MANAGE_COMPANY') && <button onClick={onBackup}>Backup &amp; restore</button>}{' '}
+        {session.permissions.includes('SYSTEM.VIEW_AUDIT_LOG') && <button onClick={onVerifyAuditTrail}>Verify audit trail</button>}{' '}
         <button onClick={onLogout}>Sign out</button>
       </p>
     </div>

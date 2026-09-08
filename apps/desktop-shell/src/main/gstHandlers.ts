@@ -3,7 +3,7 @@ import type { SystemDatabase } from '@mhts/db-schema';
 import { computeGstSplit, computeGstSummary, createOrUpdateGstRate as coreCreateOrUpdateGstRate, listActiveGstRates as coreListActiveGstRates, listGstRates as coreListGstRates, resolveGstRate } from '@mhts/core-gst-engine';
 import { computeGstr1Data, computeGstr3bData, computeGstr9Data, computeGstr9cData } from '@mhts/core-sales-purchase';
 import type { Gstr3bData } from '@mhts/core-sales-purchase';
-import { session } from './session';
+import { requireSessionWithCompanyDb, session } from './session';
 import type {
   CreateOrUpdateGstRateInput,
   GstFinancialYearInput,
@@ -23,18 +23,6 @@ import type {
 const PAISE_PER_RUPEE = 100;
 const rupeesToPaise = (rupees: number): number => Math.round(rupees * PAISE_PER_RUPEE);
 const paiseToRupees = (paise: number): number => paise / PAISE_PER_RUPEE;
-
-function requireSessionWithCompanyDb(requiredPermission: string) {
-  const info = session.get();
-  const companyDb = session.getCompanyDb();
-  if (!info || !companyDb) {
-    throw new Error('Not logged in');
-  }
-  if (!info.permissions.includes(requiredPermission)) {
-    throw new Error(`You do not have permission (${requiredPermission}) for this action`);
-  }
-  return { info, companyDb };
-}
 
 export async function createOrUpdateGstRate(systemDb: Kysely<SystemDatabase>, input: CreateOrUpdateGstRateInput): Promise<string> {
   const { info } = requireSessionWithCompanyDb('GST.MANAGE_RATES');

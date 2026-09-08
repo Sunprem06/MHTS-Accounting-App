@@ -10,6 +10,17 @@ function todayIso(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
+// Same CSV-export pattern as GstReturnsScreen's toCsv/toCsvValue — this was
+// the one CA-facing gap Phase 11's compliance review found (GST already had
+// an exportable artifact; payroll had none).
+function toCsvValue(value: string | number): string {
+  const str = String(value);
+  return /[",\n]/.test(str) ? `"${str.replace(/"/g, '""')}"` : str;
+}
+function toCsv(headers: string[], rows: (string | number)[][]): string {
+  return [headers, ...rows].map((row) => row.map(toCsvValue).join(',')).join('\n');
+}
+
 /** Create -> Process -> review payslips (with a TDS override where needed) -> Post -> disburse — one screen for the whole payroll-run lifecycle, mirroring how ExpenseClaimRegisterScreen combines a register with its own lifecycle actions rather than splitting each transition into its own screen. */
 export function PayrollRunScreen({ session, onBack }: Props) {
   const [runs, setRuns] = useState<PayrollRunSummary[] | null>(null);
@@ -122,6 +133,23 @@ export function PayrollRunScreen({ session, onBack }: Props) {
     }
   }
 
+  async function exportRunCsv() {
+    if (!selectedRun) return;
+    setError(null);
+    const registerCsv = toCsv(
+      ['Employee', 'Gross (₹)', 'Deductions (₹)', 'Net Pay (₹)', 'Outstanding (₹)'],
+      selectedRun.payslips.map((p) => [p.employeeName, p.grossEarnings, p.totalDeductions, p.netPay, p.outstandingAmount]),
+    );
+    const linesCsv = toCsv(
+      ['Employee', 'Line Type', 'Label', 'Amount (₹)'],
+      selectedRun.payslips.flatMap((p) => p.lines.map((line) => [p.employeeName, line.lineType, line.label, line.amount])),
+    );
+    const csv = `${registerCsv}\n\n${linesCsv}`;
+    const fileName = `Payroll_${selectedRun.periodMonth}_${selectedRun.periodYear}.csv`;
+    const result = await window.mhts.exportCsv({ defaultFileName: fileName, csvContent: csv });
+    if (!result.ok) setError(result.error ?? 'Failed to export CSV');
+  }
+
   async function handlePrintPayslip(payslip: PayslipSummary) {
     setError(null);
     setPrintingId(payslip.id);
@@ -204,6 +232,11 @@ export function PayrollRunScreen({ session, onBack }: Props) {
           {canRun && selectedRun.status === 'PROCESSED' && (
             <button type="button" onClick={handlePost} disabled={busy}>
               {busy ? 'Posting…' : 'Post to ledger'}
+            </button>
+          )}
+          {selectedRun.payslips.length > 0 && (
+            <button type="button" onClick={exportRunCsv}>
+              Export CSV
             </button>
           )}
 

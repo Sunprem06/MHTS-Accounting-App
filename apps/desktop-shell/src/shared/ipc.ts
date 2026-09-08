@@ -2045,6 +2045,14 @@ export interface TemplatePreviewData {
   isPlaceholder: boolean;
 }
 
+/** Mirrors @mhts/core-audit's AuditChainVerificationResult — Phase 11's audit-hash-chain tamper check. */
+export interface AuditChainVerificationResult {
+  valid: boolean;
+  rowsChecked: number;
+  brokenAtId?: number;
+  reason?: string;
+}
+
 export interface IpcResult<T> {
   ok: boolean;
   data?: T;
@@ -2282,6 +2290,9 @@ export const IPC = {
   // Phase 10 Increment 3: Demo Mode
   GET_TRIAL_STATUS: 'trial:getStatus',
   CREATE_DEMO_COMPANY: 'system:createDemoCompany',
+
+  // Phase 11: UAT, Security & Compliance Sign-off
+  VERIFY_AUDIT_TRAIL: 'system:verifyAuditTrail',
 } as const;
 
 /** Plain `webContents.send`/`ipcRenderer.on` channel name — not an `invoke`-style request/response channel, so it deliberately isn't part of the `IPC` object above (nothing calls `ipcRenderer.invoke` with it). */

@@ -44,3 +44,27 @@ class SessionManager {
 }
 
 export const session = new SessionManager();
+
+/**
+ * The single source of truth for "is someone logged in, with the right
+ * permission, to do this" — every handler file used to declare its own
+ * byte-for-byte identical copy of this function (14 of them, confirmed via
+ * `grep -rn "function requireSessionWithCompanyDb"`), which meant a future
+ * handler could in principle define its own guard slightly differently (or
+ * forget to call it) with nothing to catch the drift at compile time. Phase
+ * 11's security review flagged this as a real maintainability/consistency
+ * risk, not a live vulnerability — every existing copy already behaved
+ * identically — so this consolidates them into one shared implementation
+ * every handler file now imports instead.
+ */
+export function requireSessionWithCompanyDb(requiredPermission: string): { info: SessionInfo; companyDb: Kysely<CompanyDatabase> } {
+  const info = session.get();
+  const companyDb = session.getCompanyDb();
+  if (!info || !companyDb) {
+    throw new Error('Not logged in');
+  }
+  if (!info.permissions.includes(requiredPermission)) {
+    throw new Error(`You do not have permission (${requiredPermission}) for this action`);
+  }
+  return { info, companyDb };
+}

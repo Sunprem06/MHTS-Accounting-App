@@ -26,7 +26,8 @@
       "@mhts/core-identity": ["packages/core-identity/src/index.ts"],
       "@mhts/core-audit": ["packages/core-audit/src/index.ts"],
       "@mhts/db-schema": ["packages/db-schema/src/index.ts"],
-      "@mhts/shared-types": ["packages/shared-types/src/index.ts"]
+      "@mhts/shared-types": ["packages/shared-types/src/index.ts"],
+      "@mhts/test-support": ["packages/test-support/src/index.ts"]
     }
   },
   "exclude": ["node_modules", "tmp", "dist"]
