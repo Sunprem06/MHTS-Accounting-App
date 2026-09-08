@@ -324,6 +324,7 @@ Track anything unresolved so it surfaces automatically in the next session inste
 - [ ] Phase 11: **No actual CA has reviewed or signed off on anything yet** — `/docs/MHTS-ERP_CA_Compliance_Test_Cases.md` is the prepared artifact a CA needs to review, not a completed review. The 16-item sign-off checklist in that document is currently all unchecked.
 - [x] Phase 11: ~~`sandbox: false` on the Electron `BrowserWindow` remains undocumented as a deliberate choice~~ — **RESOLVED (2026-09-08, session 28, Increment 4).** Flipped to `sandbox: true` after confirming `preload/index.ts` uses no raw Node APIs and empirically re-launching the packaged build to confirm the renderer still bootstraps correctly under sandbox mode — see Section 2's Key Decisions Log for the exact verification method. A baseline CSP was also added for the packaged/production load path in the same pass.
 - [ ] Phase 11: **The live GUI has still never been visually confirmed as interactive/rendering correctly in this sandbox** — the exact same standing limitation carried since Phase 0 ("no interactive desktop session here"), now also blocking a live click-through of the new "Verify audit trail" button and the payroll CSV export button specifically. Needs the user's own machine.
+- [ ] New initiative, not phase-numbered: **Offline-app licensing/piracy protection, scoped but 100% unbuilt — see the full 2026-09-08 (session 29) entry at the TOP of Section 4 before doing anything here.** Short version: the current machine-binding is per-installation/local-only with no central server, so a copied license file activates cleanly on a fresh install with no detection, and license validity is only ever checked when creating a brand-new company (never for continued use of an already-set-up copy) — confirmed by reading the actual code, not assumed. The user's proposed fix (internet required once at install, offline after) is sound and was assessed pro/con. The user's own web app (`github.com/Sunprem06/MHTSdigiXR-Web-Accounting-App`, React+Vite+Express+Postgres/Drizzle, self-hosted) was investigated in real detail as a possible licensing-portal backend — it's a solid, already-running internal accounting tool for the agency's own business with production-grade auth/RBAC/audit/SMTP already built, but has ZERO existing concept of "ERP customers" or "licenses" — that part would be a genuinely new module reusing the existing foundation, not a flip-a-switch integration. Explicitly deferred to a new chat session at the user's request.
 
 ---
 
@@ -343,6 +344,159 @@ Next concrete step:
 ```
 
 ### Entries:
+```
+Date: 2026-09-08 (session 29 — NOT yet built, this is a scoping/discussion
+  handoff for whichever session picks this up next)
+Phase: Not phase-numbered — a NEW, cross-repository initiative (offline-app
+  licensing/piracy protection), surfaced by the user asking a business
+  question, not part of the Phase 0-11 desktop-app roadmap. Nothing in this
+  entry has been built. Read this whole entry before writing any code — the
+  user explicitly asked for this so a fresh chat does not need new commands
+  re-explained.
+What was completed (discussion + real investigation, zero code changes):
+  - **The licensing gap, precisely diagnosed by reading the actual code**
+    (not guessed): `packages/core-licensing/src/license.ts` +
+    `apps/desktop-shell/src/main/licenseHandlers.ts`. Two real findings:
+    (1) machine-binding (`verifyAndBind`'s `license_activation` table) is
+    PER-INSTALLATION/local-only, with no central server anywhere (deliberate
+    — this app is offline-first, no phone-home) — so a customer who copies
+    just the small `license.lic` file to a *different, fresh* install
+    activates it there with zero rejection and zero notification to the
+    vendor; the "already activated on a different machine" check only fires
+    if the exact same `system.db` (with its existing binding row) is copied
+    wholesale onto a new machine. (2) License/trial validity is ONLY checked
+    inside `createCompany` (confirmed by reading `handlers.ts:149-164`) — no
+    other operation (login, invoicing, payroll, printing, reports) ever
+    checks license status again. So even whole-folder cloning to a second
+    machine (pen drive/email/zip — the user's exact scenario) still leaves
+    every EXISTING company fully usable on the clone; only creating one MORE
+    brand-new company would be blocked. This second point is the more
+    important one: an online-registration fix alone does not close the
+    "clone my own already-activated copy to a second shop" gap — that needs
+    license validity to matter for CONTINUED use too, which is a bigger,
+    separate decision (reintroduces occasional online dependency even for
+    day-to-day offline use).
+  - **The user's proposed fix**: require internet once at install/first
+    registration (connects to a company-run portal), then the app runs
+    fully offline. Assessed as a sound, standard pattern (matches how
+    respected offline desktop software in this exact market already works)
+    — pros: closes the "no central authority at all" gap, gives real
+    visibility (who activated where), keeps daily offline operation intact;
+    cons: requires building AND indefinitely operating a real backend
+    service (a genuinely new ongoing commitment — this project has had zero
+    backend through Phase 11), needs a manual/offline fallback for
+    no-signal install days, hardware-fingerprint changes will need a
+    self-service "transfer license" flow or it generates support tickets,
+    and by itself does NOT close the whole-folder-cloning gap above
+    (needs occasional re-validation for that, a separate trade-off against
+    the offline-first promise). Three integration shapes were distinguished
+    (do not conflate them going forward): (1) licensing/activation portal
+    only — small; (2) full two-way accounting/CRM data sync between the
+    desktop app and a web app — large, and a genuine architectural pivot
+    away from "your data never leaves your machine," needs a deliberate
+    separate decision, not a quiet add-on; (3) one-way PUSH only (desktop
+    app optionally pushes to a web app for things it can't do offline, e.g.
+    emailing an invoice or adding a contact to a mailing list) — small,
+    safe, fully optional, no sync-conflict problem. Recommendation given:
+    start with (1), reusing the SAME backend as the licensing portal; treat
+    (3) as a nice-later; treat (2) as its own future decision, not this one.
+  - **Investigated the ACTUAL existing web app** the user proposed reusing
+    as the portal: `github.com/Sunprem06/MHTSdigiXR-Web-Accounting-App`,
+    live at `mhtsdigixr.com` (marketing site) +
+    `mhtsdigixr.com/accounting/*` (the actual app, behind login). Read the
+    real code via the browser (GitHub file view + raw.githubusercontent.com
+    for `shared/schema.ts` in full — the repo's own README only documents
+    the marketing-site half and is stale/incomplete for the accounting
+    part, so do NOT rely on the README alone next time either). Confirmed
+    stack: React 18 + TypeScript + Vite + Wouter + Tailwind/shadcn
+    (frontend), Express 5 + TypeScript (backend), PostgreSQL via Drizzle
+    ORM (database), self-hosted on their own nginx/Ubuntu server (not a
+    locked-down managed platform) — confirmed live via response headers
+    (`x-powered-by: Express`, `server: nginx/1.18.0`) and real REST traffic
+    (`/api/auth/me` correctly 401s when logged out). **Important correction
+    to the user's own description**: this is NOT a customer-facing SaaS
+    CRM/mail/social product — it is MHTSdigiXR's own INTERNAL back-office
+    tool for running their digital agency business (billing THEIR OWN web-
+    dev/SEO/branding clients), with a real double-entry accounting core
+    (`ledgerAccounts`/`vouchers`/`voucherEntries`/`financialYears`, GST-
+    aware), `parties` (their clients, not MHTS ERP shop customers),
+    `products` (their agency's own service catalog — web dev, SEO, SMM,
+    branding, hosting), `quotations` (a real draft→submitted→sent→accepted/
+    rejected/expired→converted pipeline — the closest thing to "CRM" that
+    actually exists), and a genuinely solid foundation already built and
+    running in production: 9-role RBAC with a granular `ALL_PERMISSIONS`
+    list (`shared/schema.ts`), full employee auth incl. forced/self-service
+    password reset, and `auditLogs`. `smtpSettings` (a real SMTP config
+    table) confirms outbound email already works — likely just password-
+    reset/contact-form mail today, not a marketing/campaign tool. "Social
+    media" is only static profile-link fields on `companySettings`
+    (linkedin/twitter/instagram/facebook URLs shown in the footer) — NOT a
+    live posting/automation integration; set the user's expectations
+    accordingly if this comes up again. There is currently ZERO concept of
+    "ERP customers," "shops," or "licenses" anywhere in this schema — it
+    would be a genuinely NEW module, not a flip-a-switch reuse.
+  - **The actual simplification this unlocks for the licensing-portal
+    idea**: do not build a licensing backend from scratch. Add a new
+    module onto this ALREADY-RUNNING app instead, reusing its existing
+    production auth/RBAC/audit/email foundation:
+      - A new Drizzle table, e.g. `erpLicenses` (licenseId, machine
+        binding fields, status, optionally `partyId` FK into the existing
+        `parties` table if a shop is also tracked as a customer/party of
+        the agency, `createdBy`/timestamps matching the existing
+        convention every other table here uses).
+      - New `/api/erp-licenses/...` endpoints in `server/routes.ts` —
+        note the DESKTOP APP is a machine, not a human with a browser
+        session, so activation/verify calls need their own auth scheme
+        (an API key or signed-request pattern, NOT the employee
+        username/password+CAPTCHA login flow that page uses today).
+      - A new permission group (mirroring the existing
+        `PERMISSION_GROUPS` pattern in `shared/schema.ts`) so this slots
+        into the 9-role system already there rather than inventing new
+        access control.
+      - A new employee-facing page (e.g. `ERPLicenses.tsx` alongside the
+        existing `client/src/pages/accounting/*` pages) to view/search/
+        revoke activations, reusing `smtpSettings` to notify staff or the
+        customer on new activations if wanted.
+      - This is real, scoped, buildable work — not large — precisely
+        because the auth/RBAC/audit/email skeleton already exists and is
+        already proven in production by the agency's own daily use.
+  - The user confirmed nothing here goes into `CLAUDE.md` (that file is
+    for standing architectural rules, not session discussions/decisions in
+    progress) — this Phase Tracker entry is the intended continuity
+    mechanism instead, per this file's own "How to Resume in a New Chat"
+    purpose (Section 1).
+What's still pending in this phase: everything — this is 100% unbuilt.
+  Nothing has been implemented on either the desktop-app side (no new
+  activation-check code) or the web-app side (no new schema/endpoints/
+  pages in the Web-Accounting-App repo). This entry is scoping only.
+Any decisions made (also add to Section 2): none formally logged to
+  Section 2 yet — this whole thread is pre-decision, intentionally left
+  here in Section 4/3 as an unstarted initiative rather than promoted to a
+  Key Decision, since no actual build choice has been confirmed yet (e.g.
+  exact activation-request auth scheme, whether continued-use re-validation
+  is wanted despite its offline-first trade-off, whether `erpLicenses`
+  links to `parties` or stays standalone).
+Any blockers (also add to Section 3): none technical — this is purely
+  waiting on the user's go-ahead to actually scope and start building, in
+  a NEW chat session (explicitly requested, to keep this already-long
+  Phase 11 session from growing further).
+Next concrete step: in the new chat, read this entry in full, then work
+  with the user to firm up: (1) the exact activation-request auth scheme
+  between the desktop app and the web app's new `/api/erp-licenses`
+  endpoints; (2) whether any continued-use re-validation is wanted (closes
+  the whole-folder-cloning gap but costs some offline-first purity — needs
+  the user's explicit call, not an assumed default); (3) the `erpLicenses`
+  schema shape and whether it links to the existing `parties` table; (4)
+  build BOTH sides — the new module in
+  `github.com/Sunprem06/MHTSdigiXR-Web-Accounting-App` and the
+  corresponding activation-flow changes in this repo's
+  `packages/core-licensing`/`apps/desktop-shell/src/main/licenseHandlers.ts`.
+  This is licensing/business-logic-adjacent — follow this file's own
+  financial/business-logic confirmation rule (propose a plan, get explicit
+  sign-off) before writing code on either side, same discipline Phase 11's
+  own Increment 3 already used for a similar situation.
+```
+
 ```
 Date: 2026-09-08 (session 28)
 Phase: 11 (UAT, Security & Compliance Sign-off), Increment 2 — CA pack
