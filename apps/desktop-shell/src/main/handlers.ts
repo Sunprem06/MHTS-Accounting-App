@@ -250,7 +250,7 @@ export async function createCompany(
   };
 }
 
-export async function login(systemDb: Kysely<SystemDatabase>, input: LoginInput): Promise<LoginResult> {
+export async function login(systemDb: Kysely<SystemDatabase>, paths: AppPaths, input: LoginInput): Promise<LoginResult> {
   const company = await systemDb
     .selectFrom('company')
     .selectAll()
@@ -259,6 +259,19 @@ export async function login(systemDb: Kysely<SystemDatabase>, input: LoginInput)
     .executeTakeFirst();
   if (!company) {
     throw new Error('Company not found');
+  }
+
+  // Closes the gap the online-activation initiative exists for: a whole-folder clone of
+  // this install left every EXISTING company usable forever, undetected (only NEW company
+  // creation was ever gated). A portal-registered activation that's gone dark past its
+  // grace period blocks login here too — not just createCompany — while a genuinely
+  // offline customer who reconnects even occasionally never notices. Demo companies stay
+  // exempt, same as every other license check in this codebase.
+  if (!company.is_demo) {
+    const licenseStatus = await checkLicenseStatus(systemDb, paths);
+    if (licenseStatus.graceExpired) {
+      throw new Error(licenseStatus.reason ?? 'This installation needs to reconnect to the internet to verify its license before continuing.');
+    }
   }
 
   const user = await systemDb
