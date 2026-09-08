@@ -9,6 +9,7 @@ import { writeAuditLog } from '@mhts/core-audit';
 import { resolveApplicability } from './applicability';
 import { computeAttendanceSummary } from './attendance';
 import { computeEsi } from './esi';
+import { wasEsiApplicableEarlierInContributionPeriod } from './esiContributionPeriod';
 import { getPayrollLedgerIds } from './ledgers';
 import { computePf } from './pf';
 import { computePt } from './pt';
@@ -134,7 +135,11 @@ export async function processPayrollRun(companyDb: Kysely<CompanyDatabase>, syst
     }
 
     if (applicability.esiApplies) {
-      const esi = computeEsi(grossEarnings, esiRule);
+      // ESI's wage-ceiling gate is an entry gate, not a monthly re-test: an employee already
+      // covered earlier in this same Apr-Sep/Oct-Mar contribution period stays covered
+      // (uncapped) through the rest of it, even if a mid-period raise crosses the ceiling.
+      const forceApplicable = await wasEsiApplicableEarlierInContributionPeriod(companyDb, employee.id, run.period_year, run.period_month);
+      const esi = computeEsi(grossEarnings, esiRule, { forceApplicable });
       if (esi.applicable && esi.employeeContribution > 0) {
         totalDeductions += esi.employeeContribution;
         lines.push({ lineType: 'DEDUCTION', label: 'ESI (employee)', componentId: null, amount: esi.employeeContribution });

@@ -1,5 +1,5 @@
 import { join } from 'node:path';
-import { app, BrowserWindow, ipcMain } from 'electron';
+import { app, BrowserWindow, ipcMain, session as electronSession } from 'electron';
 import { seedDefaultTdsRates } from '@mhts/core-sales-purchase';
 import { seedDefaultGstRates } from '@mhts/core-gst-engine';
 import { seedDefaultPayrollRules } from '@mhts/core-payroll-engine';
@@ -579,6 +579,32 @@ async function bootstrap(): Promise<void> {
   }
 }
 
+/**
+ * Defense-in-depth only — this app never loads remote content (the renderer
+ * is always either a local file or, in dev, electron-vite's own local dev
+ * server), so there is no untrusted origin in scope today. Skipped entirely
+ * in dev mode: electron-vite's HMR client needs inline/eval'd scripts and a
+ * websocket connection a strict CSP would break, and it's a local, trusted,
+ * dev-only server rather than remote content. Matches the "no external
+ * resources" discipline apps/print-templates' wrapHtmlDocument already
+ * follows for its own generated HTML.
+ */
+function configureContentSecurityPolicy(): void {
+  if (process.env.ELECTRON_RENDERER_URL) {
+    return;
+  }
+  electronSession.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+    callback({
+      responseHeaders: {
+        ...details.responseHeaders,
+        'Content-Security-Policy': [
+          "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
+        ],
+      },
+    });
+  });
+}
+
 function createWindow(): BrowserWindow {
   const window = new BrowserWindow({
     width: 1200,
@@ -587,7 +613,7 @@ function createWindow(): BrowserWindow {
       preload: join(__dirname, '../preload/index.js'),
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: false,
+      sandbox: true,
     },
   });
 
@@ -601,6 +627,7 @@ function createWindow(): BrowserWindow {
 }
 
 app.whenReady().then(() => {
+  configureContentSecurityPolicy();
   bootstrap().catch((error) => {
     console.error('Failed to start MHTS ERP shell:', error);
     app.quit();

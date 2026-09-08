@@ -96,7 +96,9 @@ export { computePf } from './pf';
 export type { PfComputationResult } from './pf';
 
 export { computeEsi } from './esi';
-export type { EsiComputationResult } from './esi';
+export type { EsiComputationResult, ComputeEsiOptions } from './esi';
+export { contributionPeriodBounds, wasEsiApplicableEarlierInContributionPeriod } from './esiContributionPeriod';
+export type { ContributionPeriodBounds } from './esiContributionPeriod';
 
 export { computePt } from './pt';
 

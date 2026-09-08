@@ -57,6 +57,23 @@ describe('core-payroll-engine: computeEsi (all-or-nothing gate, not cap-and-cont
     const result = computeEsi(ESI_RULE.wageCeiling, ESI_RULE);
     expect(result.applicable).toBe(true);
   });
+
+  it('forceApplicable keeps an employee covered above the ceiling — contribution-period continuity', () => {
+    const result = computeEsi(25_000_00, ESI_RULE, { forceApplicable: true }); // above Rs 21,000 ceiling
+    expect(result.applicable).toBe(true);
+    expect(result.employeeContribution).toBe(Math.round((25_000_00 * 0.75) / 100));
+  });
+
+  it('forceApplicable computes on the FULL actual gross, not capped at the ceiling (unlike PF)', () => {
+    const result = computeEsi(50_000_00, ESI_RULE, { forceApplicable: true });
+    expect(result.employeeContribution).toBe(Math.round((50_000_00 * 0.75) / 100));
+    expect(result.employeeContribution).not.toBe(Math.round((ESI_RULE.wageCeiling * 0.75) / 100));
+  });
+
+  it('forceApplicable: false (or omitted) leaves the ordinary ceiling gate untouched', () => {
+    expect(computeEsi(25_000_00, ESI_RULE, { forceApplicable: false }).applicable).toBe(false);
+    expect(computeEsi(25_000_00, ESI_RULE).applicable).toBe(false);
+  });
 });
 
 describe('core-payroll-engine: computePt', () => {
@@ -115,6 +132,29 @@ describe('core-payroll-engine: computeAnnualTaxNewRegime (Section 192, new regim
     const expectedCess = Math.round((expectedTax * 4) / 100);
     expect(computeAnnualTaxNewRegime(gross, TDS_RULE)).toBe(expectedTax + expectedCess);
     expect(netTaxable).toBeGreaterThan(TDS_RULE.rebateThreshold);
+  });
+
+  it('Section 87A marginal relief caps tax at the excess over the rebate threshold for income just above it', () => {
+    // Rs 12,00,500 net taxable (Rs 500 over the Rs 12,00,000 threshold) - Rs 75,000 SD already
+    // baked into the gross figure below. Without marginal relief this would owe the FULL
+    // progressive-slab tax on all of it (~Rs 60,075 + cess); relief caps it at just the Rs 500
+    // excess (plus cess on that), so a Rs 500 raise can never cost more than Rs 500 in tax.
+    const netTaxable = TDS_RULE.rebateThreshold + 50_000; // Rs 500 over, in paise
+    const gross = netTaxable + TDS_RULE.standardDeduction;
+    const excessOverThreshold = 50_000;
+    const expectedTax = excessOverThreshold; // relief binds: full slab tax would be far larger
+    const expectedCess = Math.round((expectedTax * 4) / 100);
+    expect(computeAnnualTaxNewRegime(gross, TDS_RULE)).toBe(expectedTax + expectedCess);
+  });
+
+  it('Section 87A marginal relief naturally phases out once slab tax already exceeds the excess (matches ordinary slab tax, no regression for higher incomes)', () => {
+    // Same Rs 20,00,000 gross as the full worked example above: excess-over-threshold
+    // (~Rs 7,25,000) is already far larger than the ordinary slab tax (~Rs 1,85,000), so the
+    // min() in the relief calculation picks the ordinary slab tax unchanged.
+    const gross = 2_000_000_00;
+    const expectedTax = 20_000_00 + 40_000_00 + 60_000_00 + 65_000_00;
+    const expectedCess = Math.round((expectedTax * 4) / 100);
+    expect(computeAnnualTaxNewRegime(gross, TDS_RULE)).toBe(expectedTax + expectedCess);
   });
 
   it('computeMonthlyTdsNewRegime spreads the annual tax evenly across the remaining months', () => {

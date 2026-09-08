@@ -18,7 +18,7 @@ export function computeAnnualTaxNewRegime(annualGrossEarnings: number, rule: Tds
   }
 
   const sortedSlabs = [...rule.slabs].sort((a, b) => a.aboveAnnualIncome - b.aboveAnnualIncome);
-  let tax = 0;
+  let slabTax = 0;
   for (let i = 0; i < sortedSlabs.length; i++) {
     const slab = sortedSlabs[i];
     if (netTaxableIncome <= slab.aboveAnnualIncome) {
@@ -26,11 +26,18 @@ export function computeAnnualTaxNewRegime(annualGrossEarnings: number, rule: Tds
     }
     const nextThreshold = sortedSlabs[i + 1]?.aboveAnnualIncome ?? Infinity;
     const taxableInThisSlab = Math.min(netTaxableIncome, nextThreshold) - slab.aboveAnnualIncome;
-    tax += (taxableInThisSlab * slab.ratePercent) / 100;
+    slabTax += (taxableInThisSlab * slab.ratePercent) / 100;
   }
 
-  const cess = (tax * rule.cessPercent) / 100;
-  return Math.round(tax + cess);
+  // Section 87A marginal relief: for income just above the rebate threshold, tax payable is
+  // capped at the amount by which income exceeds the threshold — so a small raise can never
+  // create a tax bill larger than the raise itself. Relief phases out naturally once the
+  // ordinary slab tax drops below the excess (i.e. once the cap stops binding).
+  const excessOverThreshold = netTaxableIncome - rule.rebateThreshold;
+  const taxAfterMarginalRelief = Math.min(slabTax, excessOverThreshold);
+
+  const cess = (taxAfterMarginalRelief * rule.cessPercent) / 100;
+  return Math.round(taxAfterMarginalRelief + cess);
 }
 
 /** Spreads the estimated annual tax evenly across the employee's remaining payroll months in the financial year — a standard "estimate annual liability, deduct evenly" approach, not the more elaborate month-by-month re-projection real payroll software sometimes does. */
