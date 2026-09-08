@@ -1,6 +1,20 @@
 {
   "appName": "MHTS ERP",
   "shortName": "MHTS",
-  "accentColor": "#2563eb",
-  "tagline": "Business Accounting, GST, Inventory & Payroll"
+  "accentColor": "#2A5FDB",
+  "accentColorDark": "#7CA0F5",
+  "tagline": "Business Accounting, GST, Inventory & Payroll",
+  "logoDataUri": null,
+  "quotes": [
+    "Every rupee counted is a rupee earned.",
+    "Small, consistent entries build big, reliable books.",
+    "A business that knows its numbers is a business that grows.",
+    "Good bookkeeping today saves hard questions tomorrow.",
+    "Cash flow is the heartbeat of every business — keep it steady.",
+    "Compliance isn't a burden, it's a habit that protects you.",
+    "The books don't lie — trust them, and they'll guide you well.",
+    "Every invoice raised is a promise kept.",
+    "Discipline in accounts today, freedom in decisions tomorrow.",
+    "Track it, understand it, grow it."
+  ]
 }
