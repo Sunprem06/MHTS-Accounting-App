@@ -29,7 +29,7 @@ import type {
   PrintableVoucherType,
   TemplateLayoutDocument,
 } from '@mhts/print-templates';
-import { session } from './session';
+import { requireSessionWithCompanyDb } from './session';
 import type {
   CompanyLetterheadProfile,
   PayslipPrintListItem,
@@ -42,18 +42,6 @@ import type {
   UpdateCompanyLetterheadProfileInput,
   UploadCompanyLogoInput,
 } from '../shared/ipc';
-
-function requireSessionWithCompanyDb(requiredPermission: string) {
-  const info = session.get();
-  const companyDb = session.getCompanyDb();
-  if (!info || !companyDb) {
-    throw new Error('Not logged in');
-  }
-  if (!info.permissions.includes(requiredPermission)) {
-    throw new Error(`You do not have permission (${requiredPermission}) for this action`);
-  }
-  return { info, companyDb };
-}
 
 const LOGO_MIME_TYPES_BY_EXTENSION: Record<string, string> = {
   '.png': 'image/png',

@@ -1,0 +1,17 @@
+{
+  "name": "test-support",
+  "sourceRoot": "packages/test-support/src",
+  "projectType": "library",
+  "tags": ["type:core"],
+  "targets": {
+    "build": {
+      "executor": "@nx/js:tsc",
+      "outputs": ["{options.outputPath}"],
+      "options": {
+        "outputPath": "dist/packages/test-support",
+        "main": "packages/test-support/src/index.ts",
+        "tsConfig": "packages/test-support/tsconfig.json"
+      }
+    }
+  }
+}

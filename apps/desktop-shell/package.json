@@ -22,6 +22,7 @@
   },
   "devDependencies": {
     "@mhts/core-accounting": "*",
+    "@mhts/core-audit": "*",
     "@mhts/core-banking": "*",
     "@mhts/core-company-profile": "*",
     "@mhts/core-documents": "*",

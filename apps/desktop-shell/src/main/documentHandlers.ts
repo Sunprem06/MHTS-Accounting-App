@@ -8,20 +8,8 @@ import {
   deleteDocument as coreDeleteDocument,
   searchDocuments as coreSearchDocuments,
 } from '@mhts/core-documents';
-import { session } from './session';
+import { requireSessionWithCompanyDb } from './session';
 import type { DocumentSummary, DownloadDocumentResult, SearchDocumentsInput, UploadDocumentInput } from '../shared/ipc';
-
-function requireSessionWithCompanyDb(requiredPermission: string) {
-  const info = session.get();
-  const companyDb = session.getCompanyDb();
-  if (!info || !companyDb) {
-    throw new Error('Not logged in');
-  }
-  if (!info.permissions.includes(requiredPermission)) {
-    throw new Error(`You do not have permission (${requiredPermission}) for this action`);
-  }
-  return { info, companyDb };
-}
 
 const MIME_TYPES_BY_EXTENSION: Record<string, string> = {
   '.pdf': 'application/pdf',

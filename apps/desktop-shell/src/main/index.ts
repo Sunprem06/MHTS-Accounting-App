@@ -166,6 +166,7 @@ import {
   listFixedAssetRateVersions,
 } from './fixedAssetsHandlers';
 import { createBranch, listBranches, updateBranch, recordInterBranchTransfer, getBranchProfitAndLoss, getBranchBalanceSheet } from './branchHandlers';
+import { verifyAuditTrail } from './auditHandlers';
 import {
   setExchangeRate,
   listActiveExchangeRates,
@@ -562,6 +563,8 @@ async function bootstrap(): Promise<void> {
   handle(IPC.QUIT_AND_INSTALL, async () => {
     quitAndInstall();
   });
+
+  handle(IPC.VERIFY_AUDIT_TRAIL, () => verifyAuditTrail());
 
   const window = createWindow();
   initAutoUpdater(window);

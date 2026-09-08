@@ -9,25 +9,13 @@ import {
   postFxRevaluation as corePostFxRevaluation,
   listFxRevaluationRuns as coreListFxRevaluationRuns,
 } from '@mhts/core-multi-currency';
-import { session } from './session';
+import { requireSessionWithCompanyDb } from './session';
 import type { ExchangeRateVersionSummary, FxRevaluationPreviewResult, FxRevaluationRunResult, RunFxRevaluationInput, SetExchangeRateInput } from '../shared/ipc';
 
 const MICROS_PER_UNIT = 1_000_000;
 const PAISE_PER_RUPEE = 100;
 const microsToRate = (micros: number): number => micros / MICROS_PER_UNIT;
 const paiseToRupees = (paise: number): number => paise / PAISE_PER_RUPEE;
-
-function requireSessionWithCompanyDb(requiredPermission: string) {
-  const info = session.get();
-  const companyDb = session.getCompanyDb();
-  if (!info || !companyDb) {
-    throw new Error('Not logged in');
-  }
-  if (!info.permissions.includes(requiredPermission)) {
-    throw new Error(`You do not have permission (${requiredPermission}) for this action`);
-  }
-  return { info, companyDb };
-}
 
 async function financialYearStartMonth(systemDb: Kysely<SystemDatabase>, companyId: string): Promise<number> {
   const company = await systemDb.selectFrom('company').select('financial_year_start_month').where('id', '=', companyId).executeTakeFirstOrThrow();

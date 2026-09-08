@@ -16,7 +16,7 @@ import {
   computeStockPosition as coreComputeStockPosition,
   cancelStockAdjustment as coreCancelStockAdjustment,
 } from '@mhts/core-inventory';
-import { session } from './session';
+import { requireSessionWithCompanyDb } from './session';
 import type {
   CreateItemInput,
   CreateUnitOfMeasureInput,
@@ -39,18 +39,6 @@ const rupeesToPaise = (rupees: number): number => Math.round(rupees * PAISE_PER_
 const paiseToRupees = (paise: number): number => paise / PAISE_PER_RUPEE;
 const unitsToThousandths = (units: number): number => Math.round(units * THOUSANDTHS_PER_UNIT);
 const thousandthsToUnits = (thousandths: number): number => thousandths / THOUSANDTHS_PER_UNIT;
-
-function requireSessionWithCompanyDb(requiredPermission: string) {
-  const info = session.get();
-  const companyDb = session.getCompanyDb();
-  if (!info || !companyDb) {
-    throw new Error('Not logged in');
-  }
-  if (!info.permissions.includes(requiredPermission)) {
-    throw new Error(`You do not have permission (${requiredPermission}) for this action`);
-  }
-  return { info, companyDb };
-}
 
 async function financialYearFor(systemDb: Kysely<SystemDatabase>, companyId: string, date: string): Promise<string> {
   const company = await systemDb.selectFrom('company').select('financial_year_start_month').where('id', '=', companyId).executeTakeFirstOrThrow();

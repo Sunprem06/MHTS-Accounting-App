@@ -18,10 +18,12 @@
     "@nx/eslint": "23.2.0",
     "@nx/eslint-plugin": "23.2.0",
     "@nx/js": "23.2.0",
+    "@nx/vitest": "^23.2.0",
     "@typescript-eslint/eslint-plugin": "^8.0.0",
     "@typescript-eslint/parser": "^8.0.0",
     "eslint": "^9.0.0",
     "nx": "23.2.0",
-    "typescript": "^5.7.0"
+    "typescript": "^5.7.0",
+    "vitest": "^3.2.7"
   }
 }

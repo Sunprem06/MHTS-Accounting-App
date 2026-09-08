@@ -8,7 +8,7 @@ import {
   listManufacturingJournals as coreListManufacturingJournals,
   getManufacturingJournalMovements as coreGetManufacturingJournalMovements,
 } from '@mhts/core-manufacturing';
-import { session } from './session';
+import { requireSessionWithCompanyDb } from './session';
 import type {
   BillOfMaterialSummary,
   CreateBillOfMaterialInput,
@@ -23,18 +23,6 @@ const rupeesToPaise = (rupees: number): number => Math.round(rupees * PAISE_PER_
 const paiseToRupees = (paise: number): number => paise / PAISE_PER_RUPEE;
 const unitsToThousandths = (units: number): number => Math.round(units * THOUSANDTHS_PER_UNIT);
 const thousandthsToUnits = (thousandths: number): number => thousandths / THOUSANDTHS_PER_UNIT;
-
-function requireSessionWithCompanyDb(requiredPermission: string) {
-  const info = session.get();
-  const companyDb = session.getCompanyDb();
-  if (!info || !companyDb) {
-    throw new Error('Not logged in');
-  }
-  if (!info.permissions.includes(requiredPermission)) {
-    throw new Error(`You do not have permission (${requiredPermission}) for this action`);
-  }
-  return { info, companyDb };
-}
 
 export async function createBillOfMaterial(input: CreateBillOfMaterialInput): Promise<string> {
   const { info, companyDb } = requireSessionWithCompanyDb('MANUFACTURING.MANAGE_BOM');

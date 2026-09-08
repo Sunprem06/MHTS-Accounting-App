@@ -9,7 +9,7 @@ import {
   computeBranchBalanceSheet,
   computeFinancialYearLabel,
 } from '@mhts/core-accounting';
-import { session } from './session';
+import { requireSessionWithCompanyDb } from './session';
 import type {
   BranchBalanceSheetResult,
   BranchProfitAndLossRow,
@@ -23,18 +23,6 @@ import type {
 const PAISE_PER_RUPEE = 100;
 const rupeesToPaise = (rupees: number): number => Math.round(rupees * PAISE_PER_RUPEE);
 const paiseToRupees = (paise: number): number => paise / PAISE_PER_RUPEE;
-
-function requireSessionWithCompanyDb(requiredPermission: string) {
-  const info = session.get();
-  const companyDb = session.getCompanyDb();
-  if (!info || !companyDb) {
-    throw new Error('Not logged in');
-  }
-  if (!info.permissions.includes(requiredPermission)) {
-    throw new Error(`You do not have permission (${requiredPermission}) for this action`);
-  }
-  return { info, companyDb };
-}
 
 export async function createBranch(input: CreateBranchInput): Promise<string> {
   const { companyDb } = requireSessionWithCompanyDb('ACCOUNTING.MANAGE_BRANCHES');
