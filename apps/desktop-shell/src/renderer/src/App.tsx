@@ -220,6 +220,11 @@ function AppRoutes() {
         error={error}
         onSelectCompany={(company) => setView({ name: 'login', company })}
         onCreateNew={() => setView({ name: 'createCompany' })}
+        onDemoReady={async (demoSession) => {
+          await refreshCompanies();
+          setSession(demoSession);
+          setView({ name: 'dashboard' });
+        }}
       />
     );
   }

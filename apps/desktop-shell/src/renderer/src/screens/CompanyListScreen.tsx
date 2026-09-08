@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { CompanySummary, LicenseStatus } from '../../../shared/ipc';
+import type { CompanySummary, LicenseStatus, SessionInfo, TrialStatus } from '../../../shared/ipc';
 import brandConfig from '../brand.config.json';
 
 interface Props {
@@ -7,11 +7,15 @@ interface Props {
   error: string | null;
   onSelectCompany: (company: CompanySummary) => void;
   onCreateNew: () => void;
+  onDemoReady: (session: SessionInfo) => void;
 }
 
-export function CompanyListScreen({ companies, error, onSelectCompany, onCreateNew }: Props) {
+export function CompanyListScreen({ companies, error, onSelectCompany, onCreateNew, onDemoReady }: Props) {
   const [license, setLicense] = useState<LicenseStatus | null>(null);
+  const [trial, setTrial] = useState<TrialStatus | null>(null);
   const [activating, setActivating] = useState(false);
+  const [creatingDemo, setCreatingDemo] = useState(false);
+  const [demoError, setDemoError] = useState<string | null>(null);
 
   async function refreshLicense() {
     const result = await window.mhts.getLicenseStatus();
@@ -20,8 +24,16 @@ export function CompanyListScreen({ companies, error, onSelectCompany, onCreateN
     }
   }
 
+  async function refreshTrial() {
+    const result = await window.mhts.getTrialStatus();
+    if (result.ok && result.data) {
+      setTrial(result.data);
+    }
+  }
+
   useEffect(() => {
     refreshLicense();
+    refreshTrial();
   }, []);
 
   async function handleActivate() {
@@ -33,10 +45,29 @@ export function CompanyListScreen({ companies, error, onSelectCompany, onCreateN
     }
   }
 
+  async function handleTryDemo() {
+    const existingDemo = companies.find((c) => c.isDemo);
+    if (existingDemo && !window.confirm('This replaces your current demo company (and all its sample data) with a fresh one. Continue?')) {
+      return;
+    }
+    setDemoError(null);
+    setCreatingDemo(true);
+    const result = await window.mhts.createDemoCompany();
+    setCreatingDemo(false);
+    if (result.ok && result.data) {
+      onDemoReady(result.data);
+    } else {
+      setDemoError(result.error ?? 'Failed to create demo company');
+    }
+  }
+
+  const canCreateNew = license === null || license.valid || (trial?.active ?? false);
+
   return (
     <div style={{ padding: 24, fontFamily: 'sans-serif', maxWidth: 480 }}>
       <h1>{brandConfig.appName}</h1>
       {error && <p style={{ color: 'var(--danger)' }}>{error}</p>}
+      {demoError && <p style={{ color: 'var(--danger)' }}>{demoError}</p>}
 
       {license && (
         <div style={{ padding: 12, marginBottom: 16, background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: 4, fontSize: 13 }}>
@@ -44,6 +75,10 @@ export function CompanyListScreen({ companies, error, onSelectCompany, onCreateN
             <span>
               Licensed to <strong>{license.payload.issuedTo}</strong> ({license.payload.edition}
               {license.payload.expiresAt ? `, expires ${license.payload.expiresAt}` : ', perpetual'})
+            </span>
+          ) : trial?.active ? (
+            <span>
+              You're on a free trial — <strong>{trial.daysRemaining} day{trial.daysRemaining === 1 ? '' : 's'} left</strong>. You can create companies freely until then; activate a license anytime to continue afterward.
             </span>
           ) : (
             <span>
@@ -70,6 +105,7 @@ export function CompanyListScreen({ companies, error, onSelectCompany, onCreateN
             <li key={company.id} style={{ marginBottom: 8 }}>
               <button style={{ width: '100%', textAlign: 'left', padding: 12 }} onClick={() => onSelectCompany(company)}>
                 <strong>{company.tradeName ?? company.legalName}</strong>
+                {company.isDemo && <span style={{ marginLeft: 8, fontSize: 11, padding: '2px 6px', borderRadius: 3, background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>Demo</span>}
                 <br />
                 <small>{company.legalName} · {company.entityType}</small>
               </button>
@@ -77,9 +113,15 @@ export function CompanyListScreen({ companies, error, onSelectCompany, onCreateN
           ))}
         </ul>
       )}
-      <button onClick={onCreateNew} disabled={license !== null && !license.valid} title={license && !license.valid ? 'Activate a license first' : undefined}>
+      <button onClick={onCreateNew} disabled={!canCreateNew} title={!canCreateNew ? 'Activate a license first' : undefined}>
         + New Company
+      </button>{' '}
+      <button type="button" onClick={handleTryDemo} disabled={creatingDemo}>
+        {creatingDemo ? 'Setting up demo…' : 'Try Demo'}
       </button>
+      <p style={{ fontSize: 12, opacity: 0.7 }}>
+        Try Demo creates a sandbox company pre-loaded with sample data, no license needed — logs you straight in. Clicking it again always resets to a fresh demo.
+      </p>
     </div>
   );
 }

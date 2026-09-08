@@ -10,6 +10,8 @@ export interface CompanySummary {
   tradeName: string | null;
   entityType: string;
   isActive: boolean;
+  /** Phase 10 Increment 3 (Demo Mode) — the single sandbox company a "Try Demo" click creates. */
+  isDemo: boolean;
 }
 
 export type GstRegistrationType = 'REGULAR' | 'COMPOSITION';
@@ -820,6 +822,12 @@ export interface LicenseStatus {
   reason?: string;
   /** Null if perpetual (no expiresAt) or invalid. Can be negative — callers should treat <= 0 as already past its own grace, though checkLicenseStatus already fails `valid` once actually expired. */
   expiresInDays?: number | null;
+}
+
+/** Phase 10 Increment 3 (Demo Mode) — the 14-day, license-free window every install gets from first launch. Independent of LicenseStatus; createCompany's gate allows a company through when EITHER a valid license exists OR this is still active. */
+export interface TrialStatus {
+  active: boolean;
+  daysRemaining: number;
 }
 
 /**
@@ -2270,6 +2278,10 @@ export const IPC = {
   // Phase 10 Increment 1: Installer + Update/Migration Pipeline
   CHECK_FOR_UPDATE: 'update:check',
   QUIT_AND_INSTALL: 'update:quitAndInstall',
+
+  // Phase 10 Increment 3: Demo Mode
+  GET_TRIAL_STATUS: 'trial:getStatus',
+  CREATE_DEMO_COMPANY: 'system:createDemoCompany',
 } as const;
 
 /** Plain `webContents.send`/`ipcRenderer.on` channel name — not an `invoke`-style request/response channel, so it deliberately isn't part of the `IPC` object above (nothing calls `ipcRenderer.invoke` with it). */

@@ -8,6 +8,7 @@ export type {
   RuleSetTable,
   AppPreferenceTable,
   LicenseActivationTable,
+  TrialActivationTable,
 } from './system/types';
 export type {
   CompanyDatabase,

@@ -7,6 +7,7 @@ import * as m005SecurityPolicy from './005_security_policy';
 import * as m006AppPreference from './006_app_preference';
 import * as m007LicenseActivation from './007_license_activation';
 import * as m008GstRegistrationType from './008_gst_registration_type';
+import * as m009DemoAndTrial from './009_demo_and_trial';
 
 export const migrations: Record<string, Migration> = {
   '001_init': m001Init,
@@ -17,4 +18,5 @@ export const migrations: Record<string, Migration> = {
   '006_app_preference': m006AppPreference,
   '007_license_activation': m007LicenseActivation,
   '008_gst_registration_type': m008GstRegistrationType,
+  '009_demo_and_trial': m009DemoAndTrial,
 };

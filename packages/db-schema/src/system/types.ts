@@ -26,6 +26,8 @@ export interface CompanyTable {
   /** Path to this company's own encrypted SQLite file. */
   db_file_path: string;
   is_active: ColumnType<boolean, boolean | number, boolean | number>;
+  /** Phase 10 Increment 3 (Demo Mode) — the single sandbox company a "Try Demo" click creates. At most one exists at a time; the next click always deletes the old one and creates a fresh replacement. Exempt from the license gate and maxCompanies limit. */
+  is_demo: ColumnType<boolean, boolean | number, boolean | number>;
   created_at: ColumnType<string, string | undefined, never>;
   updated_at: ColumnType<string, string | undefined, string>;
 }
@@ -124,6 +126,12 @@ export interface LicenseActivationTable {
   activated_at: ColumnType<string, string | undefined, string>;
 }
 
+export interface TrialActivationTable {
+  /** Singleton row, fixed id 'default'. Written once, at first app bootstrap, and never updated afterward — see desktop-shell's trialHandlers.ts (ensureTrialStarted). */
+  id: string;
+  started_at: ColumnType<string, string | undefined, never>;
+}
+
 export interface SystemDatabase {
   company: CompanyTable;
   app_user: AppUserTable;
@@ -133,4 +141,5 @@ export interface SystemDatabase {
   rule_set: RuleSetTable;
   app_preference: AppPreferenceTable;
   license_activation: LicenseActivationTable;
+  trial_activation: TrialActivationTable;
 }
