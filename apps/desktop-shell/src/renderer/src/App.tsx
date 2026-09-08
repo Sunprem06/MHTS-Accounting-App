@@ -35,6 +35,7 @@ import { CustomerReceiptScreen } from './screens/CustomerReceiptScreen';
 import { SupplierPaymentScreen } from './screens/SupplierPaymentScreen';
 import { ThemeToggle } from './ThemeToggle';
 import { UpdateStatusBanner } from './UpdateStatusBanner';
+import { CopyrightFooter } from './CopyrightFooter';
 import { BackupScreen } from './screens/BackupScreen';
 import { VerifyAuditTrailScreen } from './screens/VerifyAuditTrailScreen';
 import { ManageRolesScreen } from './screens/ManageRolesScreen';
@@ -178,6 +179,7 @@ export function App() {
       <ThemeToggle />
       <UpdateStatusBanner />
       <AppRoutes />
+      <CopyrightFooter />
     </>
   );
 }
