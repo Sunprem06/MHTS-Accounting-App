@@ -6,6 +6,8 @@ import { seedDefaultPayrollRules } from '@mhts/core-payroll-engine';
 import { seedDefaultFixedAssetRules } from '@mhts/core-fixed-assets';
 import { seedDefaultExchangeRates } from '@mhts/core-multi-currency';
 import { resolveAppPaths, openAndMigrateSystemDb } from './db';
+import { ensureTrialStarted, checkTrialStatus } from './trialHandlers';
+import { createDemoCompanyAndLogin } from './demoHandlers';
 import {
   listCompanies,
   createCompany,
@@ -328,9 +330,14 @@ async function bootstrap(): Promise<void> {
   await seedDefaultPayrollRules(systemDb);
   await seedDefaultFixedAssetRules(systemDb);
   await seedDefaultExchangeRates(systemDb);
+  // Phase 10 Increment 3: starts this install's one-time 14-day license-free
+  // trial clock on genuine first-ever launch; idempotent on every later one.
+  await ensureTrialStarted(systemDb);
 
   handle(IPC.LIST_COMPANIES, () => listCompanies(systemDb));
   handleWithArg(IPC.CREATE_COMPANY, (input: CreateCompanyInput) => createCompany(systemDb, paths, input));
+  handle(IPC.GET_TRIAL_STATUS, () => checkTrialStatus(systemDb));
+  handle(IPC.CREATE_DEMO_COMPANY, () => createDemoCompanyAndLogin(systemDb, paths));
   handleWithArg(IPC.LOGIN, (input: LoginInput) => login(systemDb, input));
   handleWithArg(IPC.CHANGE_PASSWORD, (input: ChangePasswordInput) => changePassword(systemDb, input));
   handleWithArg(IPC.RESET_PASSWORD, (input: ResetPasswordInput) => resetPassword(systemDb, input));

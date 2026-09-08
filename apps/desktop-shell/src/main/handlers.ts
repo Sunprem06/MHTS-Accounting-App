@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import type { Kysely, Selectable } from 'kysely';
-import type { CompanyTable, SystemDatabase } from '@mhts/db-schema';
+import type { CompanyDatabase, CompanyTable, SystemDatabase } from '@mhts/db-schema';
 import {
   hashPassword,
   verifyPassword,
@@ -31,6 +31,7 @@ import { grantPrintPermissions, seedDefaultCompanyLetterheadProfile } from '@mht
 import type { AppPaths } from './db';
 import { companyDbFilePath, createAndMigrateCompanyDb, openExistingCompanyDb } from './db';
 import { checkLicenseStatus } from './licenseHandlers';
+import { checkTrialStatus } from './trialHandlers';
 import { session } from './session';
 import { loadSecurityPolicy, assertNotLocked, recordFailedAttempt, clearedLockoutColumns } from './lockout';
 import type {
@@ -54,7 +55,7 @@ const INVALID_CREDENTIALS = 'Invalid email or password';
 const IS_ACTIVE = 1 as unknown as boolean; // better-sqlite3 only binds numbers/strings/bigints/buffers/null, not JS booleans.
 
 /** Both a normal login and a post-reset login end up here: open the (already-unwrapped) Company DB, resolve the role/permissions, and start the session. */
-async function establishSession(
+export async function establishSession(
   company: Selectable<CompanyTable>,
   userId: string,
   userName: string,
@@ -87,7 +88,7 @@ async function establishSession(
 export async function listCompanies(systemDb: Kysely<SystemDatabase>): Promise<CompanySummary[]> {
   const rows = await systemDb
     .selectFrom('company')
-    .select(['id', 'legal_name', 'trade_name', 'entity_type', 'is_active'])
+    .select(['id', 'legal_name', 'trade_name', 'entity_type', 'is_active', 'is_demo'])
     .orderBy('legal_name')
     .execute();
   return rows.map((row) => ({
@@ -96,38 +97,18 @@ export async function listCompanies(systemDb: Kysely<SystemDatabase>): Promise<C
     tradeName: row.trade_name,
     entityType: row.entity_type,
     isActive: Boolean(row.is_active),
+    isDemo: Boolean(row.is_demo),
   }));
 }
 
 /**
- * Soft license gate (Blueprint §2, Phase 0): only company creation is
- * blocked without a valid, activated license — an already-open company keeps
- * working regardless, so a lapsed/missing license can never lock a customer
- * out of their own existing data (only stops NEW company creation until
- * re-activated). See Phase Tracker Key Decisions Log for why "soft" was
- * chosen over refusing to start the app at all.
+ * The full permission-grant + ledger-seeding chain every new company DB needs,
+ * regardless of whether it's a real company (`createCompany`) or the sandbox
+ * demo company (`demoHandlers.ts`'s `createDemoCompanyAndLogin`) — identical
+ * either way, so this is the one place it's written. Returns the new admin
+ * role's id.
  */
-export async function createCompany(
-  systemDb: Kysely<SystemDatabase>,
-  paths: AppPaths,
-  input: CreateCompanyInput,
-): Promise<CreateCompanyResult> {
-  const licenseStatus = await checkLicenseStatus(systemDb, paths);
-  if (!licenseStatus.valid) {
-    throw new Error(`A valid license is required to create a company. ${licenseStatus.reason ?? ''} Activate one from the Company List screen.`);
-  }
-  if (licenseStatus.payload?.maxCompanies !== null && licenseStatus.payload?.maxCompanies !== undefined) {
-    const existingCount = await systemDb.selectFrom('company').select(({ fn }) => fn.countAll<number>().as('count')).executeTakeFirstOrThrow();
-    if (Number(existingCount.count) >= licenseStatus.payload.maxCompanies) {
-      throw new Error(`This license allows at most ${licenseStatus.payload.maxCompanies} companies. Upgrade the license to create more.`);
-    }
-  }
-
-  const companyId = randomUUID();
-  const filePath = companyDbFilePath(paths, companyId);
-  const dek = generateDataKey();
-
-  const companyDb = await createAndMigrateCompanyDb(filePath, dek);
+export async function seedNewCompanyData(companyDb: Kysely<CompanyDatabase>): Promise<string> {
   const adminRoleId = await seedAdminRole(companyDb);
   await grantAccountingPermissions(companyDb, adminRoleId);
   await seedChartOfAccounts(companyDb);
@@ -151,6 +132,43 @@ export async function createCompany(
   await grantManufacturingPermissions(companyDb, adminRoleId);
   await grantPrintPermissions(companyDb, adminRoleId);
   await seedDefaultCompanyLetterheadProfile(companyDb);
+  return adminRoleId;
+}
+
+/**
+ * Soft license gate (Blueprint §2, Phase 0): only company creation is
+ * blocked without a valid, activated license — an already-open company keeps
+ * working regardless, so a lapsed/missing license can never lock a customer
+ * out of their own existing data (only stops NEW company creation until
+ * re-activated). See Phase Tracker Key Decisions Log for why "soft" was
+ * chosen over refusing to start the app at all. Phase 10 Increment 3: a
+ * company can also be created during the install's one-time 14-day
+ * license-free trial, with no company-count limit during that window — the
+ * trial's only enforcement axis is time, not company count.
+ */
+export async function createCompany(
+  systemDb: Kysely<SystemDatabase>,
+  paths: AppPaths,
+  input: CreateCompanyInput,
+): Promise<CreateCompanyResult> {
+  const licenseStatus = await checkLicenseStatus(systemDb, paths);
+  const trialStatus = await checkTrialStatus(systemDb);
+  if (!licenseStatus.valid && !trialStatus.active) {
+    throw new Error(`A valid license is required to create a company (your 14-day trial has ended). ${licenseStatus.reason ?? ''} Activate one from the Company List screen.`);
+  }
+  if (licenseStatus.valid && licenseStatus.payload?.maxCompanies !== null && licenseStatus.payload?.maxCompanies !== undefined) {
+    const existingCount = await systemDb.selectFrom('company').select(({ fn }) => fn.countAll<number>().as('count')).executeTakeFirstOrThrow();
+    if (Number(existingCount.count) >= licenseStatus.payload.maxCompanies) {
+      throw new Error(`This license allows at most ${licenseStatus.payload.maxCompanies} companies. Upgrade the license to create more.`);
+    }
+  }
+
+  const companyId = randomUUID();
+  const filePath = companyDbFilePath(paths, companyId);
+  const dek = generateDataKey();
+
+  const companyDb = await createAndMigrateCompanyDb(filePath, dek);
+  const adminRoleId = await seedNewCompanyData(companyDb);
   await companyDb.destroy();
 
   await systemDb
@@ -166,6 +184,7 @@ export async function createCompany(
       base_currency: input.baseCurrency,
       db_file_path: filePath,
       is_active: 1,
+      is_demo: 0,
     })
     .execute();
 
@@ -225,6 +244,7 @@ export async function createCompany(
       tradeName: input.tradeName || null,
       entityType: input.entityType,
       isActive: true,
+      isDemo: false,
     },
     recoveryKey: formatRecoveryKey(recoveryKey),
   };
