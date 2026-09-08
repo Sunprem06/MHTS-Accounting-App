@@ -163,7 +163,7 @@ export interface Gstr3bData {
   outwardSgst: number;
   outwardIgst: number;
   outwardCess: number;
-  /** Paise. Table 3.1(d): inward supplies liable to reverse charge — WE self-assessed these on our purchases. Must be paid in cash; NOT eligible for set-off against this period's ITC (a real statutory restriction, not modeled as available credit here). */
+  /** Paise. Table 3.1(d): inward supplies liable to reverse charge — WE self-assessed these on our purchases. Must be paid in cash; NOT eligible for set-off against this period's ITC. This is enforced below: computeItcTotals() excludes is_reverse_charge lines from the eligible/ineligible ITC totals, so this credit never reaches netPayable's set-off. It is reported here purely as an informational figure — claiming it as a separate input-tax credit in a later period (once the cash liability is actually paid) is a step this app does not model or track. */
   rcmInwardTaxableValue: number;
   rcmInwardCgst: number;
   rcmInwardSgst: number;
@@ -246,6 +246,17 @@ async function computeRcmInwardTotals(companyDb: Kysely<CompanyDatabase>, range:
   };
 }
 
+/**
+ * Table 4 ITC totals — deliberately excludes is_reverse_charge lines
+ * regardless of their own itc_eligible flag. RCM-origin credit is a
+ * self-assessed input tax that must first be paid in cash (see
+ * Gstr3bData.rcmInwardCgst's own comment); it is NOT folded into this
+ * period's ordinary purchase-ITC pool that computeGstr3bData() nets against
+ * output liability. Without this filter, a reverse-charge line's itc_eligible
+ * flag (which defaults to true exactly like a normal purchase line — see
+ * buildPurchaseVoucherLines in purchaseInvoices.ts) would silently let RCM
+ * credit into the same-period set-off.
+ */
 async function computeItcTotals(companyDb: Kysely<CompanyDatabase>, range: DateRange, eligible: boolean) {
   const row = await companyDb
     .selectFrom('purchase_invoice_line')
@@ -262,6 +273,7 @@ async function computeItcTotals(companyDb: Kysely<CompanyDatabase>, range: DateR
     .where('purchase_invoice.invoice_date', '<=', range.toDate)
     .where('purchase_invoice_line.hsn_sac_code', 'is not', null)
     .where('purchase_invoice_line.itc_eligible', '=', eligible ? IS_TRUE : IS_FALSE)
+    .where('purchase_invoice_line.is_reverse_charge', '=', IS_FALSE)
     .executeTakeFirst();
   return { cgst: Number(row?.cgst ?? 0), sgst: Number(row?.sgst ?? 0), igst: Number(row?.igst ?? 0), cess: Number(row?.cess ?? 0) };
 }
