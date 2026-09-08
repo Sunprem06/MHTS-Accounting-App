@@ -60,7 +60,7 @@ import {
 } from './salesPurchaseHandlers';
 import { getThemePreference, setThemePreference } from './preferenceHandlers';
 import { backupCompany, restoreCompany } from './backupHandlers';
-import { checkLicenseStatus, activateLicense } from './licenseHandlers';
+import { checkLicenseStatus, activateLicenseOnline, activateLicenseOffline, attemptOnlineCheckin, getMachineId } from './licenseHandlers';
 import { listAllPermissions, listRolesWithPermissions, createRole, updateRolePermissions } from './roleHandlers';
 import {
   createUnitOfMeasure,
@@ -334,12 +334,15 @@ async function bootstrap(): Promise<void> {
   // Phase 10 Increment 3: starts this install's one-time 14-day license-free
   // trial clock on genuine first-ever launch; idempotent on every later one.
   await ensureTrialStarted(systemDb);
+  // Best-effort, fire-and-forget: never blocks window creation, and any
+  // failure (no internet included) is a silent no-op — see licenseHandlers.ts.
+  void attemptOnlineCheckin(systemDb).catch(() => {});
 
   handle(IPC.LIST_COMPANIES, () => listCompanies(systemDb));
   handleWithArg(IPC.CREATE_COMPANY, (input: CreateCompanyInput) => createCompany(systemDb, paths, input));
   handle(IPC.GET_TRIAL_STATUS, () => checkTrialStatus(systemDb));
   handle(IPC.CREATE_DEMO_COMPANY, () => createDemoCompanyAndLogin(systemDb, paths));
-  handleWithArg(IPC.LOGIN, (input: LoginInput) => login(systemDb, input));
+  handleWithArg(IPC.LOGIN, (input: LoginInput) => login(systemDb, paths, input));
   handleWithArg(IPC.CHANGE_PASSWORD, (input: ChangePasswordInput) => changePassword(systemDb, input));
   handleWithArg(IPC.RESET_PASSWORD, (input: ResetPasswordInput) => resetPassword(systemDb, input));
   handleWithArg(IPC.ADMIN_RESET_PASSWORD, (input: AdminResetPasswordInput) => adminResetPassword(systemDb, input));
@@ -395,7 +398,13 @@ async function bootstrap(): Promise<void> {
   handle(IPC.RESTORE_COMPANY, () => restoreCompany(systemDb));
 
   handle(IPC.GET_LICENSE_STATUS, () => checkLicenseStatus(systemDb, paths));
-  handle(IPC.ACTIVATE_LICENSE, () => activateLicense(systemDb, paths));
+  handleWithArg(IPC.ACTIVATE_LICENSE_ONLINE, (activationCode: string) => activateLicenseOnline(systemDb, paths, activationCode));
+  handleWithArg(IPC.ACTIVATE_LICENSE, (activationToken: string) => activateLicenseOffline(systemDb, paths, activationToken));
+  handle(IPC.RECHECK_LICENSE, async () => {
+    await attemptOnlineCheckin(systemDb);
+    return checkLicenseStatus(systemDb, paths);
+  });
+  handle(IPC.GET_MACHINE_ID, async () => getMachineId());
 
   handle(IPC.LIST_ALL_PERMISSIONS, () => listAllPermissions());
   handle(IPC.LIST_ROLES_WITH_PERMISSIONS, () => listRolesWithPermissions());

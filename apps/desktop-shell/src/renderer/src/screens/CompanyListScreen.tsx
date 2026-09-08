@@ -14,6 +14,13 @@ export function CompanyListScreen({ companies, error, onSelectCompany, onCreateN
   const [license, setLicense] = useState<LicenseStatus | null>(null);
   const [trial, setTrial] = useState<TrialStatus | null>(null);
   const [activating, setActivating] = useState(false);
+  const [activateError, setActivateError] = useState<string | null>(null);
+  const [showActivateForm, setShowActivateForm] = useState(false);
+  const [activationCode, setActivationCode] = useState('');
+  const [showOfflineFallback, setShowOfflineFallback] = useState(false);
+  const [offlineToken, setOfflineToken] = useState('');
+  const [machineId, setMachineId] = useState<string | null>(null);
+  const [rechecking, setRechecking] = useState(false);
   const [creatingDemo, setCreatingDemo] = useState(false);
   const [demoError, setDemoError] = useState<string | null>(null);
 
@@ -36,10 +43,57 @@ export function CompanyListScreen({ companies, error, onSelectCompany, onCreateN
     refreshTrial();
   }, []);
 
-  async function handleActivate() {
+  async function handleActivateOnline() {
     setActivating(true);
-    const result = await window.mhts.activateLicense();
+    setActivateError(null);
+    const result = await window.mhts.activateLicenseOnline(activationCode);
     setActivating(false);
+    if (result.ok && result.data) {
+      if (result.data.valid) {
+        setLicense(result.data);
+        setShowActivateForm(false);
+        setActivationCode('');
+      } else {
+        setActivateError(result.data.reason ?? 'Activation failed');
+      }
+    } else {
+      setActivateError(result.error ?? 'Activation failed');
+    }
+  }
+
+  async function handleActivateOffline() {
+    setActivating(true);
+    setActivateError(null);
+    const result = await window.mhts.activateLicense(offlineToken);
+    setActivating(false);
+    if (result.ok && result.data) {
+      if (result.data.valid) {
+        setLicense(result.data);
+        setShowActivateForm(false);
+        setShowOfflineFallback(false);
+        setOfflineToken('');
+      } else {
+        setActivateError(result.data.reason ?? 'Activation failed');
+      }
+    } else {
+      setActivateError(result.error ?? 'Activation failed');
+    }
+  }
+
+  async function handleShowOfflineFallback() {
+    setShowOfflineFallback(true);
+    if (!machineId) {
+      const result = await window.mhts.getMachineId();
+      if (result.ok && result.data) {
+        setMachineId(result.data);
+      }
+    }
+  }
+
+  async function handleRecheck() {
+    setRechecking(true);
+    const result = await window.mhts.recheckLicense();
+    setRechecking(false);
     if (result.ok && result.data) {
       setLicense(result.data);
     }
@@ -76,6 +130,8 @@ export function CompanyListScreen({ companies, error, onSelectCompany, onCreateN
               Licensed to <strong>{license.payload.issuedTo}</strong> ({license.payload.edition}
               {license.payload.expiresAt ? `, expires ${license.payload.expiresAt}` : ', perpetual'})
             </span>
+          ) : license.graceExpired ? (
+            <span>{license.reason}</span>
           ) : trial?.active ? (
             <span>
               You're on a free trial — <strong>{trial.daysRemaining} day{trial.daysRemaining === 1 ? '' : 's'} left</strong>. You can create companies freely until then; activate a license anytime to continue afterward.
@@ -85,14 +141,63 @@ export function CompanyListScreen({ companies, error, onSelectCompany, onCreateN
               No valid license activated{license.reason ? ` — ${license.reason}` : ''}. Existing companies still open normally; a license is only needed to create a new one.
             </span>
           )}{' '}
-          <button type="button" onClick={handleActivate} disabled={activating}>
-            {activating ? 'Activating…' : license.valid ? 'Activate a different license' : 'Activate license'}
+          {license.valid && license.payload && (
+            <button type="button" onClick={handleRecheck} disabled={rechecking}>
+              {rechecking ? 'Checking…' : 'Reconnect now'}
+            </button>
+          )}{' '}
+          <button type="button" onClick={() => setShowActivateForm((v) => !v)} disabled={activating}>
+            {license.valid ? 'Activate a different license' : 'Activate license'}
           </button>
           {license.valid && license.expiresInDays != null && license.expiresInDays <= 30 && (
             <p style={{ color: 'var(--danger)', margin: '8px 0 0' }}>
               {license.expiresInDays <= 0 ? 'This license expires today.' : `This license expires in ${license.expiresInDays} day${license.expiresInDays === 1 ? '' : 's'}.`} Renew soon to
               keep creating new companies without interruption.
             </p>
+          )}
+
+          {showActivateForm && (
+            <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--border)' }}>
+              {!showOfflineFallback ? (
+                <>
+                  <label style={{ display: 'block', marginBottom: 4 }}>Activation code (from your MHTSdigiXR purchase)</label>
+                  <input
+                    type="text"
+                    value={activationCode}
+                    onChange={(e) => setActivationCode(e.target.value)}
+                    placeholder="e.g. Ab3xY..."
+                    style={{ width: '100%', padding: 6, marginBottom: 8 }}
+                  />
+                  <button type="button" onClick={handleActivateOnline} disabled={activating || !activationCode}>
+                    {activating ? 'Activating…' : 'Activate online'}
+                  </button>{' '}
+                  <button type="button" onClick={handleShowOfflineFallback} style={{ fontSize: 12 }}>
+                    No internet? Use an offline activation file
+                  </button>
+                </>
+              ) : (
+                <>
+                  <p style={{ fontSize: 12 }}>
+                    Your machine ID: <code>{machineId ?? '…'}</code> — share this with MHTSdigiXR support to get an offline activation file and matching token.
+                  </p>
+                  <label style={{ display: 'block', marginBottom: 4 }}>Activation token (from support)</label>
+                  <input
+                    type="text"
+                    value={offlineToken}
+                    onChange={(e) => setOfflineToken(e.target.value)}
+                    placeholder="Paste the token support sent you"
+                    style={{ width: '100%', padding: 6, marginBottom: 8 }}
+                  />
+                  <button type="button" onClick={handleActivateOffline} disabled={activating || !offlineToken}>
+                    {activating ? 'Activating…' : 'Choose license file & activate'}
+                  </button>{' '}
+                  <button type="button" onClick={() => setShowOfflineFallback(false)} style={{ fontSize: 12 }}>
+                    Back to online activation
+                  </button>
+                </>
+              )}
+              {activateError && <p style={{ color: 'var(--danger)', margin: '8px 0 0' }}>{activateError}</p>}
+            </div>
           )}
         </div>
       )}

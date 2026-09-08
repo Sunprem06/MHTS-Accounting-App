@@ -191,6 +191,10 @@ Record every architectural or business decision here the moment it's made, so it
 | 2026-09-08 (session 28, continued again) | **`apps/print-templates` got its first-ever test infrastructure** (new `vitest.config.mts`, mirroring every `core-*` package's own config rather than inventing a different pattern) — this `type:app`-tagged package had zero tests through Phase 11 Increment 1, unlike every `core-*` package, simply because Increment 1's own coverage pass didn't scope it in. | 11 |
 | 2026-09-08 (session 28, further continued) | **The `docgen` letterhead module was rebuilt after the user flagged the header didn't match the actual sample letterhead — a real misread on the first pass, not a subjective styling choice.** Re-opened `D:\MHTS\MHTS_Letterhead_updated.docx`'s raw XML and found the "header" in the actual sample is a single large, faint (10% opacity), page-centered WATERMARK image anchored behind the text — not a running logo-and-tagline bar the way the first pass built it. The "MHTSdigiXR / KoodaldigiXS" name-and-tagline block that had been mistaken for header content was actually page-1 BODY text in the sample, confirmed by checking `document.xml`'s own `sectPr` (only one `headerReference`, pointing at the watermark-only `header1.xml`). Rebuilt `buildHeader()` to place a pre-baked low-opacity PNG (`mhts_watermark.png`, alpha channel multiplied by 0.10 via Pillow, since the `docx` npm package's `floating` image API has no direct alpha/transparency option — baking it into the pixel data was the reliable path) as a `behindDocument: true`, page-centered floating image via `docx`'s `HorizontalPositionAlign`/`VerticalPositionAlign`/`TextWrappingType.NONE`. Also rebuilt `buildFooter()` to match the sample's exact 4-line order (brand/confidentiality/page line, address, phone/web/mobile, GSTIN) instead of the collapsed single-line version the first pass used. All six `.docx` deliverables under `docs/phase11-deliverables/` were regenerated and re-copied in. | 11 |
 | 2026-09-08 (session 28, further continued) | **The Launch & Demo Guide was rewritten from "assumes zero prior codebase knowledge" to "assumes zero computer experience at all"** — the user asked for something a 12-year-old could follow. Every terminal command now has a one-sentence plain-language explanation of what it does and why (e.g. "a Terminal is just a plain window where you type commands instead of clicking buttons"), every step is a single atomic action with an explicit "You should see: ..." confirmation line, and a one-page cheat-sheet table closes the document for anyone who just wants the commands with no explanation. | 11 |
+| 2026-09-08 (session 30) | **Online license activation + re-validation is ENFORCED, not detection-only** — confirmed via AskUserQuestion after the user's stated goal ("customer should use our app but not sell it to others") ruled out the two softer options. A portal-registered activation that goes more than 30 days (tunable) with zero successful check-ins now soft-blocks `login()` too, not just `createCompany` — closing session 29's finding #2 (a whole-folder clone left every EXISTING company usable forever). A customer online even once a month never notices. | — |
+| 2026-09-08 (session 30) | **The license-signing private key never touches the internet-facing portal** — confirmed via AskUserQuestion. Staff keep running `scripts/generate-license.mjs` offline exactly as before; the new `/api/erp-licenses/*` endpoints on `MHTSdigiXR-Web-Accounting-App` only store and hand back a pre-signed `license.lic`, and track per-machine activation via a bearer `activationToken` (an activation code proves legitimacy at the one-time activation call; a rotating per-machine token authenticates every later checkin). The offline/no-signal-at-install fallback still exists but now requires a portal-provisioned token paired with the file — closing the "just keep re-using the file picker forever, zero portal involvement" hole, since a fabricated/mismatched token gets rejected the first time that install ever reaches the internet. | — |
+| 2026-09-08 (session 30) | **New `erpLicenses`/`erpLicenseActivations` tables added to the EXISTING `MHTSdigiXR-Web-Accounting-App` repo** (cloned locally to `D:\MHTS-SaaS-Projects\2026\MHTSdigiXR-Web-Accounting-App`, new branch `licensing/erp-license-portal`) rather than building a new licensing backend — reuses that app's already-production auth/RBAC/audit/SMTP foundation (session 29's investigation). `erpLicenses.partyId` is a nullable FK into the existing `parties` table (confirmed via AskUserQuestion) for when an ERP shop customer is also tracked as an agency client. Activation-code/activation-token hashes use the SAME `sha256` `hashToken()` helper that repo's own password-reset-token flow already used — deliberately NOT bcrypt, since these are high-entropy random tokens (fast, indexable lookup is correct here, unlike a low-entropy human password). Desktop side: new migration `010_license_reactivation` adds nullable `activation_token`/`last_validated_at` to the existing local `license_activation` table (no new table needed); new `licensePortalClient.ts` never throws (any failure — no internet included — resolves to the same `reached: false` shape the grace period is built to tolerate). | — |
+| 2026-09-08 (session 30) | **Desktop-shell has zero test infrastructure for its own main-process handlers** (confirmed by searching — no `.test.ts` anywhere under `apps/desktop-shell`, no `vitest`/`test` script in its `package.json`, unlike every `core-*`/`db-schema` package) — so this session verified the new licensing code via `tsc --noEmit` (clean on both `tsconfig.node.json` and `tsconfig.web.json`) and by running `db-schema`'s existing `migrate.test.ts` (which already exercises every migration including the new `010`, and passed). No new test file was added to desktop-shell for this feature — doing so would mean standing up that package's entire test infrastructure from scratch, which is its own pre-existing gap, not something to bolt on silently inside an unrelated feature PR. | — |
 
 ## 3. Open Questions / Blockers
 
@@ -324,7 +328,7 @@ Track anything unresolved so it surfaces automatically in the next session inste
 - [ ] Phase 11: **No actual CA has reviewed or signed off on anything yet** — `/docs/MHTS-ERP_CA_Compliance_Test_Cases.md` is the prepared artifact a CA needs to review, not a completed review. The 16-item sign-off checklist in that document is currently all unchecked.
 - [x] Phase 11: ~~`sandbox: false` on the Electron `BrowserWindow` remains undocumented as a deliberate choice~~ — **RESOLVED (2026-09-08, session 28, Increment 4).** Flipped to `sandbox: true` after confirming `preload/index.ts` uses no raw Node APIs and empirically re-launching the packaged build to confirm the renderer still bootstraps correctly under sandbox mode — see Section 2's Key Decisions Log for the exact verification method. A baseline CSP was also added for the packaged/production load path in the same pass.
 - [ ] Phase 11: **The live GUI has still never been visually confirmed as interactive/rendering correctly in this sandbox** — the exact same standing limitation carried since Phase 0 ("no interactive desktop session here"), now also blocking a live click-through of the new "Verify audit trail" button and the payroll CSV export button specifically. Needs the user's own machine.
-- [ ] New initiative, not phase-numbered: **Offline-app licensing/piracy protection, scoped but 100% unbuilt — see the full 2026-09-08 (session 29) entry at the TOP of Section 4 before doing anything here.** Short version: the current machine-binding is per-installation/local-only with no central server, so a copied license file activates cleanly on a fresh install with no detection, and license validity is only ever checked when creating a brand-new company (never for continued use of an already-set-up copy) — confirmed by reading the actual code, not assumed. The user's proposed fix (internet required once at install, offline after) is sound and was assessed pro/con. The user's own web app (`github.com/Sunprem06/MHTSdigiXR-Web-Accounting-App`, React+Vite+Express+Postgres/Drizzle, self-hosted) was investigated in real detail as a possible licensing-portal backend — it's a solid, already-running internal accounting tool for the agency's own business with production-grade auth/RBAC/audit/SMTP already built, but has ZERO existing concept of "ERP customers" or "licenses" — that part would be a genuinely new module reusing the existing foundation, not a flip-a-switch integration. Explicitly deferred to a new chat session at the user's request.
+- [ ] New initiative, not phase-numbered: **Offline-app licensing/piracy protection — CODE NOW WRITTEN on both sides (session 30, 2026-09-08), but NOT merged, NOT pushed to either remote, and NOT live-tested — see the full session 30 entry at the TOP of Section 4 before doing anything here.** Desktop side: local branch `licensing/online-activation-portal` in this repo. Portal side: a fresh local clone at `D:\MHTS-SaaS-Projects\2026\MHTSdigiXR-Web-Accounting-App`, branch `licensing/erp-license-portal` — that repo is NOT otherwise part of this codebase/working directory, don't assume it's there unless you (re-)verify. Both sides typecheck clean and the desktop migration passed `db-schema`'s real migration test, but neither has been exercised end-to-end (no Postgres instance to actually run the portal against was available in this session, and desktop-shell has zero test infrastructure of its own — see the session 30 Key Decisions Log row). Remaining before this is truly done: (1) get the user's go-ahead to push both branches / open PRs (not done automatically, per the standing "shared systems need explicit confirmation" rule); (2) actually run the portal (needs a real Postgres + `npm run db:push`) and exercise activate/checkin against a real (self-signed test) license file; (3) a live click-through of the new Company List activation UI on the user's own machine; (4) decide who at MHTSdigiXR is authorized to create `erpLicenses` records / hand out activation codes, mirroring the still-open question about who's authorized to run `scripts/generate-license.mjs` at all.
 
 ---
 
@@ -344,6 +348,121 @@ Next concrete step:
 ```
 
 ### Entries:
+```
+Date: 2026-09-08 (session 30)
+Phase: Not phase-numbered — continuing the offline-app licensing/piracy-
+  protection initiative session 29 scoped and got explicit sign-off on
+  (via EnterPlanMode/ExitPlanMode) before any code was written.
+What was completed:
+  - Read the full session 29 handoff entry and its matching Section 3 Open
+    Questions bullet, then re-verified the actual current code
+    (`packages/core-licensing/src/license.ts`,
+    `apps/desktop-shell/src/main/licenseHandlers.ts`) directly rather than
+    trusting the prior summary alone.
+  - Firmed up the three open decisions via AskUserQuestion, per session 29's
+    own explicit framing that these needed the user's call, not a default:
+    (1) re-validation is ENFORCED (soft-blocks login after a 30-day
+    check-in-free grace period), not detection-only — the user's stated
+    goal ("customer should use our app but not sell it to others") only
+    the enforced option actually satisfies; (2) the signing private key
+    stays fully offline, the portal never signs anything; (3) the new
+    `erpLicenses` table gets a nullable `partyId` FK into the existing
+    `parties` table. All three logged to the Key Decisions Log above.
+  - Cloned `github.com/Sunprem06/MHTSdigiXR-Web-Accounting-App` locally
+    (it was not previously checked out anywhere in this environment) to
+    `D:\MHTS-SaaS-Projects\2026\MHTSdigiXR-Web-Accounting-App`, new branch
+    `licensing/erp-license-portal`. Verified its real schema/routes/auth
+    conventions by reading the actual files (not relying on session 29's
+    summary alone): serial-int PKs, `timestamp().defaultNow()`,
+    `createdBy → employees.id`, `requireAuth`/`requirePermission`/
+    `requireRole` session-cookie middleware, `bcryptjs` for passwords,
+    and a `hashToken()` = `sha256` helper already used for password-reset
+    tokens — reused that exact helper for the new activation-code/
+    activation-token hashes (deliberately not bcrypt — these are
+    high-entropy random tokens, not low-entropy human passwords, so a
+    fast indexable hash is the correct choice, not a weaker one).
+  - Built the portal side in full: `erpLicenses`/`erpLicenseActivations`
+    Drizzle tables + insert schemas/types, a new `erp_licenses` permission
+    group, `IStorage`/`DatabaseStorage` CRUD methods, public M2M
+    `/api/erp-licenses/activate` + `/checkin` endpoints (rate-limited via
+    the existing `rateLimiter` middleware, no employee session involved —
+    the activation code / activation token ARE the credential), employee-
+    facing `/api/accounting/erp-licenses/*` CRUD (list/get/create/revoke/
+    revoke-one-activation) under the existing permission-gate pattern, and
+    a new `ErpLicenses.tsx` admin page wired into the router/nav. `npm
+    install` + `npm run check` (that repo's own `tsc` script) run:
+    confirmed the repo's baseline was ALREADY not clean before this
+    session's changes (~80 pre-existing errors, e.g. every
+    `parseInt(req.params.id)` call and several unrelated files) — my
+    additions introduce zero NEW errors (verified by grepping the output
+    for "erp"/"ErpLicense": the only two hits are a pre-existing, unrelated
+    `[...new Set(...)]` downlevelIteration error in `Roles.tsx`/`auth.ts`
+    that merely now PRINTS a longer Permission union type because I added
+    two members to it). Committed locally (not pushed).
+  - Built the desktop side in full: new migration `010_license_reactivation`
+    (nullable `activation_token`/`last_validated_at` on the existing
+    `license_activation` table — no new table needed), new
+    `licensePortalClient.ts` (never throws; any failure including "no
+    internet" resolves to the same `reached: false` shape), `licenseHandlers.ts`
+    gained `activateLicenseOnline`, a renamed `activateLicenseOffline`
+    (now requires a paired portal-issued `activationToken`, closing the
+    "keep using the file picker forever with zero portal involvement" gap
+    from session 29's diagnosis), `attemptOnlineCheckin` (fire-and-forget
+    at startup + a manual "Reconnect now" button), and the actual
+    enforcement point: `checkLicenseStatus` now fails with a new
+    `graceExpired` flag once a portal-registered activation goes stale,
+    and `login()` (not just `createCompany`) now gates on that flag —
+    closing session 29's finding #2 (existing companies stayed usable
+    forever on a whole-folder clone). Wired through IPC/preload/renderer
+    (`CompanyListScreen.tsx` gained an activation-code input, the offline
+    fallback's paired-token input with a machine-ID display, and a
+    "Reconnect now" button). Committed locally on a new branch
+    `licensing/online-activation-portal` (branched from `origin/main`, NOT
+    from the still-unmerged `phase11/...` branch, so this stays independent).
+  - Verification actually performed (see Key Decisions Log for why no new
+    test file was added): `tsc --noEmit` clean on both
+    `apps/desktop-shell/tsconfig.node.json` and `tsconfig.web.json` (the
+    only 2 remaining errors are pre-existing/unrelated —
+    `accountingHandlers.ts`/`inventoryHandlers.ts`, a `MANUFACTURING_*`
+    enum-drift issue nothing to do with this change, confirmed via `git
+    diff --stat main` showing those files untouched by me); `tsc --noEmit`
+    clean on `packages/db-schema/tsconfig.json`; ran `db-schema`'s existing
+    `migrate.test.ts` (which already exercises every migration against a
+    real encrypted SQLite file) — all 4 tests pass, including the one that
+    now covers migration 010.
+What's still pending in this phase: nothing has been pushed to either
+  remote and no PR exists on either repo — both are local-only commits,
+  deliberately, pending the user's explicit go-ahead (pushing/opening a PR
+  is a "shared system" action requiring confirmation each time, not
+  something to do automatically after a local implementation pass). The
+  portal itself was never actually RUN in this session (no Postgres
+  instance available) — the activate/checkin flow is unverified against a
+  real running server, only typechecked. No live click-through of the new
+  desktop activation UI (same standing "no interactive GUI verification in
+  this sandbox" limitation carried since Phase 0). Who at MHTSdigiXR is
+  authorized to create `erpLicenses` records / issue activation codes is
+  still an open question, same shape as the still-open "who's authorized
+  to run scripts/generate-license.mjs" question from Phase 10.
+Any decisions made (also add to Section 2): all three logged above in the
+  Key Decisions Log (2026-09-08, session 30 rows) — re-validation strategy
+  (enforced + grace period), key custody (offline-only), and the
+  `erpLicenses.partyId` schema linkage.
+Any blockers (also add to Section 3): none technical for continuing the
+  build; the actual blocker is the same one flagged above — needs the
+  user's explicit go-ahead before pushing/opening PRs on either repo, and
+  a real Postgres instance (or the user's own machine) to actually run and
+  click-test the portal end-to-end.
+Next concrete step: confirm with the user whether to (1) push both
+  branches and open PRs (this repo's `licensing/online-activation-portal`
+  and the portal repo's `licensing/erp-license-portal`) now, or continue
+  refining first; (2) get a real Postgres instance stood up (locally or on
+  the user's existing self-hosted server) to actually exercise
+  `npm run db:push` + the activate/checkin endpoints against a real
+  signed test license file, rather than relying on typecheck alone; (3)
+  decide the activation-code issuance process/authorization question
+  above before this goes anywhere near a real paying customer.
+```
+
 ```
 Date: 2026-09-08 (session 29 — NOT yet built, this is a scoping/discussion
   handoff for whichever session picks this up next)

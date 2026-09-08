@@ -124,6 +124,10 @@ export interface LicenseActivationTable {
   license_id: string;
   machine_id: string;
   activated_at: ColumnType<string, string | undefined, string>;
+  /** Bearer secret from the portal's /activate response — only set when this activation went through the portal. Sent on every /checkin call. */
+  activation_token: string | null;
+  /** Last successful portal checkin (or activation itself). Null/stale beyond the grace period makes checkLicenseStatus report invalid — see migration 010. */
+  last_validated_at: string | null;
 }
 
 export interface TrialActivationTable {

@@ -822,6 +822,14 @@ export interface LicenseStatus {
   reason?: string;
   /** Null if perpetual (no expiresAt) or invalid. Can be negative — callers should treat <= 0 as already past its own grace, though checkLicenseStatus already fails `valid` once actually expired. */
   expiresInDays?: number | null;
+  /**
+   * True only when `valid: false` is specifically because this portal-registered
+   * activation hasn't checked in within its grace period — distinct from "no
+   * license/trial ever activated". `login()` gates on this specific flag (not on
+   * `reason` text) so a whole-folder clone eventually stops working for EXISTING
+   * companies too, without newly regressing trial-only or never-activated installs.
+   */
+  graceExpired?: boolean;
 }
 
 /** Phase 10 Increment 3 (Demo Mode) — the 14-day, license-free window every install gets from first launch. Independent of LicenseStatus; createCompany's gate allows a company through when EITHER a valid license exists OR this is still active. */
@@ -2109,7 +2117,10 @@ export const IPC = {
   BACKUP_COMPANY: 'backup:createBackup',
   RESTORE_COMPANY: 'backup:restore',
   GET_LICENSE_STATUS: 'license:getStatus',
+  ACTIVATE_LICENSE_ONLINE: 'license:activateOnline',
   ACTIVATE_LICENSE: 'license:activate',
+  RECHECK_LICENSE: 'license:recheck',
+  GET_MACHINE_ID: 'license:getMachineId',
   LIST_ALL_PERMISSIONS: 'roles:listAllPermissions',
   LIST_ROLES_WITH_PERMISSIONS: 'roles:listWithPermissions',
   CREATE_ROLE: 'roles:create',
