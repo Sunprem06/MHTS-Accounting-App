@@ -18,7 +18,7 @@ Then paste the latest entry from the **Session Handoff Log** (Section 4 of this 
 
 | # | Phase | Scope | Status | Owner | Notes |
 |---|---|---|---|---|---|
-| 0 | Foundation | Shell, DB, auth, RBAC, audit trail, backup framework, theme, license/white-label plumbing | 🟨 In progress | | Electron+React shell (real packaged app relaunch-verified, not just build-verified) with a real IPC boundary; multi-company creation, per-company login credentials, offline account lockout, offline Super Admin password reset, recovery-key-based recovery, and an invite-a-new-user flow, all verified end-to-end against real encrypted files. Backup/restore (raw encrypted file export + a verify-and-rollback restore), a theme engine (light/dark + white-label brand.config.json), and Ed25519-signed offline licensing with local machine-binding (soft-gated: only new company creation is blocked without one) are now built and verified too. Still open: a real manual click-through of the GUI on a normal dev machine — this sandboxed environment has no interactive desktop session, so every session including this one has only verified via real handler calls against real encrypted files, never an actual mouse click. Session 31 (2026-09-09) redesigned the post-login Dashboard screen (KPI row + card-style nav, on the same theme engine as the session-30 Company List redesign) as a pilot, then — same session, after the user merged the Dashboard PR — extended the same treatment to all 7 screens in the Sales module (new invoice, new order, both registers, customer receipt, receivables, customers & suppliers), then — same session again, after that PR also merged — to all 7 screens in the Purchase module (new invoice, new order, both registers, supplier payment, payables, MSME ageing), reusing the Sales module's CSS classes as-is. ~74 screens across every other module (Inventory, Accounting Core reports, GST, Banking, Payroll, Fixed Assets, Branches, Manufacturing, Print, System) are still plain unstyled forms/tables. |
+| 0 | Foundation | Shell, DB, auth, RBAC, audit trail, backup framework, theme, license/white-label plumbing | 🟨 In progress | | Electron+React shell (real packaged app relaunch-verified, not just build-verified) with a real IPC boundary; multi-company creation, per-company login credentials, offline account lockout, offline Super Admin password reset, recovery-key-based recovery, and an invite-a-new-user flow, all verified end-to-end against real encrypted files. Backup/restore (raw encrypted file export + a verify-and-rollback restore), a theme engine (light/dark + white-label brand.config.json), and Ed25519-signed offline licensing with local machine-binding (soft-gated: only new company creation is blocked without one) are now built and verified too. Still open: a real manual click-through of the GUI on a normal dev machine — this sandboxed environment has no interactive desktop session, so every session including this one has only verified via real handler calls against real encrypted files, never an actual mouse click. Session 31 (2026-09-09) redesigned the post-login Dashboard screen (KPI row + card-style nav, on the same theme engine as the session-30 Company List redesign) as a pilot, then — same session, after the user merged the Dashboard PR — extended the same treatment to all 7 screens in the Sales module (new invoice, new order, both registers, customer receipt, receivables, customers & suppliers), then — same session again, after that PR also merged — to all 7 screens in the Purchase module (new invoice, new order, both registers, supplier payment, payables, MSME ageing), reusing the Sales module's CSS classes as-is, then — same session a fourth time, after that PR also merged — to all 9 Accounting Core screens (Chart of Accounts, Trial Balance, Balance Sheet, Profit & Loss, Voucher Register, and the four voucher forms: Journal/Payment/Receipt/Contra), again with zero new CSS classes needed. ~65 screens across every other module (Inventory, GST, Banking, Payroll, Fixed Assets, Branches, Manufacturing, Print, System) are still plain unstyled forms/tables. |
 | 1 | Accounting Core | Chart of accounts, ledgers, vouchers, double-entry, TB/P&L/BS | ✅ Done | | Every item in the Blueprint's Phase 1 line is built, verified end-to-end, and has a real working UI: Chart of Accounts, ledgers, double-entry vouchers (unbalanced/malformed entries impossible — the exit criterion is a real tested code path), Trial Balance, Profit & Loss, and Balance Sheet (Assets = Liabilities + Equity proven to balance, incl. a Current Earnings roll-up). The two items previously deferred beyond the Blueprint's literal scope are now also done: voucher cancellation (via an auto-generated reversal voucher, not a destructive edit, with a new Voucher Register screen to find and cancel one) and dedicated Payment/Receipt/Contra voucher forms (auto-balancing, alongside the generic Journal form). Still open, not oversights (see Open Questions): opening-balance netting across ledgers. |
 | 2 | Sales + Purchase | Customers, suppliers, invoices, receivables/payables, vendor TDS, 43B(h) flag | ✅ Done | | Customer/supplier master (unified `business_party`, own dedicated ledger under the existing Sundry Debtors/Creditors groups); Sales/Purchase Invoices AND Orders (order→invoice conversion), all posting through the unchanged Phase 1 double-entry engine; vendor TDS (194C/194J/194Q/194I) with threshold-aware deduction, rate resolved from a new versioned rule_set mechanism (never hardcoded); Section 43B(h) MSME due-date stamping + an ageing report. Bill-wise (invoice-level) payment allocation added in a follow-up session: Customer Receipt/Supplier Payment screens link a Receipt/Payment voucher to the specific invoice(s) it settles, so MSME ageing is now exact (not FIFO-estimated) for any invoice paid through them — the generic Payment/Receipt screens still work unchanged for anything not tied to an invoice. Verified end-to-end against real encrypted files. Deferred, tracked in Open Questions: TDS Form 26Q/16A generation, a rate-editing admin UI, 194Q's buyer-turnover eligibility gate. |
 | 3 | Inventory | Items, units, warehouses, batches, valuation | ✅ Done | | Item/Unit/Warehouse/Batch master data; an append-only `stock_movement` ledger with FIFO-layer or weighted-average costing (`core-inventory`); Sales/Purchase invoices wired so a stockable item line moves stock and (on a sale) posts a self-balancing Cost-of-Goods-Sold voucher-line pair on the SAME atomic voucher; Stock Adjustment/Transfer/Opening Stock, Stock Summary, Stock Movement Register, and a Stock Valuation vs Ledger reconciliation view demonstrating the Blueprint's literal exit criterion. Verified end-to-end via real handler calls against a real encrypted company DB (FIFO multi-layer consumption, rounding-remainder absorption, weighted-average costing, batch isolation, insufficient-stock rollback, GL postings, and the invoice/order integration all independently checked). Deliberately deferred, tracked in Open Questions: full stock-aware invoice cancellation (a hard guard blocks it instead), alternate-UOM conversion, auto-batch-selection on issue. |
@@ -355,6 +355,72 @@ Next concrete step:
 ```
 
 ### Entries:
+```
+Date: 2026-09-09 (session 31, continued — Accounting Core)
+Phase: Not phase-numbered — UI redesign initiative, continuing straight
+  on from the Purchase-module entry below (same session, fourth leg).
+  The user merged the Purchase module PR (#35) and replied "PR merged
+  next," then, when asked which module (no strong default this round —
+  see the prior entry's "next concrete step"), picked Accounting Core.
+What was completed: pulled local main up to date with #35 first.
+  Redesigned all 9 Accounting Core screens: ChartOfAccountsScreen,
+  TrialBalanceScreen, BalanceSheetScreen, ProfitAndLossScreen,
+  VoucherRegisterScreen, and the four voucher entry forms
+  (JournalVoucherScreen, PaymentVoucherScreen, ReceiptVoucherScreen,
+  ContraVoucherScreen) — 1525 lines total, the largest single batch of
+  the four rounds so far. Reused the existing styles.css classes with
+  zero additions, including for two layout shapes not seen in Sales/
+  Purchase: Balance Sheet's side-by-side Assets | Liabilities+Equity
+  two-column layout (plain flexbox of two `.card`s, no new class) and
+  the report screens' From/To-date-plus-Run-button toolbar (`.field-
+  row` with a `.btn-primary` button inline, no new class). Two small
+  presentation upgrades verified in the live preview: P&L's Net
+  Profit/Loss line is now a tinted `.badge` (success/warning) instead
+  of plain green/crimson text, and Voucher Register's three-way status
+  (Active/Cancelled/Reversal, derived from `reversesVoucherId` and
+  `cancelledAt`) now uses the same badge convention as the Sales/
+  Purchase order-status badges (success/warning/muted) instead of
+  plain text. Confirmed PaymentInstrumentFields (the shared cheque/UTR
+  sub-component embedded in Payment/Receipt/Contra when the ledger is
+  a bank account) renders correctly inside the new `.card` wrapper
+  without modification — checked live by switching Payment voucher's
+  "Paid from" to a bank ledger in the preview and confirming the
+  "Record cheque / UTR details" sub-panel appears styled correctly.
+  Zero functional changes otherwise: every window.mhts call, every
+  permission check, the debit/credit auto-balancing math, and Voucher
+  Register's stock-aware cancel routing (SALES_INVOICE/
+  PURCHASE_INVOICE/STOCK_ADJUSTMENT route to their own cancel handlers
+  instead of the generic one) are unchanged. Verified: clean `tsc
+  --noEmit`, clean full `electron-vite build`, and a live rendered
+  walkthrough of all 9 screens (mocked window.mhts + tab switcher,
+  same technique as the prior three rounds) in both light and dark
+  theme, including running the Balance Sheet and P&L reports against
+  mock data and confirming the totals rendered correctly formatted.
+  Scratch preview files/servers deleted/killed afterwards, verified
+  via `git status --short` before committing.
+What's still pending in this phase: ~65 screens across every other
+  module (Inventory, GST, Banking, Payroll, Fixed Assets, Branches,
+  Manufacturing, Print, System) are still on the old unstyled
+  baseline. Committed to a new branch (ui/accounting-core-redesign, 1
+  commit) but NOT pushed and no PR opened as of this entry — same
+  ask-before-pushing norm as the prior three rounds.
+Any decisions made (also add to Section 2): none new — this round
+  continued validating that the styles.css utility-class set from the
+  Sales-module round (session 31, first leg) generalizes across very
+  different screen shapes (side-by-side report columns, a
+  balancing-math voucher-line table, a toolbar-plus-report layout)
+  without needing extension. Four modules in and the CSS surface has
+  not grown since the original Sales-module commit.
+Any blockers (also add to Section 3): none technical. Same open
+  business/product decision as always at this point in the loop: which
+  module next, and whether to push/PR this one now.
+Next concrete step: ask the user which module comes next (remaining
+  candidates: Inventory, GST, Banking, Payroll, Fixed Assets, Branches,
+  Manufacturing, Print, System — no obvious mirror-of-Sales shortcut
+  remains among them), and confirm push/PR timing before starting more
+  work.
+```
+
 ```
 Date: 2026-09-09 (session 31, continued — Purchase module)
 Phase: Not phase-numbered — UI redesign initiative, continuing straight

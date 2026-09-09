@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { ArrowLeft, TrendingUp } from 'lucide-react';
 import type { ProfitAndLossResult } from '../../../shared/ipc';
 
 interface Props {
@@ -32,66 +33,88 @@ export function ProfitAndLossScreen({ onBack }: Props) {
   }
 
   return (
-    <div style={{ padding: 24, fontFamily: 'sans-serif', maxWidth: 640 }}>
-      <h1>Profit &amp; Loss</h1>
-      <p>
-        <label>
-          From <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
-        </label>{' '}
-        <label>
-          To <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} />
-        </label>{' '}
-        <button type="button" onClick={refresh} disabled={loading}>
-          {loading ? 'Loading…' : 'Run'}
+    <div className="page" style={{ maxWidth: 800 }}>
+      <div className="page-header">
+        <button type="button" className="back-link" onClick={onBack}>
+          <ArrowLeft size={16} /> Back
         </button>
-      </p>
-      {error && <p style={{ color: 'crimson' }}>{error}</p>}
+        <h1>
+          <TrendingUp size={18} style={{ color: 'var(--accent)' }} /> Profit &amp; Loss
+        </h1>
+      </div>
+
+      <div className="card">
+        <div className="field-row" style={{ alignItems: 'flex-end' }}>
+          <label className="field" style={{ maxWidth: 200 }}>
+            From
+            <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
+          </label>
+          <label className="field" style={{ maxWidth: 200 }}>
+            To
+            <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} />
+          </label>
+          <button type="button" className="btn-primary" onClick={refresh} disabled={loading} style={{ marginBottom: 12 }}>
+            {loading ? 'Loading…' : 'Run'}
+          </button>
+        </div>
+      </div>
+
+      {error && <p className="error-text">{error}</p>}
+
       {pnl && (
         <>
-          <h2>Income</h2>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <tbody>
-              {pnl.incomeRows.map((row) => (
-                <tr key={row.ledgerId}>
-                  <td>{row.ledgerName}</td>
-                  <td>{row.groupName}</td>
-                  <td style={{ textAlign: 'right' }}>₹{row.amount.toFixed(2)}</td>
+          <div className="card">
+            <h2>Income</h2>
+            <table className="data-table">
+              <tbody>
+                {pnl.incomeRows.map((row) => (
+                  <tr key={row.ledgerId}>
+                    <td>{row.ledgerName}</td>
+                    <td>{row.groupName}</td>
+                    <td className="num">₹{row.amount.toFixed(2)}</td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr>
+                  <td colSpan={2}>Total Income</td>
+                  <td className="num">₹{pnl.totalIncome.toFixed(2)}</td>
                 </tr>
-              ))}
-              <tr style={{ fontWeight: 'bold', borderTop: '1px solid #333' }}>
-                <td colSpan={2}>Total Income</td>
-                <td style={{ textAlign: 'right' }}>₹{pnl.totalIncome.toFixed(2)}</td>
-              </tr>
-            </tbody>
-          </table>
+              </tfoot>
+            </table>
+          </div>
 
-          <h2>Expenses</h2>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <tbody>
-              {pnl.expenseRows.map((row) => (
-                <tr key={row.ledgerId}>
-                  <td>{row.ledgerName}</td>
-                  <td>{row.groupName}</td>
-                  <td style={{ textAlign: 'right' }}>₹{row.amount.toFixed(2)}</td>
+          <div className="card">
+            <h2>Expenses</h2>
+            <table className="data-table">
+              <tbody>
+                {pnl.expenseRows.map((row) => (
+                  <tr key={row.ledgerId}>
+                    <td>{row.ledgerName}</td>
+                    <td>{row.groupName}</td>
+                    <td className="num">₹{row.amount.toFixed(2)}</td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr>
+                  <td colSpan={2}>Total Expenses</td>
+                  <td className="num">₹{pnl.totalExpense.toFixed(2)}</td>
                 </tr>
-              ))}
-              <tr style={{ fontWeight: 'bold', borderTop: '1px solid #333' }}>
-                <td colSpan={2}>Total Expenses</td>
-                <td style={{ textAlign: 'right' }}>₹{pnl.totalExpense.toFixed(2)}</td>
-              </tr>
-            </tbody>
-          </table>
+              </tfoot>
+            </table>
+          </div>
 
-          <h2 style={{ color: pnl.netProfit >= 0 ? 'green' : 'crimson' }}>
-            {pnl.netProfit >= 0 ? 'Net Profit' : 'Net Loss'}: ₹{Math.abs(pnl.netProfit).toFixed(2)}
-          </h2>
+          <div className="card" style={{ textAlign: 'center' }}>
+            <span
+              className={`badge ${pnl.netProfit >= 0 ? 'badge-success' : 'badge-warning'}`}
+              style={{ fontSize: 15, padding: '6px 16px' }}
+            >
+              {pnl.netProfit >= 0 ? 'Net Profit' : 'Net Loss'}: ₹{Math.abs(pnl.netProfit).toFixed(2)}
+            </span>
+          </div>
         </>
       )}
-      <p>
-        <button type="button" onClick={onBack}>
-          Back to dashboard
-        </button>
-      </p>
     </div>
   );
 }
