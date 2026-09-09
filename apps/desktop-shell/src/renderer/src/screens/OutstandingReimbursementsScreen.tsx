@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { ArrowLeft, Wallet } from 'lucide-react';
 import type { OutstandingReimbursementRow } from '../../../shared/ipc';
 
 interface Props {
@@ -23,50 +24,58 @@ export function OutstandingReimbursementsScreen({ onBack }: Props) {
   const total = rows?.reduce((sum, row) => sum + row.outstandingAmount, 0) ?? 0;
 
   return (
-    <div style={{ padding: 24, fontFamily: 'sans-serif', maxWidth: 720 }}>
-      <h1>Outstanding reimbursements</h1>
-      {error && <p style={{ color: 'crimson' }}>{error}</p>}
-      {rows === null ? (
-        <p>Loading…</p>
-      ) : rows.length === 0 ? (
-        <p>No outstanding reimbursements.</p>
-      ) : (
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-          <thead>
-            <tr>
-              <th style={{ textAlign: 'left' }}>Employee</th>
-              <th style={{ textAlign: 'left' }}>Claim date</th>
-              <th style={{ textAlign: 'right' }}>Claim total (₹)</th>
-              <th style={{ textAlign: 'right' }}>Settled (₹)</th>
-              <th style={{ textAlign: 'right' }}>Outstanding (₹)</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row) => (
-              <tr key={row.expenseClaimId}>
-                <td>{row.employeeName}</td>
-                <td>{row.claimDate}</td>
-                <td style={{ textAlign: 'right' }}>{row.netAmount.toFixed(2)}</td>
-                <td style={{ textAlign: 'right' }}>{row.settledAmount.toFixed(2)}</td>
-                <td style={{ textAlign: 'right' }}>{row.outstandingAmount.toFixed(2)}</td>
-              </tr>
-            ))}
-          </tbody>
-          <tfoot>
-            <tr>
-              <td style={{ fontWeight: 'bold' }} colSpan={4}>
-                Total
-              </td>
-              <td style={{ textAlign: 'right', fontWeight: 'bold' }}>{total.toFixed(2)}</td>
-            </tr>
-          </tfoot>
-        </table>
-      )}
-      <p>
-        <button type="button" onClick={onBack}>
-          Back to dashboard
+    <div className="page" style={{ maxWidth: 780 }}>
+      <div className="page-header">
+        <button type="button" className="back-link" onClick={onBack}>
+          <ArrowLeft size={16} /> Back
         </button>
-      </p>
+        <h1>
+          <Wallet size={18} style={{ color: 'var(--accent)' }} /> Outstanding reimbursements
+        </h1>
+      </div>
+
+      {error && <p className="error-text">{error}</p>}
+
+      <div className="card" style={{ overflowX: 'auto' }}>
+        {rows === null ? (
+          <p className="empty-state">Loading…</p>
+        ) : rows.length === 0 ? (
+          <p className="empty-state">No outstanding reimbursements.</p>
+        ) : (
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Employee</th>
+                <th>Claim date</th>
+                <th className="num">Claim total (₹)</th>
+                <th className="num">Settled (₹)</th>
+                <th className="num">Outstanding (₹)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row) => (
+                <tr key={row.expenseClaimId}>
+                  <td>{row.employeeName}</td>
+                  <td>{row.claimDate}</td>
+                  <td className="num">{row.netAmount.toFixed(2)}</td>
+                  <td className="num">{row.settledAmount.toFixed(2)}</td>
+                  <td className="num">{row.outstandingAmount.toFixed(2)}</td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr>
+                <td colSpan={4} style={{ fontWeight: 600 }}>
+                  Total
+                </td>
+                <td className="num" style={{ fontWeight: 600 }}>
+                  {total.toFixed(2)}
+                </td>
+              </tr>
+            </tfoot>
+          </table>
+        )}
+      </div>
     </div>
   );
 }
