@@ -64,6 +64,16 @@ linux:
 nsis:
   oneClick: false
   allowToChangeInstallationDirectory: true
+  # perMachine (not the default perUser) — the per-user NSIS code path has a
+  # confirmed electron-builder bug (github.com/electron-userland/electron-
+  # builder/issues/8536) that crashes immediately inside NSIS's own bundled
+  # System.dll plugin (0xc0000005) on some Windows 11 builds, before the
+  # installer even gets to installing anything. Reproduced for real on a
+  # real machine while testing this build. perMachine avoids that code path
+  # entirely; the trade-off is one UAC/admin prompt at install time instead
+  # of none. oneClick stays false, so the install-folder-choice wizard is
+  # otherwise unchanged.
+  perMachine: true
 # Publishing to GitHub Releases is what lets electron-updater auto-discover
 # new versions at runtime (electron-builder emits app-update.yml into the
 # package when this is configured) — actually running `npm run release`
