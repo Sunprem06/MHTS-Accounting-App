@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { ArrowLeft, Shield } from 'lucide-react';
 import type { PermissionSummary, RoleWithPermissionsSummary } from '../../../shared/ipc';
 
 interface Props {
@@ -29,15 +30,17 @@ function PermissionChecklist({
 }) {
   const groups = groupByModule(permissions);
   return (
-    <div>
+    <div style={{ maxHeight: 260, overflowY: 'auto', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', padding: 10 }}>
       {Array.from(groups.entries()).map(([module, perms]) => (
-        <div key={module} style={{ marginBottom: 8 }}>
-          <strong>{module}</strong>
+        <div key={module} style={{ marginBottom: 10 }}>
+          <strong style={{ fontSize: 13 }}>{module}</strong>
           <div>
             {perms.map((permission) => (
-              <label key={permission.code} style={{ display: 'block', fontSize: 13 }}>
-                <input type="checkbox" checked={selected.has(permission.code)} disabled={disabled} onChange={(e) => onChange(permission.code, e.target.checked)} />{' '}
-                {permission.code} — {permission.description}
+              <label key={permission.code} style={{ display: 'flex', alignItems: 'flex-start', gap: 6, fontSize: 13, padding: '2px 0' }}>
+                <input type="checkbox" checked={selected.has(permission.code)} disabled={disabled} onChange={(e) => onChange(permission.code, e.target.checked)} />
+                <span>
+                  {permission.code} — {permission.description}
+                </span>
               </label>
             ))}
           </div>
@@ -111,19 +114,32 @@ export function ManageRolesScreen({ onBack }: Props) {
   }
 
   return (
-    <div style={{ padding: 24, fontFamily: 'sans-serif', maxWidth: 720 }}>
-      <h1>Manage roles</h1>
-      {error && <p style={{ color: 'var(--danger)' }}>{error}</p>}
+    <div className="page" style={{ maxWidth: 780 }}>
+      <div className="page-header">
+        <button type="button" className="back-link" onClick={onBack}>
+          <ArrowLeft size={16} /> Back
+        </button>
+        <h1>
+          <Shield size={18} style={{ color: 'var(--accent)' }} /> Manage roles
+        </h1>
+      </div>
+
+      {error && <p className="error-text">{error}</p>}
 
       {roles === null ? (
-        <p>Loading…</p>
+        <div className="card">
+          <p className="empty-state">Loading…</p>
+        </div>
       ) : (
-        <div style={{ marginBottom: 24 }}>
-          {roles.map((role) => (
-            <div key={role.id} style={{ padding: 12, marginBottom: 8, background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: 4 }}>
-              <strong>{role.name}</strong> {role.isSystemRole && <em>(built-in, not editable)</em>}
-              {editingRoleId === role.id ? (
-                <>
+        roles.map((role) => (
+          <div key={role.id} className="card">
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <strong>{role.name}</strong>
+              {role.isSystemRole && <span className="badge badge-muted">Built-in, not editable</span>}
+            </div>
+            {editingRoleId === role.id ? (
+              <>
+                <div style={{ marginTop: 10 }}>
                   <PermissionChecklist
                     permissions={permissions}
                     selected={editingPermissions}
@@ -136,58 +152,54 @@ export function ManageRolesScreen({ onBack }: Props) {
                       })
                     }
                   />
-                  <button type="button" onClick={handleSaveEdit} disabled={saving}>
+                </div>
+                <div className="form-actions">
+                  <button type="button" className="btn-primary" onClick={handleSaveEdit} disabled={saving}>
                     {saving ? 'Saving…' : 'Save'}
-                  </button>{' '}
+                  </button>
                   <button type="button" onClick={() => setEditingRoleId(null)} disabled={saving}>
                     Cancel
                   </button>
-                </>
-              ) : (
-                <>
-                  <p style={{ fontSize: 13 }}>{role.permissionCodes.length > 0 ? role.permissionCodes.join(', ') : 'No permissions'}</p>
-                  {!role.isSystemRole && (
-                    <button type="button" onClick={() => startEditing(role)}>
-                      Edit permissions
-                    </button>
-                  )}
-                </>
-              )}
-            </div>
-          ))}
-        </div>
+                </div>
+              </>
+            ) : (
+              <>
+                <p style={{ fontSize: 13, color: 'var(--fg-muted)' }}>{role.permissionCodes.length > 0 ? role.permissionCodes.join(', ') : 'No permissions'}</p>
+                {!role.isSystemRole && (
+                  <button type="button" onClick={() => startEditing(role)}>
+                    Edit permissions
+                  </button>
+                )}
+              </>
+            )}
+          </div>
+        ))
       )}
 
-      <form onSubmit={handleCreateRole}>
+      <form onSubmit={handleCreateRole} className="card">
         <h2>New role</h2>
-        <label>
+        <label className="field" style={{ maxWidth: 320 }}>
           Name
           <input value={newRoleName} onChange={(e) => setNewRoleName(e.target.value)} required />
         </label>
-        <div style={{ marginTop: 8 }}>
-          <PermissionChecklist
-            permissions={permissions}
-            selected={newRolePermissions}
-            onChange={(code, checked) =>
-              setNewRolePermissions((prev) => {
-                const next = new Set(prev);
-                if (checked) next.add(code);
-                else next.delete(code);
-                return next;
-              })
-            }
-          />
+        <PermissionChecklist
+          permissions={permissions}
+          selected={newRolePermissions}
+          onChange={(code, checked) =>
+            setNewRolePermissions((prev) => {
+              const next = new Set(prev);
+              if (checked) next.add(code);
+              else next.delete(code);
+              return next;
+            })
+          }
+        />
+        <div className="form-actions">
+          <button type="submit" className="btn-primary" disabled={creating}>
+            {creating ? 'Creating…' : 'Create role'}
+          </button>
         </div>
-        <button type="submit" disabled={creating}>
-          {creating ? 'Creating…' : 'Create role'}
-        </button>
       </form>
-
-      <p style={{ marginTop: 16 }}>
-        <button type="button" onClick={onBack}>
-          Back to dashboard
-        </button>
-      </p>
     </div>
   );
 }

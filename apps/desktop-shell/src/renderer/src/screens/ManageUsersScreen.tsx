@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { ArrowLeft, Users } from 'lucide-react';
 import type { CompanyUserSummary, RoleSummary, SessionInfo } from '../../../shared/ipc';
 
 interface Props {
@@ -75,85 +76,93 @@ export function ManageUsersScreen({ session, onBack }: Props) {
   }
 
   return (
-    <div style={{ padding: 24, fontFamily: 'sans-serif', maxWidth: 560 }}>
-      <h1>Manage users</h1>
-      {error && <p style={{ color: 'crimson' }}>{error}</p>}
+    <div className="page" style={{ maxWidth: 700 }}>
+      <div className="page-header">
+        <button type="button" className="back-link" onClick={onBack}>
+          <ArrowLeft size={16} /> Back
+        </button>
+        <h1>
+          <Users size={18} style={{ color: 'var(--accent)' }} /> Manage users
+        </h1>
+      </div>
+
+      {error && <p className="error-text">{error}</p>}
+
       {issuedFor && (
-        <div style={{ padding: 16, background: '#f0f0f0', border: '1px solid #ccc', borderRadius: 4, marginBottom: 16 }}>
-          <p>
+        <div className="card" style={{ background: 'var(--warning-soft)', border: '1px solid var(--warning)' }}>
+          <p style={{ marginTop: 0 }}>
             Temporary password for <strong>{issuedFor.email}</strong> — share it with them now, it won't be shown again:
           </p>
-          <pre style={{ fontSize: 16, userSelect: 'all' }}>{issuedFor.temporaryPassword}</pre>
-          <p>They'll be asked to set their own password the moment they sign in with it.</p>
+          <pre style={{ fontSize: 16, userSelect: 'all', margin: '8px 0' }}>{issuedFor.temporaryPassword}</pre>
+          <p style={{ marginBottom: 0, fontSize: 13, color: 'var(--fg-muted)' }}>They'll be asked to set their own password the moment they sign in with it.</p>
         </div>
       )}
-      {users === null ? (
-        <p>Loading…</p>
-      ) : (
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-          <thead>
-            <tr>
-              <th style={{ textAlign: 'left' }}>Name</th>
-              <th style={{ textAlign: 'left' }}>Email</th>
-              <th style={{ textAlign: 'left' }}>Role</th>
-              {canReset && <th />}
-            </tr>
-          </thead>
-          <tbody>
-            {users.map((user) => (
-              <tr key={user.email}>
-                <td>{user.name}</td>
-                <td>{user.email}</td>
-                <td>{user.roleName}</td>
-                {canReset && (
-                  <td>
-                    {user.email.toLowerCase() !== session.email.toLowerCase() && (
-                      <button type="button" disabled={resettingEmail === user.email} onClick={() => handleReset(user.email)}>
-                        {resettingEmail === user.email ? 'Resetting…' : 'Reset password'}
-                      </button>
-                    )}
-                  </td>
-                )}
+
+      <div className="card" style={{ overflowX: 'auto' }}>
+        {users === null ? (
+          <p className="empty-state">Loading…</p>
+        ) : (
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Email</th>
+                <th>Role</th>
+                {canReset && <th />}
               </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
+            </thead>
+            <tbody>
+              {users.map((user) => (
+                <tr key={user.email}>
+                  <td>{user.name}</td>
+                  <td>{user.email}</td>
+                  <td>{user.roleName}</td>
+                  {canReset && (
+                    <td>
+                      {user.email.toLowerCase() !== session.email.toLowerCase() && (
+                        <button type="button" disabled={resettingEmail === user.email} onClick={() => handleReset(user.email)}>
+                          {resettingEmail === user.email ? 'Resetting…' : 'Reset password'}
+                        </button>
+                      )}
+                    </td>
+                  )}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
 
       {canManage && (
-        <form onSubmit={handleInvite} style={{ marginTop: 24 }}>
+        <form onSubmit={handleInvite} className="card">
           <h2>Invite a user</h2>
-          <label>
-            Email
-            <input type="email" value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)} required />
-          </label>{' '}
-          <label>
-            Name (only used if this email is new)
-            <input value={inviteName} onChange={(e) => setInviteName(e.target.value)} />
-          </label>
-          <br />
-          <label>
-            Role
-            <select value={inviteRoleId} onChange={(e) => setInviteRoleId(e.target.value)} required>
-              {roles.map((role) => (
-                <option key={role.id} value={role.id}>
-                  {role.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <br />
-          <button type="submit" disabled={inviting || !inviteRoleId}>
-            {inviting ? 'Inviting…' : 'Invite user'}
-          </button>
+          <div className="field-row">
+            <label className="field">
+              Email
+              <input type="email" value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)} required />
+            </label>
+            <label className="field">
+              Name (only used if this email is new)
+              <input value={inviteName} onChange={(e) => setInviteName(e.target.value)} />
+            </label>
+            <label className="field">
+              Role
+              <select value={inviteRoleId} onChange={(e) => setInviteRoleId(e.target.value)} required>
+                {roles.map((role) => (
+                  <option key={role.id} value={role.id}>
+                    {role.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+          <div className="form-actions">
+            <button type="submit" className="btn-primary" disabled={inviting || !inviteRoleId}>
+              {inviting ? 'Inviting…' : 'Invite user'}
+            </button>
+          </div>
         </form>
       )}
-
-      <p>
-        <button type="button" onClick={onBack}>
-          Back to dashboard
-        </button>
-      </p>
     </div>
   );
 }
