@@ -18,7 +18,7 @@ Then paste the latest entry from the **Session Handoff Log** (Section 4 of this 
 
 | # | Phase | Scope | Status | Owner | Notes |
 |---|---|---|---|---|---|
-| 0 | Foundation | Shell, DB, auth, RBAC, audit trail, backup framework, theme, license/white-label plumbing | 🟨 In progress | | Electron+React shell (real packaged app relaunch-verified, not just build-verified) with a real IPC boundary; multi-company creation, per-company login credentials, offline account lockout, offline Super Admin password reset, recovery-key-based recovery, and an invite-a-new-user flow, all verified end-to-end against real encrypted files. Backup/restore (raw encrypted file export + a verify-and-rollback restore), a theme engine (light/dark + white-label brand.config.json), and Ed25519-signed offline licensing with local machine-binding (soft-gated: only new company creation is blocked without one) are now built and verified too. Still open: a real manual click-through of the GUI on a normal dev machine — this sandboxed environment has no interactive desktop session, so every session including this one has only verified via real handler calls against real encrypted files, never an actual mouse click. |
+| 0 | Foundation | Shell, DB, auth, RBAC, audit trail, backup framework, theme, license/white-label plumbing | 🟨 In progress | | Electron+React shell (real packaged app relaunch-verified, not just build-verified) with a real IPC boundary; multi-company creation, per-company login credentials, offline account lockout, offline Super Admin password reset, recovery-key-based recovery, and an invite-a-new-user flow, all verified end-to-end against real encrypted files. Backup/restore (raw encrypted file export + a verify-and-rollback restore), a theme engine (light/dark + white-label brand.config.json), and Ed25519-signed offline licensing with local machine-binding (soft-gated: only new company creation is blocked without one) are now built and verified too. Still open: a real manual click-through of the GUI on a normal dev machine — this sandboxed environment has no interactive desktop session, so every session including this one has only verified via real handler calls against real encrypted files, never an actual mouse click. Session 31 (2026-09-09) redesigned the post-login Dashboard screen (KPI row + card-style nav, on the same theme engine as the session-30 Company List redesign) as a pilot before rolling the same treatment out to the other ~88 screens, which are all still plain unstyled button lists. |
 | 1 | Accounting Core | Chart of accounts, ledgers, vouchers, double-entry, TB/P&L/BS | ✅ Done | | Every item in the Blueprint's Phase 1 line is built, verified end-to-end, and has a real working UI: Chart of Accounts, ledgers, double-entry vouchers (unbalanced/malformed entries impossible — the exit criterion is a real tested code path), Trial Balance, Profit & Loss, and Balance Sheet (Assets = Liabilities + Equity proven to balance, incl. a Current Earnings roll-up). The two items previously deferred beyond the Blueprint's literal scope are now also done: voucher cancellation (via an auto-generated reversal voucher, not a destructive edit, with a new Voucher Register screen to find and cancel one) and dedicated Payment/Receipt/Contra voucher forms (auto-balancing, alongside the generic Journal form). Still open, not oversights (see Open Questions): opening-balance netting across ledgers. |
 | 2 | Sales + Purchase | Customers, suppliers, invoices, receivables/payables, vendor TDS, 43B(h) flag | ✅ Done | | Customer/supplier master (unified `business_party`, own dedicated ledger under the existing Sundry Debtors/Creditors groups); Sales/Purchase Invoices AND Orders (order→invoice conversion), all posting through the unchanged Phase 1 double-entry engine; vendor TDS (194C/194J/194Q/194I) with threshold-aware deduction, rate resolved from a new versioned rule_set mechanism (never hardcoded); Section 43B(h) MSME due-date stamping + an ageing report. Bill-wise (invoice-level) payment allocation added in a follow-up session: Customer Receipt/Supplier Payment screens link a Receipt/Payment voucher to the specific invoice(s) it settles, so MSME ageing is now exact (not FIFO-estimated) for any invoice paid through them — the generic Payment/Receipt screens still work unchanged for anything not tied to an invoice. Verified end-to-end against real encrypted files. Deferred, tracked in Open Questions: TDS Form 26Q/16A generation, a rate-editing admin UI, 194Q's buyer-turnover eligibility gate. |
 | 3 | Inventory | Items, units, warehouses, batches, valuation | ✅ Done | | Item/Unit/Warehouse/Batch master data; an append-only `stock_movement` ledger with FIFO-layer or weighted-average costing (`core-inventory`); Sales/Purchase invoices wired so a stockable item line moves stock and (on a sale) posts a self-balancing Cost-of-Goods-Sold voucher-line pair on the SAME atomic voucher; Stock Adjustment/Transfer/Opening Stock, Stock Summary, Stock Movement Register, and a Stock Valuation vs Ledger reconciliation view demonstrating the Blueprint's literal exit criterion. Verified end-to-end via real handler calls against a real encrypted company DB (FIFO multi-layer consumption, rounding-remainder absorption, weighted-average costing, batch isolation, insufficient-stock rollback, GL postings, and the invoice/order integration all independently checked). Deliberately deferred, tracked in Open Questions: full stock-aware invoice cancellation (a hard guard blocks it instead), alternate-UOM conversion, auto-batch-selection on issue. |
@@ -355,6 +355,73 @@ Next concrete step:
 ```
 
 ### Entries:
+```
+Date: 2026-09-09 (session 31)
+Phase: Not phase-numbered — UI redesign initiative, pilot. Triggered by
+  the user asking whether the app looks like a marketing mockup
+  (KPI cards, sidebar, charts) they'd been shown; it doesn't. Checked
+  the actual code and confirmed only CompanyListScreen.tsx got the
+  session-30 design-system treatment — DashboardScreen.tsx and every
+  other screen (~88 total) were still plain unstyled <button> lists.
+What was completed: scoped the rollout with the user via
+  AskUserQuestion first (Dashboard-only pilot, not all 88 screens yet;
+  KPI tiles backed by real data, not a styled shell with no numbers),
+  then redesigned apps/desktop-shell/src/renderer/src/screens/
+  DashboardScreen.tsx: a KPI row (Total Sales, Total Purchases,
+  Receivables, Payables, Stock Value) computed client-side from
+  existing IPC calls already exposed to the renderer
+  (listSalesInvoices, listPurchaseInvoices, listReceivables,
+  listPayables, getStockPosition) — no new main-process handler, no
+  new business logic, no mock numbers — plus the existing
+  permission-gated navigation restyled into icon-labeled card
+  sections on the same --bg/--surface/--accent/--radius/--shadow
+  token system session 30 introduced. Every permission check
+  (session.permissions.includes(...)) is copied verbatim from the
+  original file — no access-control behavior changed, only the visual
+  layer. Verified: `tsc --noEmit` on the renderer project (clean) and
+  a full `electron-vite build` (clean). Also got an actual visual look
+  at the result — this sandboxed environment still has no interactive
+  Electron session, but unlike prior sessions, this one found a working
+  path to a real rendered screenshot: a standalone esbuild bundle of
+  DashboardScreen with a mocked window.mhts (fake-but-realistically-
+  shaped data) and a plain Python http.server, opened in the sandbox's
+  own browser tool, in both light and dark mode. (Note for a future
+  session: plain `vite`/`esbuild` invoked with a relative cwd 404'd or
+  failed to resolve the entry in this environment for reasons not
+  fully root-caused — passing absolute forward-slash paths explicitly
+  fixed it both times; try that first rather than re-debugging cwd
+  resolution from scratch.) All scratch preview files/servers were
+  deleted/killed afterwards — nothing preview-related is committed.
+What's still pending in this phase: the other ~88 screens (vouchers,
+  registers, every report, payroll, inventory, etc.) are still on the
+  old unstyled baseline — this session was deliberately scoped as a
+  pilot, not a full rollout. Change committed to a new branch
+  (ui/dashboard-redesign, 1 commit) but NOT pushed and no PR opened —
+  the user hadn't asked for that yet as of this entry; ask before
+  pushing per this repo's git-safety norms, don't assume the earlier
+  scope confirmation covers it.
+Any decisions made (also add to Section 2): KPI tiles compute totals
+  by summing existing IPC report data in the renderer rather than
+  adding a new getDashboardSummary()-style aggregation endpoint in
+  main — avoids any new business logic in the UI layer (rule #1) while
+  still showing real numbers. Deliberately did NOT attempt to filter
+  by financial year (e.g. "this year" totals) since FY boundaries are
+  a business rule computed only in main-process code today
+  (financialYearStartMonth/computeFinancialYearLabel) and duplicating
+  that in the renderer would violate rule #1 — the KPI tiles are
+  all-time totals of non-cancelled records, not FY-scoped, until/unless
+  that FY logic gets its own exposed IPC call.
+Any blockers (also add to Section 3): none technical. Business/product
+  decision needed from the user before continuing: roll the same
+  treatment out to more screens (and if so, which next / what order),
+  or leave the other 88 as-is for now.
+Next concrete step: if the user wants to continue the rollout, revisit
+  the three-way scope question from this session (dashboard-only vs.
+  shared shell vs. full rollout — they picked dashboard-only pilot this
+  time) for the next batch of screens, and decide whether push/PR
+  should happen now for this pilot before starting more work.
+```
+
 ```
 Date: 2026-09-08 (session 30 — SIGNED OFF, closing entry)
 Phase: Not phase-numbered — offline-app licensing/piracy-protection
