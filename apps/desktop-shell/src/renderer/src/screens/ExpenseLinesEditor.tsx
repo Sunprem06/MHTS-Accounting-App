@@ -34,13 +34,13 @@ export function ExpenseLinesEditor({ lines, onChange }: Props) {
   const total = lines.reduce((sum, line) => sum + (Number(line.amountRupees) || 0), 0);
 
   return (
-    <table style={{ width: '100%', marginTop: 16, borderCollapse: 'collapse' }}>
+    <table className="data-table" style={{ marginTop: 16 }}>
       <thead>
         <tr>
-          <th style={{ textAlign: 'left' }}>Expense ledger</th>
-          <th style={{ textAlign: 'left' }}>Description</th>
-          <th style={{ textAlign: 'left' }}>Date</th>
-          <th style={{ textAlign: 'right' }}>Amount (₹)</th>
+          <th>Expense ledger</th>
+          <th>Description</th>
+          <th>Date</th>
+          <th className="num">Amount (₹)</th>
           <th />
         </tr>
       </thead>
@@ -72,7 +72,8 @@ export function ExpenseLinesEditor({ lines, onChange }: Props) {
                 min="0"
                 value={line.amountRupees || ''}
                 onChange={(e) => updateLine(index, { amountRupees: Number(e.target.value) || 0 })}
-                style={{ width: 100, textAlign: 'right' }}
+                className="num"
+                style={{ width: 100 }}
               />
             </td>
             <td>
@@ -94,7 +95,9 @@ export function ExpenseLinesEditor({ lines, onChange }: Props) {
           </td>
           <td />
           <td />
-          <td style={{ textAlign: 'right', fontWeight: 'bold' }}>₹{total.toFixed(2)}</td>
+          <td className="num" style={{ fontWeight: 600 }}>
+            ₹{total.toFixed(2)}
+          </td>
           <td />
         </tr>
       </tfoot>

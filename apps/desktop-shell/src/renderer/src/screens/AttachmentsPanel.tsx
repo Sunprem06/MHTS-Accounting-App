@@ -90,17 +90,17 @@ export function AttachmentsPanel({ session, entityType, entityId }: Props) {
   }
 
   return (
-    <div style={{ border: '1px solid #ddd', padding: 12, marginTop: 12, fontSize: 13 }}>
+    <div className="card" style={{ marginTop: 12, fontSize: 13 }}>
       <strong>Attachments</strong>
-      {error && <p style={{ color: 'crimson' }}>{error}</p>}
+      {error && <p className="error-text">{error}</p>}
       {documents === null ? (
-        <p>Loading…</p>
+        <p className="empty-state">Loading…</p>
       ) : documents.length === 0 ? (
-        <p style={{ color: '#666' }}>No attachments yet.</p>
+        <p className="empty-state">No attachments yet.</p>
       ) : (
-        <ul style={{ paddingLeft: 16 }}>
+        <ul style={{ paddingLeft: 16, margin: '8px 0' }}>
           {documents.map((doc) => (
-            <li key={doc.id}>
+            <li key={doc.id} style={{ padding: '2px 0' }}>
               {doc.fileName} ({formatSize(doc.fileSizeBytes)}){doc.description ? ` — ${doc.description}` : ''}{' '}
               <button type="button" onClick={() => handleDownload(doc.id)}>
                 Download

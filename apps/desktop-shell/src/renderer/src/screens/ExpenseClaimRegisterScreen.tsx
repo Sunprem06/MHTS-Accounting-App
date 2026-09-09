@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useState } from 'react';
-import type { ExpenseClaimSummary, LedgerAccountSummary, PaymentInstrumentInput, SessionInfo } from '../../../shared/ipc';
+import { ArrowLeft, Receipt } from 'lucide-react';
+import type { ExpenseClaimSummary, ExpenseClaimStatus, LedgerAccountSummary, PaymentInstrumentInput, SessionInfo } from '../../../shared/ipc';
 import { PaymentInstrumentFields } from './PaymentInstrumentFields';
 import { AttachmentsPanel } from './AttachmentsPanel';
 
@@ -9,6 +10,18 @@ interface Props {
 }
 
 const BANK_ACCOUNTS_GROUP = 'Bank Accounts';
+
+function statusBadgeClass(status: ExpenseClaimStatus): string {
+  switch (status) {
+    case 'APPROVED':
+    case 'REIMBURSED':
+      return 'badge-success';
+    case 'SUBMITTED':
+      return 'badge-warning';
+    default:
+      return 'badge-muted';
+  }
+}
 
 export function ExpenseClaimRegisterScreen({ session, onBack }: Props) {
   const [claims, setClaims] = useState<ExpenseClaimSummary[] | null>(null);
@@ -153,132 +166,140 @@ export function ExpenseClaimRegisterScreen({ session, onBack }: Props) {
   }
 
   return (
-    <div style={{ padding: 24, fontFamily: 'sans-serif', maxWidth: 960 }}>
-      <h1>Expense claim register</h1>
-      {error && <p style={{ color: 'crimson' }}>{error}</p>}
+    <div className="page" style={{ maxWidth: 1080 }}>
+      <div className="page-header">
+        <button type="button" className="back-link" onClick={onBack}>
+          <ArrowLeft size={16} /> Back
+        </button>
+        <h1>
+          <Receipt size={18} style={{ color: 'var(--accent)' }} /> Expense claim register
+        </h1>
+      </div>
 
-      {claims === null ? (
-        <p>Loading…</p>
-      ) : (
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-          <thead>
-            <tr>
-              <th style={{ textAlign: 'left' }}>No.</th>
-              <th style={{ textAlign: 'left' }}>Employee</th>
-              <th style={{ textAlign: 'left' }}>Date</th>
-              <th style={{ textAlign: 'left' }}>Purpose</th>
-              <th style={{ textAlign: 'right' }}>Amount (₹)</th>
-              <th style={{ textAlign: 'left' }}>Status</th>
-              <th />
-              {canPrint && <th />}
-              <th />
-            </tr>
-          </thead>
-          <tbody>
-            {claims.map((claim) => (
-              <Fragment key={claim.id}>
-                <tr style={{ opacity: busyId === claim.id ? 0.5 : 1 }}>
-                  <td>{claim.claimNumber}</td>
-                  <td>{claim.employeeName}</td>
-                  <td>{claim.claimDate}</td>
-                  <td>{claim.purpose ?? ''}</td>
-                  <td style={{ textAlign: 'right' }}>{claim.totalAmount.toFixed(2)}</td>
-                  <td>
-                    {claim.status}
-                    {claim.status === 'REJECTED' && claim.rejectedReason ? ` (${claim.rejectedReason})` : ''}
-                  </td>
-                  <td>
-                    {canCreate && claim.status === 'DRAFT' && (
-                      <button type="button" disabled={busyId === claim.id} onClick={() => handleSubmit(claim.id)}>
-                        Submit
-                      </button>
-                    )}{' '}
-                    {canApprove && claim.status === 'SUBMITTED' && (
-                      <>
-                        <button type="button" disabled={busyId === claim.id} onClick={() => handleApprove(claim.id)}>
-                          Approve
-                        </button>{' '}
-                        <button type="button" disabled={busyId === claim.id} onClick={() => handleReject(claim.id)}>
-                          Reject
-                        </button>
-                      </>
-                    )}{' '}
-                    {canReimburse && claim.status === 'APPROVED' && (
-                      <button type="button" disabled={busyId === claim.id} onClick={() => openReimburseForm(claim)}>
-                        Reimburse
-                      </button>
-                    )}{' '}
-                    {canApprove && claim.status === 'APPROVED' && (
-                      <button type="button" disabled={busyId === claim.id} onClick={() => handleCancel(claim.id)}>
-                        Cancel
-                      </button>
-                    )}
-                  </td>
-                  {canPrint && (
+      {error && <p className="error-text">{error}</p>}
+
+      <div className="card" style={{ overflowX: 'auto' }}>
+        {claims === null ? (
+          <p className="empty-state">Loading…</p>
+        ) : claims.length === 0 ? (
+          <p className="empty-state">No expense claims yet.</p>
+        ) : (
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>No.</th>
+                <th>Employee</th>
+                <th>Date</th>
+                <th>Purpose</th>
+                <th className="num">Amount (₹)</th>
+                <th>Status</th>
+                <th />
+                {canPrint && <th />}
+                <th />
+              </tr>
+            </thead>
+            <tbody>
+              {claims.map((claim) => (
+                <Fragment key={claim.id}>
+                  <tr style={{ opacity: busyId === claim.id ? 0.5 : 1 }}>
+                    <td>{claim.claimNumber}</td>
+                    <td>{claim.employeeName}</td>
+                    <td>{claim.claimDate}</td>
+                    <td>{claim.purpose ?? ''}</td>
+                    <td className="num">{claim.totalAmount.toFixed(2)}</td>
                     <td>
-                      <button type="button" disabled={printingId === claim.id} onClick={() => handlePrint(claim.id)}>
-                        {printingId === claim.id ? 'Working…' : 'Print'}
-                      </button>{' '}
-                      <button type="button" disabled={printingId === claim.id} onClick={() => handleSavePdf(claim.id)}>
-                        Save PDF
-                      </button>
+                      <span className={`badge ${statusBadgeClass(claim.status)}`}>{claim.status}</span>
+                      {claim.status === 'REJECTED' && claim.rejectedReason ? ` (${claim.rejectedReason})` : ''}
                     </td>
-                  )}
-                  <td>
-                    <button type="button" onClick={() => setExpandedId(expandedId === claim.id ? null : claim.id)}>
-                      {expandedId === claim.id ? 'Hide' : 'Attachments'}
-                    </button>
-                  </td>
-                </tr>
-                {expandedId === claim.id && (
-                  <tr>
-                    <td colSpan={8 + (canPrint ? 1 : 0)}>
-                      <AttachmentsPanel session={session} entityType="ExpenseClaim" entityId={claim.id} />
+                    <td>
+                      {canCreate && claim.status === 'DRAFT' && (
+                        <button type="button" disabled={busyId === claim.id} onClick={() => handleSubmit(claim.id)}>
+                          Submit
+                        </button>
+                      )}{' '}
+                      {canApprove && claim.status === 'SUBMITTED' && (
+                        <>
+                          <button type="button" disabled={busyId === claim.id} onClick={() => handleApprove(claim.id)}>
+                            Approve
+                          </button>{' '}
+                          <button type="button" disabled={busyId === claim.id} onClick={() => handleReject(claim.id)}>
+                            Reject
+                          </button>
+                        </>
+                      )}{' '}
+                      {canReimburse && claim.status === 'APPROVED' && (
+                        <button type="button" disabled={busyId === claim.id} onClick={() => openReimburseForm(claim)}>
+                          Reimburse
+                        </button>
+                      )}{' '}
+                      {canApprove && claim.status === 'APPROVED' && (
+                        <button type="button" disabled={busyId === claim.id} onClick={() => handleCancel(claim.id)}>
+                          Cancel
+                        </button>
+                      )}
+                    </td>
+                    {canPrint && (
+                      <td>
+                        <button type="button" disabled={printingId === claim.id} onClick={() => handlePrint(claim.id)}>
+                          {printingId === claim.id ? 'Working…' : 'Print'}
+                        </button>{' '}
+                        <button type="button" disabled={printingId === claim.id} onClick={() => handleSavePdf(claim.id)}>
+                          Save PDF
+                        </button>
+                      </td>
+                    )}
+                    <td>
+                      <button type="button" onClick={() => setExpandedId(expandedId === claim.id ? null : claim.id)}>
+                        {expandedId === claim.id ? 'Hide' : 'Attachments'}
+                      </button>
                     </td>
                   </tr>
-                )}
-              </Fragment>
-            ))}
-          </tbody>
-        </table>
-      )}
+                  {expandedId === claim.id && (
+                    <tr>
+                      <td colSpan={8 + (canPrint ? 1 : 0)}>
+                        <AttachmentsPanel session={session} entityType="ExpenseClaim" entityId={claim.id} />
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
 
       {reimbursingClaimId && (
-        <form onSubmit={handleReimburse} style={{ border: '1px solid #ccc', padding: 16, marginTop: 16, maxWidth: 420 }}>
+        <form onSubmit={handleReimburse} className="card" style={{ maxWidth: 460 }}>
           <h2>Record reimbursement</h2>
-          <label>
-            Paid from
-            <select value={paymentLedgerId} onChange={(e) => setPaymentLedgerId(e.target.value)} required>
-              {ledgers.map((ledger) => (
-                <option key={ledger.id} value={ledger.id}>
-                  {ledger.name}
-                </option>
-              ))}
-            </select>
-          </label>{' '}
-          <label>
-            Amount (₹)
-            <input type="number" step="0.01" min="0" value={amountRupees || ''} onChange={(e) => setAmountRupees(Number(e.target.value) || 0)} required style={{ width: 100 }} />
-          </label>
+          <div className="field-row">
+            <label className="field">
+              Paid from
+              <select value={paymentLedgerId} onChange={(e) => setPaymentLedgerId(e.target.value)} required>
+                {ledgers.map((ledger) => (
+                  <option key={ledger.id} value={ledger.id}>
+                    {ledger.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="field">
+              Amount (₹)
+              <input type="number" step="0.01" min="0" value={amountRupees || ''} onChange={(e) => setAmountRupees(Number(e.target.value) || 0)} required />
+            </label>
+          </div>
 
           {paymentLedgerIsBank && canRecordInstrument && <PaymentInstrumentFields value={instrument} onChange={setInstrument} />}
 
-          <p>
-            <button type="submit" disabled={busyId === reimbursingClaimId}>
+          <div className="form-actions">
+            <button type="submit" className="btn-primary" disabled={busyId === reimbursingClaimId}>
               {busyId === reimbursingClaimId ? 'Saving…' : 'Record reimbursement'}
-            </button>{' '}
+            </button>
             <button type="button" onClick={() => setReimbursingClaimId(null)}>
               Cancel
             </button>
-          </p>
+          </div>
         </form>
       )}
-
-      <p style={{ marginTop: 16 }}>
-        <button type="button" onClick={onBack}>
-          Back to dashboard
-        </button>
-      </p>
     </div>
   );
 }

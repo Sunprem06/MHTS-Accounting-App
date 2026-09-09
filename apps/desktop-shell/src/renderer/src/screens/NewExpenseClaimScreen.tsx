@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { ArrowLeft, Receipt } from 'lucide-react';
 import type { EmployeeSummary, ExpenseClaimLineFormInput } from '../../../shared/ipc';
 import { ExpenseLinesEditor } from './ExpenseLinesEditor';
 
@@ -52,39 +53,50 @@ export function NewExpenseClaimScreen({ onCreated, onBack }: Props) {
   }
 
   return (
-    <div style={{ padding: 24, fontFamily: 'sans-serif', maxWidth: 720 }}>
-      <h1>New expense claim</h1>
-      <form onSubmit={handleSubmit}>
-        <label>
-          Employee
-          <select value={employeeId} onChange={(e) => setEmployeeId(e.target.value)} required>
-            {employees.map((employee) => (
-              <option key={employee.id} value={employee.id}>
-                {employee.name} ({employee.employeeCode})
-              </option>
-            ))}
-          </select>
-        </label>{' '}
-        <label>
-          Date
-          <input type="date" value={claimDate} onChange={(e) => setClaimDate(e.target.value)} required />
-        </label>
-        <br />
-        <label>
+    <div className="page" style={{ maxWidth: 780 }}>
+      <div className="page-header">
+        <button type="button" className="back-link" onClick={onBack} disabled={submitting}>
+          <ArrowLeft size={16} /> Back
+        </button>
+        <h1>
+          <Receipt size={18} style={{ color: 'var(--accent)' }} /> New expense claim
+        </h1>
+      </div>
+
+      <form onSubmit={handleSubmit} className="card">
+        <div className="field-row">
+          <label className="field">
+            Employee
+            <select value={employeeId} onChange={(e) => setEmployeeId(e.target.value)} required>
+              {employees.map((employee) => (
+                <option key={employee.id} value={employee.id}>
+                  {employee.name} ({employee.employeeCode})
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="field">
+            Date
+            <input type="date" value={claimDate} onChange={(e) => setClaimDate(e.target.value)} required />
+          </label>
+        </div>
+        <label className="field">
           Purpose
-          <input value={purpose} onChange={(e) => setPurpose(e.target.value)} style={{ width: '100%' }} placeholder="e.g. Client visit to Mumbai, 12-14 June" />
+          <input value={purpose} onChange={(e) => setPurpose(e.target.value)} placeholder="e.g. Client visit to Mumbai, 12-14 June" />
         </label>
 
         <ExpenseLinesEditor lines={lines} onChange={setLines} />
 
-        {error && <p style={{ color: 'crimson' }}>{error}</p>}
+        {error && <p className="error-text">{error}</p>}
 
-        <button type="submit" disabled={submitting || total <= 0}>
-          {submitting ? 'Saving…' : 'Save & submit for approval'}
-        </button>{' '}
-        <button type="button" onClick={onBack} disabled={submitting}>
-          Back
-        </button>
+        <div className="form-actions">
+          <button type="submit" className="btn-primary" disabled={submitting || total <= 0}>
+            {submitting ? 'Saving…' : 'Save & submit for approval'}
+          </button>
+          <button type="button" onClick={onBack} disabled={submitting}>
+            Cancel
+          </button>
+        </div>
       </form>
     </div>
   );
