@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { ArrowLeft, Wallet } from 'lucide-react';
 import type { LedgerAccountSummary, OutstandingInvoiceRow, PartySummary } from '../../../shared/ipc';
 import { foreignUnitsToBaseRupees } from '../fx';
 
@@ -89,126 +90,140 @@ export function SupplierPaymentScreen({ onCreated, onBack }: Props) {
   }
 
   return (
-    <div style={{ padding: 24, fontFamily: 'sans-serif', maxWidth: 800 }}>
-      <h1>Supplier payment</h1>
-      <form onSubmit={handleSubmit}>
-        <label>
-          Supplier
-          <select value={partyId} onChange={(e) => setPartyId(e.target.value)} required>
-            <option value="" disabled>
-              Select supplier
-            </option>
-            {suppliers.map((party) => (
-              <option key={party.id} value={party.id}>
-                {party.name}
-                {party.isMsmeUdyamRegistered ? ' (MSME)' : ''}
-              </option>
-            ))}
-          </select>
-        </label>{' '}
-        <label>
-          Pay from
-          <select value={paymentLedgerId} onChange={(e) => setPaymentLedgerId(e.target.value)} required>
-            {paymentLedgers.map((ledger) => (
-              <option key={ledger.id} value={ledger.id}>
-                {ledger.name}
-              </option>
-            ))}
-          </select>
-        </label>{' '}
-        <label>
-          Date
-          <input type="date" value={paymentDate} onChange={(e) => setPaymentDate(e.target.value)} required />
-        </label>
-        <br />
-        <label>
-          Narration
-          <input value={narration} onChange={(e) => setNarration(e.target.value)} style={{ width: '100%' }} />
-        </label>
-
-        <h2 style={{ marginTop: 16 }}>Outstanding invoices</h2>
-        {invoices.length === 0 ? (
-          <p>No outstanding invoices for this supplier.</p>
-        ) : (
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead>
-              <tr>
-                <th style={{ textAlign: 'left' }}>Invoice No.</th>
-                <th style={{ textAlign: 'left' }}>Date</th>
-                <th style={{ textAlign: 'left' }}>Due date</th>
-                <th style={{ textAlign: 'right' }}>Outstanding (₹)</th>
-                <th style={{ textAlign: 'right' }}>Apply (₹)</th>
-                <th style={{ textAlign: 'left' }}>Foreign settlement</th>
-              </tr>
-            </thead>
-            <tbody>
-              {invoices.map((invoice) => (
-                <tr key={invoice.invoiceId}>
-                  <td>{invoice.voucherNumber}</td>
-                  <td>{invoice.invoiceDate}</td>
-                  <td>{invoice.dueDate}</td>
-                  <td style={{ textAlign: 'right' }}>{invoice.outstandingAmount.toFixed(2)}</td>
-                  <td>
-                    <input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      max={invoice.outstandingAmount}
-                      value={amounts[invoice.invoiceId] || ''}
-                      disabled={Boolean(invoice.currency)}
-                      onChange={(e) => setAmounts((prev) => ({ ...prev, [invoice.invoiceId]: Number(e.target.value) || 0 }))}
-                      style={{ width: 100, textAlign: 'right' }}
-                    />
-                  </td>
-                  <td>
-                    {invoice.currency && (
-                      <span style={{ fontSize: 12 }}>
-                        {invoice.currency}{' '}
-                        <input
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          max={invoice.outstandingForeignAmountUnits ?? undefined}
-                          value={foreignAmounts[invoice.invoiceId] || ''}
-                          onChange={(e) => applyForeignAmount(invoice, Number(e.target.value) || 0)}
-                          style={{ width: 90 }}
-                          placeholder={`of ${invoice.outstandingForeignAmountUnits?.toFixed(2)}`}
-                        />{' '}
-                        @ rate{' '}
-                        <input
-                          type="number"
-                          step="0.0001"
-                          value={settlementRates[invoice.invoiceId] || ''}
-                          onChange={(e) => setSettlementRates((prev) => ({ ...prev, [invoice.invoiceId]: Number(e.target.value) || 0 }))}
-                          style={{ width: 80 }}
-                        />{' '}
-                        (booked @ {invoice.exchangeRate?.toFixed(4)})
-                      </span>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-            <tfoot>
-              <tr>
-                <td colSpan={4} style={{ textAlign: 'right', fontWeight: 'bold' }}>
-                  Total
-                </td>
-                <td style={{ textAlign: 'right', fontWeight: 'bold' }}>₹{total.toFixed(2)}</td>
-                <td />
-              </tr>
-            </tfoot>
-          </table>
-        )}
-
-        {error && <p style={{ color: 'crimson' }}>{error}</p>}
-
-        <button type="submit" disabled={submitting || total <= 0} style={{ marginTop: 16 }}>
-          {submitting ? 'Saving…' : 'Save payment'}
-        </button>{' '}
-        <button type="button" onClick={onBack} disabled={submitting}>
-          Back
+    <div className="page" style={{ maxWidth: 900 }}>
+      <div className="page-header">
+        <button type="button" className="back-link" onClick={onBack} disabled={submitting}>
+          <ArrowLeft size={16} /> Back
         </button>
+        <h1>
+          <Wallet size={18} style={{ color: 'var(--accent)' }} /> Supplier payment
+        </h1>
+      </div>
+
+      <form onSubmit={handleSubmit}>
+        <div className="card">
+          <div className="field-row">
+            <label className="field">
+              Supplier
+              <select value={partyId} onChange={(e) => setPartyId(e.target.value)} required>
+                <option value="" disabled>
+                  Select supplier
+                </option>
+                {suppliers.map((party) => (
+                  <option key={party.id} value={party.id}>
+                    {party.name}
+                    {party.isMsmeUdyamRegistered ? ' (MSME)' : ''}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="field">
+              Pay from
+              <select value={paymentLedgerId} onChange={(e) => setPaymentLedgerId(e.target.value)} required>
+                {paymentLedgers.map((ledger) => (
+                  <option key={ledger.id} value={ledger.id}>
+                    {ledger.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="field">
+              Date
+              <input type="date" value={paymentDate} onChange={(e) => setPaymentDate(e.target.value)} required />
+            </label>
+          </div>
+          <label className="field">
+            Narration
+            <input value={narration} onChange={(e) => setNarration(e.target.value)} />
+          </label>
+        </div>
+
+        <div className="card" style={{ overflowX: 'auto' }}>
+          <h2>Outstanding invoices</h2>
+          {invoices.length === 0 ? (
+            <p className="empty-state">No outstanding invoices for this supplier.</p>
+          ) : (
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Invoice No.</th>
+                  <th>Date</th>
+                  <th>Due date</th>
+                  <th className="num">Outstanding (₹)</th>
+                  <th className="num">Apply (₹)</th>
+                  <th>Foreign settlement</th>
+                </tr>
+              </thead>
+              <tbody>
+                {invoices.map((invoice) => (
+                  <tr key={invoice.invoiceId}>
+                    <td>{invoice.voucherNumber}</td>
+                    <td>{invoice.invoiceDate}</td>
+                    <td>{invoice.dueDate}</td>
+                    <td className="num">{invoice.outstandingAmount.toFixed(2)}</td>
+                    <td>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        max={invoice.outstandingAmount}
+                        value={amounts[invoice.invoiceId] || ''}
+                        disabled={Boolean(invoice.currency)}
+                        onChange={(e) => setAmounts((prev) => ({ ...prev, [invoice.invoiceId]: Number(e.target.value) || 0 }))}
+                        style={{ width: 100, textAlign: 'right' }}
+                      />
+                    </td>
+                    <td>
+                      {invoice.currency && (
+                        <span style={{ fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                          {invoice.currency}{' '}
+                          <input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            max={invoice.outstandingForeignAmountUnits ?? undefined}
+                            value={foreignAmounts[invoice.invoiceId] || ''}
+                            onChange={(e) => applyForeignAmount(invoice, Number(e.target.value) || 0)}
+                            style={{ width: 90 }}
+                            placeholder={`of ${invoice.outstandingForeignAmountUnits?.toFixed(2)}`}
+                          />{' '}
+                          @ rate{' '}
+                          <input
+                            type="number"
+                            step="0.0001"
+                            value={settlementRates[invoice.invoiceId] || ''}
+                            onChange={(e) => setSettlementRates((prev) => ({ ...prev, [invoice.invoiceId]: Number(e.target.value) || 0 }))}
+                            style={{ width: 80 }}
+                          />{' '}
+                          (booked @ {invoice.exchangeRate?.toFixed(4)})
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr>
+                  <td colSpan={3}>Total</td>
+                  <td className="num">₹{total.toFixed(2)}</td>
+                  <td />
+                  <td />
+                </tr>
+              </tfoot>
+            </table>
+          )}
+        </div>
+
+        {error && <p className="error-text">{error}</p>}
+
+        <div className="form-actions">
+          <button type="submit" className="btn-primary" disabled={submitting || total <= 0}>
+            {submitting ? 'Saving…' : 'Save payment'}
+          </button>
+          <button type="button" onClick={onBack} disabled={submitting}>
+            Cancel
+          </button>
+        </div>
       </form>
     </div>
   );
