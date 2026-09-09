@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useState } from 'react';
-import type { AssetClassSummary, AssetDepreciationEntrySummary, CostCentreSummary, FixedAssetSummary, LedgerAccountSummary, SessionInfo } from '../../../shared/ipc';
+import { ArrowLeft, ClipboardList } from 'lucide-react';
+import type { AssetClassSummary, AssetDepreciationEntrySummary, CostCentreSummary, FixedAssetSummary, SessionInfo, LedgerAccountSummary } from '../../../shared/ipc';
 
 interface Props {
   session: SessionInfo;
@@ -8,6 +9,10 @@ interface Props {
 
 function todayIso(): string {
   return new Date().toISOString().slice(0, 10);
+}
+
+function statusBadgeClass(status: string): string {
+  return status === 'DISPOSED' ? 'badge-muted' : 'badge-success';
 }
 
 export function FixedAssetRegisterScreen({ session, onBack }: Props) {
@@ -115,185 +120,204 @@ export function FixedAssetRegisterScreen({ session, onBack }: Props) {
   }
 
   return (
-    <div style={{ padding: 24, fontFamily: 'sans-serif', maxWidth: 1000 }}>
-      <h1>Fixed asset register</h1>
-      {error && <p style={{ color: 'crimson' }}>{error}</p>}
+    <div className="page" style={{ maxWidth: 1080 }}>
+      <div className="page-header">
+        <button type="button" className="back-link" onClick={onBack}>
+          <ArrowLeft size={16} /> Back
+        </button>
+        <h1>
+          <ClipboardList size={18} style={{ color: 'var(--accent)' }} /> Fixed asset register
+        </h1>
+      </div>
 
-      {assets === null ? (
-        <p>Loading…</p>
-      ) : (
-        <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 24 }}>
-          <thead>
-            <tr>
-              <th style={{ textAlign: 'left' }}>Code</th>
-              <th style={{ textAlign: 'left' }}>Name</th>
-              <th style={{ textAlign: 'left' }}>Class</th>
-              <th style={{ textAlign: 'left' }}>Purchase date</th>
-              <th style={{ textAlign: 'right' }}>Cost (₹)</th>
-              <th style={{ textAlign: 'left' }}>Status</th>
-              <th />
-            </tr>
-          </thead>
-          <tbody>
-            {assets.map((asset) => (
-              <Fragment key={asset.id}>
-                <tr style={{ opacity: asset.status === 'DISPOSED' ? 0.6 : 1 }}>
-                  <td>{asset.assetCode}</td>
-                  <td>{asset.name}</td>
-                  <td>{asset.assetClassName}</td>
-                  <td>{asset.purchaseDate}</td>
-                  <td style={{ textAlign: 'right' }}>{asset.purchaseCost.toFixed(2)}</td>
-                  <td>{asset.status}</td>
-                  <td>
-                    <button type="button" onClick={() => toggleSchedule(asset.id)}>
-                      {expandedId === asset.id ? 'Hide' : 'Schedule'}
-                    </button>{' '}
-                    {canManage && asset.status === 'ACTIVE' && (
-                      <button type="button" onClick={() => setDisposingId(disposingId === asset.id ? null : asset.id)}>
-                        Dispose
-                      </button>
-                    )}
-                  </td>
-                </tr>
-                {expandedId === asset.id && schedule && (
-                  <tr>
-                    <td colSpan={7}>
-                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-                        <thead>
-                          <tr>
-                            <th style={{ textAlign: 'left' }}>Book</th>
-                            <th style={{ textAlign: 'left' }}>FY</th>
-                            <th style={{ textAlign: 'right' }}>Opening WDV (₹)</th>
-                            <th style={{ textAlign: 'right' }}>Depreciation (₹)</th>
-                            <th style={{ textAlign: 'right' }}>Closing WDV (₹)</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {schedule.map((entry, i) => (
-                            <tr key={i}>
-                              <td>{entry.book === 'SCHEDULE2' ? 'Companies Act (Schedule II)' : 'Income Tax (WDV block)'}</td>
-                              <td>{entry.financialYear}</td>
-                              <td style={{ textAlign: 'right' }}>{entry.openingWdv.toFixed(2)}</td>
-                              <td style={{ textAlign: 'right' }}>{entry.depreciationAmount.toFixed(2)}</td>
-                              <td style={{ textAlign: 'right' }}>{entry.closingWdv.toFixed(2)}</td>
-                            </tr>
-                          ))}
-                          {schedule.length === 0 && (
-                            <tr>
-                              <td colSpan={5}>No depreciation posted yet — run depreciation for a financial year that includes this asset.</td>
-                            </tr>
-                          )}
-                        </tbody>
-                      </table>
+      {error && <p className="error-text">{error}</p>}
+
+      <div className="card" style={{ overflowX: 'auto' }}>
+        {assets === null ? (
+          <p className="empty-state">Loading…</p>
+        ) : assets.length === 0 ? (
+          <p className="empty-state">No fixed assets yet.</p>
+        ) : (
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Code</th>
+                <th>Name</th>
+                <th>Class</th>
+                <th>Purchase date</th>
+                <th className="num">Cost (₹)</th>
+                <th>Status</th>
+                <th />
+              </tr>
+            </thead>
+            <tbody>
+              {assets.map((asset) => (
+                <Fragment key={asset.id}>
+                  <tr style={{ opacity: asset.status === 'DISPOSED' ? 0.6 : 1 }}>
+                    <td>{asset.assetCode}</td>
+                    <td>{asset.name}</td>
+                    <td>{asset.assetClassName}</td>
+                    <td>{asset.purchaseDate}</td>
+                    <td className="num">{asset.purchaseCost.toFixed(2)}</td>
+                    <td>
+                      <span className={`badge ${statusBadgeClass(asset.status)}`}>{asset.status}</span>
                     </td>
-                  </tr>
-                )}
-                {disposingId === asset.id && (
-                  <tr>
-                    <td colSpan={7}>
-                      <div style={{ padding: 8, border: '1px solid #ccc' }}>
-                        <label>
-                          Disposal date
-                          <input type="date" value={disposalDate} onChange={(e) => setDisposalDate(e.target.value)} />
-                        </label>{' '}
-                        <label>
-                          Sale proceeds (₹, 0 for a write-off)
-                          <input type="number" step="0.01" value={saleProceedsRupees} onChange={(e) => setSaleProceedsRupees(e.target.value)} style={{ width: 100 }} />
-                        </label>{' '}
-                        {Number(saleProceedsRupees) > 0 && (
-                          <label>
-                            Receipt ledger
-                            <select value={receiptLedgerId} onChange={(e) => setReceiptLedgerId(e.target.value)}>
-                              <option value="">— select —</option>
-                              {ledgers.map((l) => (
-                                <option key={l.id} value={l.id}>
-                                  {l.name}
-                                </option>
-                              ))}
-                            </select>
-                          </label>
-                        )}{' '}
-                        <button type="button" onClick={() => handleDispose(asset.id)}>
-                          Confirm disposal
+                    <td>
+                      <button type="button" onClick={() => toggleSchedule(asset.id)}>
+                        {expandedId === asset.id ? 'Hide' : 'Schedule'}
+                      </button>{' '}
+                      {canManage && asset.status === 'ACTIVE' && (
+                        <button type="button" onClick={() => setDisposingId(disposingId === asset.id ? null : asset.id)}>
+                          Dispose
                         </button>
-                      </div>
+                      )}
                     </td>
                   </tr>
-                )}
-              </Fragment>
-            ))}
-          </tbody>
-        </table>
-      )}
+                  {expandedId === asset.id && schedule && (
+                    <tr>
+                      <td colSpan={7}>
+                        <table className="data-table" style={{ fontSize: 13 }}>
+                          <thead>
+                            <tr>
+                              <th>Book</th>
+                              <th>FY</th>
+                              <th className="num">Opening WDV (₹)</th>
+                              <th className="num">Depreciation (₹)</th>
+                              <th className="num">Closing WDV (₹)</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {schedule.map((entry, i) => (
+                              <tr key={i}>
+                                <td>{entry.book === 'SCHEDULE2' ? 'Companies Act (Schedule II)' : 'Income Tax (WDV block)'}</td>
+                                <td>{entry.financialYear}</td>
+                                <td className="num">{entry.openingWdv.toFixed(2)}</td>
+                                <td className="num">{entry.depreciationAmount.toFixed(2)}</td>
+                                <td className="num">{entry.closingWdv.toFixed(2)}</td>
+                              </tr>
+                            ))}
+                            {schedule.length === 0 && (
+                              <tr>
+                                <td colSpan={5} className="empty-state">
+                                  No depreciation posted yet — run depreciation for a financial year that includes this asset.
+                                </td>
+                              </tr>
+                            )}
+                          </tbody>
+                        </table>
+                      </td>
+                    </tr>
+                  )}
+                  {disposingId === asset.id && (
+                    <tr>
+                      <td colSpan={7}>
+                        <div style={{ padding: 12, border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', background: 'var(--bg-secondary)' }}>
+                          <div className="field-row" style={{ marginBottom: 0 }}>
+                            <label className="field">
+                              Disposal date
+                              <input type="date" value={disposalDate} onChange={(e) => setDisposalDate(e.target.value)} />
+                            </label>
+                            <label className="field">
+                              Sale proceeds (₹, 0 for a write-off)
+                              <input type="number" step="0.01" value={saleProceedsRupees} onChange={(e) => setSaleProceedsRupees(e.target.value)} style={{ width: 120 }} />
+                            </label>
+                            {Number(saleProceedsRupees) > 0 && (
+                              <label className="field">
+                                Receipt ledger
+                                <select value={receiptLedgerId} onChange={(e) => setReceiptLedgerId(e.target.value)}>
+                                  <option value="">— select —</option>
+                                  {ledgers.map((l) => (
+                                    <option key={l.id} value={l.id}>
+                                      {l.name}
+                                    </option>
+                                  ))}
+                                </select>
+                              </label>
+                            )}
+                            <button type="button" className="btn-primary" onClick={() => handleDispose(asset.id)} style={{ marginBottom: 12 }}>
+                              Confirm disposal
+                            </button>
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
 
       {canManage && (
-        <form onSubmit={handleAcquire} style={{ marginBottom: 24 }}>
+        <form onSubmit={handleAcquire} className="card">
           <h2>Acquire a fixed asset</h2>
-          <label>
-            Asset class
-            <select value={assetClassId} onChange={(e) => setAssetClassId(e.target.value)} required>
-              <option value="">— select —</option>
-              {assetClasses.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
-          </label>{' '}
-          <label>
-            Name
-            <input value={name} onChange={(e) => setName(e.target.value)} required />
-          </label>{' '}
-          <label>
-            Asset code
-            <input value={assetCode} onChange={(e) => setAssetCode(e.target.value)} required style={{ width: 120 }} />
-          </label>
-          <br />
-          <label>
-            Purchase date
-            <input type="date" value={purchaseDate} onChange={(e) => setPurchaseDate(e.target.value)} required />
-          </label>{' '}
-          <label>
-            Purchase cost (₹)
-            <input type="number" step="0.01" value={purchaseCostRupees} onChange={(e) => setPurchaseCostRupees(e.target.value)} required style={{ width: 120 }} />
-          </label>{' '}
-          <label>
-            Salvage value (₹, optional)
-            <input type="number" step="0.01" value={salvageValueRupees} onChange={(e) => setSalvageValueRupees(e.target.value)} style={{ width: 100 }} />
-          </label>
-          <br />
-          <label>
-            Cost centre (optional)
-            <select value={costCentreId} onChange={(e) => setCostCentreId(e.target.value)}>
-              <option value="">—</option>
-              {costCentres.map((cc) => (
-                <option key={cc.id} value={cc.id}>
-                  {cc.name}
-                </option>
-              ))}
-            </select>
-          </label>{' '}
-          <label>
-            Paid from ledger
-            <select value={paidFromLedgerId} onChange={(e) => setPaidFromLedgerId(e.target.value)} required>
-              <option value="">— select —</option>
-              {ledgers.map((l) => (
-                <option key={l.id} value={l.id}>
-                  {l.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <br />
-          <button type="submit" disabled={submitting}>
-            {submitting ? 'Acquiring…' : 'Acquire asset'}
-          </button>
+          <div className="field-row">
+            <label className="field">
+              Asset class
+              <select value={assetClassId} onChange={(e) => setAssetClassId(e.target.value)} required>
+                <option value="">— select —</option>
+                {assetClasses.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="field">
+              Name
+              <input value={name} onChange={(e) => setName(e.target.value)} required />
+            </label>
+            <label className="field">
+              Asset code
+              <input value={assetCode} onChange={(e) => setAssetCode(e.target.value)} required style={{ width: 140 }} />
+            </label>
+          </div>
+          <div className="field-row">
+            <label className="field">
+              Purchase date
+              <input type="date" value={purchaseDate} onChange={(e) => setPurchaseDate(e.target.value)} required />
+            </label>
+            <label className="field">
+              Purchase cost (₹)
+              <input type="number" step="0.01" value={purchaseCostRupees} onChange={(e) => setPurchaseCostRupees(e.target.value)} required style={{ width: 140 }} />
+            </label>
+            <label className="field">
+              Salvage value (₹, optional)
+              <input type="number" step="0.01" value={salvageValueRupees} onChange={(e) => setSalvageValueRupees(e.target.value)} style={{ width: 140 }} />
+            </label>
+          </div>
+          <div className="field-row">
+            <label className="field">
+              Cost centre (optional)
+              <select value={costCentreId} onChange={(e) => setCostCentreId(e.target.value)}>
+                <option value="">—</option>
+                {costCentres.map((cc) => (
+                  <option key={cc.id} value={cc.id}>
+                    {cc.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="field">
+              Paid from ledger
+              <select value={paidFromLedgerId} onChange={(e) => setPaidFromLedgerId(e.target.value)} required>
+                <option value="">— select —</option>
+                {ledgers.map((l) => (
+                  <option key={l.id} value={l.id}>
+                    {l.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+          <div className="form-actions">
+            <button type="submit" className="btn-primary" disabled={submitting}>
+              {submitting ? 'Acquiring…' : 'Acquire asset'}
+            </button>
+          </div>
         </form>
       )}
-
-      <button type="button" onClick={onBack}>
-        Back to dashboard
-      </button>
     </div>
   );
 }

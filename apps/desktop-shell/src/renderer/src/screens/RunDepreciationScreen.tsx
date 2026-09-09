@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { ArrowLeft, TrendingDown } from 'lucide-react';
 import type { DepreciationPreviewLine, SessionInfo } from '../../../shared/ipc';
 
 interface Props {
@@ -48,30 +49,44 @@ export function RunDepreciationScreen({ session, onBack }: Props) {
   const itWdvTotal = preview?.reduce((sum, l) => sum + l.itWdvDepreciation, 0) ?? 0;
 
   return (
-    <div style={{ padding: 24, fontFamily: 'sans-serif', maxWidth: 800 }}>
-      <h1>Run depreciation</h1>
-      {error && <p style={{ color: 'crimson' }}>{error}</p>}
-      {postedVoucherIds && <p style={{ color: 'green' }}>Posted {postedVoucherIds.length} depreciation voucher(s) for {financialYear}.</p>}
-
-      <form onSubmit={handlePreview} style={{ marginBottom: 16 }}>
-        <label>
-          Financial year (e.g. 2026-27)
-          <input value={financialYear} onChange={(e) => setFinancialYear(e.target.value)} required style={{ width: 100 }} />
-        </label>{' '}
-        <button type="submit" disabled={loading}>
-          {loading ? 'Computing…' : 'Preview'}
+    <div className="page" style={{ maxWidth: 800 }}>
+      <div className="page-header">
+        <button type="button" className="back-link" onClick={onBack}>
+          <ArrowLeft size={16} /> Back
         </button>
-      </form>
+        <h1>
+          <TrendingDown size={18} style={{ color: 'var(--accent)' }} /> Run depreciation
+        </h1>
+      </div>
+
+      {error && <p className="error-text">{error}</p>}
+      {postedVoucherIds && (
+        <p className="badge badge-success" style={{ display: 'inline-block', marginBottom: 16 }}>
+          Posted {postedVoucherIds.length} depreciation voucher(s) for {financialYear}.
+        </p>
+      )}
+
+      <div className="card">
+        <form onSubmit={handlePreview} className="field-row" style={{ alignItems: 'flex-end' }}>
+          <label className="field">
+            Financial year (e.g. 2026-27)
+            <input value={financialYear} onChange={(e) => setFinancialYear(e.target.value)} required style={{ width: 140 }} />
+          </label>
+          <button type="submit" className="btn-primary" disabled={loading} style={{ marginBottom: 12 }}>
+            {loading ? 'Computing…' : 'Preview'}
+          </button>
+        </form>
+      </div>
 
       {preview && (
-        <>
-          <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 16 }}>
+        <div className="card" style={{ overflowX: 'auto' }}>
+          <table className="data-table">
             <thead>
               <tr>
-                <th style={{ textAlign: 'left' }}>Asset code</th>
-                <th style={{ textAlign: 'left' }}>Name</th>
-                <th style={{ textAlign: 'right' }}>Schedule II depreciation (₹)</th>
-                <th style={{ textAlign: 'right' }}>IT WDV depreciation (₹)</th>
+                <th>Asset code</th>
+                <th>Name</th>
+                <th className="num">Schedule II depreciation (₹)</th>
+                <th className="num">IT WDV depreciation (₹)</th>
               </tr>
             </thead>
             <tbody>
@@ -79,42 +94,41 @@ export function RunDepreciationScreen({ session, onBack }: Props) {
                 <tr key={line.assetId}>
                   <td>{line.assetCode}</td>
                   <td>{line.assetName}</td>
-                  <td style={{ textAlign: 'right' }}>{line.schedule2Depreciation.toFixed(2)}</td>
-                  <td style={{ textAlign: 'right' }}>{line.itWdvDepreciation.toFixed(2)}</td>
+                  <td className="num">{line.schedule2Depreciation.toFixed(2)}</td>
+                  <td className="num">{line.itWdvDepreciation.toFixed(2)}</td>
                 </tr>
               ))}
               {preview.length === 0 && (
                 <tr>
-                  <td colSpan={4}>No assets pending depreciation for this financial year.</td>
+                  <td colSpan={4} className="empty-state">
+                    No assets pending depreciation for this financial year.
+                  </td>
                 </tr>
               )}
             </tbody>
             {preview.length > 0 && (
               <tfoot>
-                <tr style={{ fontWeight: 'bold' }}>
+                <tr>
                   <td colSpan={2}>Total</td>
-                  <td style={{ textAlign: 'right' }}>{schedule2Total.toFixed(2)}</td>
-                  <td style={{ textAlign: 'right' }}>{itWdvTotal.toFixed(2)}</td>
+                  <td className="num">{schedule2Total.toFixed(2)}</td>
+                  <td className="num">{itWdvTotal.toFixed(2)}</td>
                 </tr>
               </tfoot>
             )}
           </table>
-          <p style={{ fontSize: 12, color: '#666' }}>
+          <p style={{ fontSize: 12, color: 'var(--fg-muted)', marginTop: 12, marginBottom: 0 }}>
             Posting will create one DEPRECIATION voucher per asset class for the Schedule II total above. The IT WDV total is memo-only (tax books) and is
             never posted to the general ledger.
           </p>
           {canRun && preview.length > 0 && (
-            <button type="button" onClick={handlePost} disabled={posting}>
-              {posting ? 'Posting…' : 'Post depreciation run'}
-            </button>
+            <div className="form-actions">
+              <button type="button" className="btn-primary" onClick={handlePost} disabled={posting}>
+                {posting ? 'Posting…' : 'Post depreciation run'}
+              </button>
+            </div>
           )}
-        </>
+        </div>
       )}
-
-      <p />
-      <button type="button" onClick={onBack}>
-        Back to dashboard
-      </button>
     </div>
   );
 }
