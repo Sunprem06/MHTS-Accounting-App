@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Archive, ArrowLeft } from 'lucide-react';
 import type { AssetClassSummary, SessionInfo } from '../../../shared/ipc';
 
 interface Props {
@@ -48,64 +49,74 @@ export function FixedAssetClassesScreen({ session, onBack }: Props) {
   }
 
   return (
-    <div style={{ padding: 24, fontFamily: 'sans-serif', maxWidth: 800 }}>
-      <h1>Fixed asset classes</h1>
-      {error && <p style={{ color: 'crimson' }}>{error}</p>}
+    <div className="page" style={{ maxWidth: 900 }}>
+      <div className="page-header">
+        <button type="button" className="back-link" onClick={onBack}>
+          <ArrowLeft size={16} /> Back
+        </button>
+        <h1>
+          <Archive size={18} style={{ color: 'var(--accent)' }} /> Fixed asset classes
+        </h1>
+      </div>
 
-      {classes === null ? (
-        <p>Loading…</p>
-      ) : (
-        <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 24 }}>
-          <thead>
-            <tr>
-              <th style={{ textAlign: 'left' }}>Name</th>
-              <th style={{ textAlign: 'left' }}>Schedule II category</th>
-              <th style={{ textAlign: 'left' }}>IT WDV block category</th>
-              <th style={{ textAlign: 'left' }}>Gross block ledger</th>
-              <th style={{ textAlign: 'left' }}>Accum. depreciation ledger</th>
-            </tr>
-          </thead>
-          <tbody>
-            {classes.map((c) => (
-              <tr key={c.id} style={{ opacity: c.isActive ? 1 : 0.6 }}>
-                <td>{c.name}</td>
-                <td>{c.schedule2RateCategory}</td>
-                <td>{c.itWdvBlockCategory}</td>
-                <td>{c.grossBlockLedgerName}</td>
-                <td>{c.accumulatedDepreciationLedgerName}</td>
+      {error && <p className="error-text">{error}</p>}
+
+      <div className="card" style={{ overflowX: 'auto' }}>
+        {classes === null ? (
+          <p className="empty-state">Loading…</p>
+        ) : (
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Schedule II category</th>
+                <th>IT WDV block category</th>
+                <th>Gross block ledger</th>
+                <th>Accum. depreciation ledger</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
+            </thead>
+            <tbody>
+              {classes.map((c) => (
+                <tr key={c.id} style={{ opacity: c.isActive ? 1 : 0.6 }}>
+                  <td>{c.name}</td>
+                  <td>{c.schedule2RateCategory}</td>
+                  <td>{c.itWdvBlockCategory}</td>
+                  <td>{c.grossBlockLedgerName}</td>
+                  <td>{c.accumulatedDepreciationLedgerName}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
 
       {canManage && (
-        <form onSubmit={handleCreate}>
+        <form onSubmit={handleCreate} className="card">
           <h2>New asset class</h2>
-          <label>
-            Name (e.g. "Computers &amp; Laptops")
-            <input value={name} onChange={(e) => setName(e.target.value)} required style={{ width: 220 }} />
-          </label>
-          <br />
-          <label>
-            Schedule II rate category
-            <input value={schedule2RateCategory} onChange={(e) => setSchedule2RateCategory(e.target.value)} required style={{ width: 220 }} />
-          </label>{' '}
-          <label>
-            IT WDV block category
-            <input value={itWdvBlockCategory} onChange={(e) => setItWdvBlockCategory(e.target.value)} required style={{ width: 220 }} />
-          </label>
-          <p style={{ fontSize: 12, color: '#666' }}>These category names must have a matching rate configured on Manage Fixed Asset Rates before this class can be depreciated.</p>
-          <button type="submit" disabled={submitting}>
-            {submitting ? 'Adding…' : 'Add asset class'}
-          </button>
+          <div className="field-row">
+            <label className="field">
+              Name (e.g. "Computers &amp; Laptops")
+              <input value={name} onChange={(e) => setName(e.target.value)} required />
+            </label>
+            <label className="field">
+              Schedule II rate category
+              <input value={schedule2RateCategory} onChange={(e) => setSchedule2RateCategory(e.target.value)} required />
+            </label>
+            <label className="field">
+              IT WDV block category
+              <input value={itWdvBlockCategory} onChange={(e) => setItWdvBlockCategory(e.target.value)} required />
+            </label>
+          </div>
+          <p style={{ fontSize: 12, color: 'var(--fg-muted)', marginTop: -6 }}>
+            These category names must have a matching rate configured on Manage Fixed Asset Rates before this class can be depreciated.
+          </p>
+          <div className="form-actions">
+            <button type="submit" className="btn-primary" disabled={submitting}>
+              {submitting ? 'Adding…' : 'Add asset class'}
+            </button>
+          </div>
         </form>
       )}
-
-      <p />
-      <button type="button" onClick={onBack}>
-        Back to dashboard
-      </button>
     </div>
   );
 }

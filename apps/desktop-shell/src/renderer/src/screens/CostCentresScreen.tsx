@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { ArrowLeft, Building2 } from 'lucide-react';
 import type { CostCentreSummary, CostCentreSummaryRow, SessionInfo } from '../../../shared/ipc';
 
 interface Props {
@@ -63,81 +64,95 @@ export function CostCentresScreen({ session, onBack }: Props) {
   }
 
   return (
-    <div style={{ padding: 24, fontFamily: 'sans-serif', maxWidth: 800 }}>
-      <h1>Cost centres</h1>
-      {error && <p style={{ color: 'crimson' }}>{error}</p>}
+    <div className="page" style={{ maxWidth: 800 }}>
+      <div className="page-header">
+        <button type="button" className="back-link" onClick={onBack}>
+          <ArrowLeft size={16} /> Back
+        </button>
+        <h1>
+          <Building2 size={18} style={{ color: 'var(--accent)' }} /> Cost centres
+        </h1>
+      </div>
 
-      {costCentres === null ? (
-        <p>Loading…</p>
-      ) : (
-        <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 24 }}>
-          <thead>
-            <tr>
-              <th style={{ textAlign: 'left' }}>Name</th>
-              <th style={{ textAlign: 'left' }}>Code</th>
-              <th style={{ textAlign: 'left' }}>Status</th>
-              <th />
-            </tr>
-          </thead>
-          <tbody>
-            {costCentres.map((cc) => (
-              <tr key={cc.id} style={{ opacity: cc.isActive ? 1 : 0.6 }}>
-                <td>{cc.name}</td>
-                <td>{cc.code ?? '—'}</td>
-                <td>{cc.isActive ? 'Active' : 'Inactive'}</td>
-                <td>{canManage && <button onClick={() => toggleActive(cc)}>{cc.isActive ? 'Deactivate' : 'Activate'}</button>}</td>
+      {error && <p className="error-text">{error}</p>}
+
+      <div className="card" style={{ overflowX: 'auto' }}>
+        {costCentres === null ? (
+          <p className="empty-state">Loading…</p>
+        ) : (
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Code</th>
+                <th>Status</th>
+                <th />
               </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
+            </thead>
+            <tbody>
+              {costCentres.map((cc) => (
+                <tr key={cc.id} style={{ opacity: cc.isActive ? 1 : 0.6 }}>
+                  <td>{cc.name}</td>
+                  <td>{cc.code ?? '—'}</td>
+                  <td>
+                    <span className={`badge ${cc.isActive ? 'badge-success' : 'badge-muted'}`}>{cc.isActive ? 'Active' : 'Inactive'}</span>
+                  </td>
+                  <td>{canManage && <button onClick={() => toggleActive(cc)}>{cc.isActive ? 'Deactivate' : 'Activate'}</button>}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
 
       {canManage && (
-        <form onSubmit={handleCreate} style={{ marginBottom: 24 }}>
+        <form onSubmit={handleCreate} className="card">
           <h2>New cost centre</h2>
-          <label>
-            Name
-            <input value={name} onChange={(e) => setName(e.target.value)} required />
-          </label>{' '}
-          <label>
-            Code (optional)
-            <input value={code} onChange={(e) => setCode(e.target.value)} style={{ width: 100 }} />
-          </label>{' '}
-          <button type="submit" disabled={submitting}>
-            {submitting ? 'Adding…' : 'Add cost centre'}
-          </button>
+          <div className="field-row">
+            <label className="field">
+              Name
+              <input value={name} onChange={(e) => setName(e.target.value)} required />
+            </label>
+            <label className="field">
+              Code (optional)
+              <input value={code} onChange={(e) => setCode(e.target.value)} style={{ width: 120 }} />
+            </label>
+          </div>
+          <div className="form-actions">
+            <button type="submit" className="btn-primary" disabled={submitting}>
+              {submitting ? 'Adding…' : 'Add cost centre'}
+            </button>
+          </div>
         </form>
       )}
 
-      <h2>Cost centre P&amp;L (since inception)</h2>
-      {report === null ? (
-        <p>Loading…</p>
-      ) : (
-        <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 24 }}>
-          <thead>
-            <tr>
-              <th style={{ textAlign: 'left' }}>Cost centre</th>
-              <th style={{ textAlign: 'right' }}>Income (₹)</th>
-              <th style={{ textAlign: 'right' }}>Expense (₹)</th>
-              <th style={{ textAlign: 'right' }}>Net (₹)</th>
-            </tr>
-          </thead>
-          <tbody>
-            {report.map((row) => (
-              <tr key={row.costCentreId ?? '__unassigned__'}>
-                <td>{row.costCentreName}</td>
-                <td style={{ textAlign: 'right' }}>{row.totalIncome.toFixed(2)}</td>
-                <td style={{ textAlign: 'right' }}>{row.totalExpense.toFixed(2)}</td>
-                <td style={{ textAlign: 'right' }}>{row.net.toFixed(2)}</td>
+      <div className="card" style={{ overflowX: 'auto' }}>
+        <h2>Cost centre P&amp;L (since inception)</h2>
+        {report === null ? (
+          <p className="empty-state">Loading…</p>
+        ) : (
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Cost centre</th>
+                <th className="num">Income (₹)</th>
+                <th className="num">Expense (₹)</th>
+                <th className="num">Net (₹)</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
-
-      <button type="button" onClick={onBack}>
-        Back to dashboard
-      </button>
+            </thead>
+            <tbody>
+              {report.map((row) => (
+                <tr key={row.costCentreId ?? '__unassigned__'}>
+                  <td>{row.costCentreName}</td>
+                  <td className="num">{row.totalIncome.toFixed(2)}</td>
+                  <td className="num">{row.totalExpense.toFixed(2)}</td>
+                  <td className="num">{row.net.toFixed(2)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
     </div>
   );
 }

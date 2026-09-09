@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useState } from 'react';
+import { ArrowLeft, PiggyBank } from 'lucide-react';
 import type { BudgetSummary, BudgetVsActualResult, CostCentreSummary, LedgerAccountSummary, SessionInfo } from '../../../shared/ipc';
 
 interface Props {
@@ -99,152 +100,170 @@ export function BudgetsScreen({ session, onBack }: Props) {
   }
 
   return (
-    <div style={{ padding: 24, fontFamily: 'sans-serif', maxWidth: 900 }}>
-      <h1>Budgets</h1>
-      {error && <p style={{ color: 'crimson' }}>{error}</p>}
+    <div className="page" style={{ maxWidth: 960 }}>
+      <div className="page-header">
+        <button type="button" className="back-link" onClick={onBack}>
+          <ArrowLeft size={16} /> Back
+        </button>
+        <h1>
+          <PiggyBank size={18} style={{ color: 'var(--accent)' }} /> Budgets
+        </h1>
+      </div>
 
-      {budgets === null ? (
-        <p>Loading…</p>
-      ) : (
-        <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 24 }}>
-          <thead>
-            <tr>
-              <th style={{ textAlign: 'left' }}>Name</th>
-              <th style={{ textAlign: 'left' }}>FY</th>
-              <th style={{ textAlign: 'left' }}>Ledger</th>
-              <th style={{ textAlign: 'left' }}>Cost centre</th>
-              <th />
-            </tr>
-          </thead>
-          <tbody>
-            {budgets.map((budget) => (
-              <Fragment key={budget.id}>
-                <tr>
-                  <td>{budget.name}</td>
-                  <td>{budget.financialYear}</td>
-                  <td>{budget.ledgerName ?? '—'}</td>
-                  <td>{budget.costCentreName ?? '—'}</td>
-                  <td>
-                    <button type="button" onClick={() => viewActual(budget.id)}>
-                      {expandedId === budget.id ? 'Hide' : 'Budget vs Actual'}
-                    </button>
-                  </td>
-                </tr>
-                {expandedId === budget.id && actual && (
-                  <tr>
-                    <td colSpan={5}>
-                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-                        <thead>
-                          <tr>
-                            <th style={{ textAlign: 'left' }}>Month</th>
-                            <th style={{ textAlign: 'right' }}>Budgeted (₹)</th>
-                            <th style={{ textAlign: 'right' }}>Actual (₹)</th>
-                            <th style={{ textAlign: 'right' }}>Variance (₹)</th>
-                            <th style={{ textAlign: 'right' }}>Variance %</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {actual.rows.map((row) => (
-                            <tr key={row.periodMonth}>
-                              <td>{MONTH_NAMES[row.periodMonth - 1]}</td>
-                              <td style={{ textAlign: 'right' }}>{row.budgetedAmount.toFixed(2)}</td>
-                              <td style={{ textAlign: 'right' }}>{row.actualAmount.toFixed(2)}</td>
-                              <td style={{ textAlign: 'right', color: row.varianceAmount > 0 ? 'crimson' : 'inherit' }}>{row.varianceAmount.toFixed(2)}</td>
-                              <td style={{ textAlign: 'right' }}>{row.variancePercent === null ? '—' : `${row.variancePercent.toFixed(1)}%`}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </td>
-                  </tr>
-                )}
-              </Fragment>
-            ))}
-          </tbody>
-        </table>
-      )}
+      {error && <p className="error-text">{error}</p>}
 
-      {canManage && (
-        <form onSubmit={handleCreate} style={{ marginBottom: 24 }}>
-          <h2>New budget</h2>
-          <label>
-            Name
-            <input value={name} onChange={(e) => setName(e.target.value)} required />
-          </label>{' '}
-          <label>
-            Financial year (e.g. 2026-27)
-            <input value={financialYear} onChange={(e) => setFinancialYear(e.target.value)} required style={{ width: 100 }} />
-          </label>
-          <br />
-          <label>
-            Ledger (optional)
-            <select value={ledgerId} onChange={(e) => setLedgerId(e.target.value)}>
-              <option value="">—</option>
-              {ledgers.map((l) => (
-                <option key={l.id} value={l.id}>
-                  {l.name}
-                </option>
-              ))}
-            </select>
-          </label>{' '}
-          <label>
-            Cost centre (optional)
-            <select value={costCentreId} onChange={(e) => setCostCentreId(e.target.value)}>
-              <option value="">—</option>
-              {costCentres.map((cc) => (
-                <option key={cc.id} value={cc.id}>
-                  {cc.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <br />
-          <label>
-            Annual total (₹) — splits evenly across 12 months below, then edit any month
-            <input type="number" step="0.01" value={annualTotal} onChange={(e) => setAnnualTotal(e.target.value)} style={{ width: 120 }} />
-          </label>{' '}
-          <button type="button" onClick={applyEvenSplit}>
-            Split evenly
-          </button>
-          <table style={{ marginTop: 8, marginBottom: 8 }}>
+      <div className="card" style={{ overflowX: 'auto' }}>
+        {budgets === null ? (
+          <p className="empty-state">Loading…</p>
+        ) : budgets.length === 0 ? (
+          <p className="empty-state">No budgets yet.</p>
+        ) : (
+          <table className="data-table">
             <thead>
               <tr>
-                {MONTH_NAMES.map((m) => (
-                  <th key={m} style={{ fontSize: 11, padding: '0 4px' }}>
-                    {m}
-                  </th>
-                ))}
+                <th>Name</th>
+                <th>FY</th>
+                <th>Ledger</th>
+                <th>Cost centre</th>
+                <th />
               </tr>
             </thead>
             <tbody>
-              <tr>
-                {monthlyAmounts.map((amount, i) => (
-                  <td key={i}>
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={amount}
-                      onChange={(e) => {
-                        const next = [...monthlyAmounts];
-                        next[i] = Number(e.target.value);
-                        setMonthlyAmounts(next);
-                      }}
-                      style={{ width: 70 }}
-                    />
-                  </td>
-                ))}
-              </tr>
+              {budgets.map((budget) => (
+                <Fragment key={budget.id}>
+                  <tr>
+                    <td>{budget.name}</td>
+                    <td>{budget.financialYear}</td>
+                    <td>{budget.ledgerName ?? '—'}</td>
+                    <td>{budget.costCentreName ?? '—'}</td>
+                    <td>
+                      <button type="button" onClick={() => viewActual(budget.id)}>
+                        {expandedId === budget.id ? 'Hide' : 'Budget vs Actual'}
+                      </button>
+                    </td>
+                  </tr>
+                  {expandedId === budget.id && actual && (
+                    <tr>
+                      <td colSpan={5}>
+                        <table className="data-table" style={{ fontSize: 13 }}>
+                          <thead>
+                            <tr>
+                              <th>Month</th>
+                              <th className="num">Budgeted (₹)</th>
+                              <th className="num">Actual (₹)</th>
+                              <th className="num">Variance (₹)</th>
+                              <th className="num">Variance %</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {actual.rows.map((row) => (
+                              <tr key={row.periodMonth}>
+                                <td>{MONTH_NAMES[row.periodMonth - 1]}</td>
+                                <td className="num">{row.budgetedAmount.toFixed(2)}</td>
+                                <td className="num">{row.actualAmount.toFixed(2)}</td>
+                                <td className="num" style={{ color: row.varianceAmount > 0 ? 'var(--danger)' : undefined }}>
+                                  {row.varianceAmount.toFixed(2)}
+                                </td>
+                                <td className="num">{row.variancePercent === null ? '—' : `${row.variancePercent.toFixed(1)}%`}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
+              ))}
             </tbody>
           </table>
-          <button type="submit" disabled={submitting}>
-            {submitting ? 'Saving…' : 'Create budget'}
-          </button>
+        )}
+      </div>
+
+      {canManage && (
+        <form onSubmit={handleCreate} className="card">
+          <h2>New budget</h2>
+          <div className="field-row">
+            <label className="field">
+              Name
+              <input value={name} onChange={(e) => setName(e.target.value)} required />
+            </label>
+            <label className="field">
+              Financial year (e.g. 2026-27)
+              <input value={financialYear} onChange={(e) => setFinancialYear(e.target.value)} required style={{ width: 120 }} />
+            </label>
+          </div>
+          <div className="field-row">
+            <label className="field">
+              Ledger (optional)
+              <select value={ledgerId} onChange={(e) => setLedgerId(e.target.value)}>
+                <option value="">—</option>
+                {ledgers.map((l) => (
+                  <option key={l.id} value={l.id}>
+                    {l.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="field">
+              Cost centre (optional)
+              <select value={costCentreId} onChange={(e) => setCostCentreId(e.target.value)}>
+                <option value="">—</option>
+                {costCentres.map((cc) => (
+                  <option key={cc.id} value={cc.id}>
+                    {cc.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+          <label className="field" style={{ maxWidth: 400 }}>
+            Annual total (₹) — splits evenly across 12 months below, then edit any month
+            <div style={{ display: 'flex', gap: 8 }}>
+              <input type="number" step="0.01" value={annualTotal} onChange={(e) => setAnnualTotal(e.target.value)} style={{ width: 160 }} />
+              <button type="button" onClick={applyEvenSplit}>
+                Split evenly
+              </button>
+            </div>
+          </label>
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ marginTop: 8, marginBottom: 12, borderCollapse: 'collapse' }}>
+              <thead>
+                <tr>
+                  {MONTH_NAMES.map((m) => (
+                    <th key={m} style={{ fontSize: 11, padding: '0 4px', color: 'var(--fg-muted)', textAlign: 'left' }}>
+                      {m}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  {monthlyAmounts.map((amount, i) => (
+                    <td key={i} style={{ padding: '2px 2px' }}>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={amount}
+                        onChange={(e) => {
+                          const next = [...monthlyAmounts];
+                          next[i] = Number(e.target.value);
+                          setMonthlyAmounts(next);
+                        }}
+                        style={{ width: 76 }}
+                      />
+                    </td>
+                  ))}
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div className="form-actions">
+            <button type="submit" className="btn-primary" disabled={submitting}>
+              {submitting ? 'Saving…' : 'Create budget'}
+            </button>
+          </div>
         </form>
       )}
-
-      <button type="button" onClick={onBack}>
-        Back to dashboard
-      </button>
     </div>
   );
 }
