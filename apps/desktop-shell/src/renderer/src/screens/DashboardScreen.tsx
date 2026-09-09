@@ -1,3 +1,32 @@
+import { useEffect, useMemo, useState } from 'react';
+import {
+  ArrowDownToLine,
+  ArrowUpFromLine,
+  BarChart3,
+  BookOpen,
+  Boxes,
+  ClipboardList,
+  Factory,
+  FileSearch,
+  GitBranch,
+  Landmark,
+  LogOut,
+  Package,
+  Percent,
+  PiggyBank,
+  Printer,
+  Receipt,
+  RefreshCw,
+  Settings,
+  ShieldCheck,
+  ShoppingCart,
+  TrendingUp,
+  Truck,
+  UserCog,
+  Users,
+  Wallet,
+  type LucideIcon,
+} from 'lucide-react';
 import type { SessionInfo } from '../../../shared/ipc';
 
 interface Props {
@@ -79,6 +108,78 @@ interface Props {
   onTemplateDesigner: () => void;
 }
 
+interface NavItem {
+  label: string;
+  onClick: () => void;
+  show: boolean;
+}
+
+interface NavSection {
+  title: string;
+  icon: LucideIcon;
+  items: NavItem[];
+}
+
+interface KpiSummary {
+  totalSales: number;
+  totalPurchases: number;
+  receivables: number;
+  payables: number;
+  stockValue: number;
+}
+
+function formatInr(amount: number): string {
+  return new Intl.NumberFormat('en-IN', {
+    style: 'currency',
+    currency: 'INR',
+    maximumFractionDigits: 0,
+  }).format(amount);
+}
+
+function KpiCard({
+  label,
+  value,
+  loading,
+  icon: Icon,
+  tone,
+}: {
+  label: string;
+  value: number;
+  loading: boolean;
+  icon: LucideIcon;
+  tone: 'success' | 'warning' | 'accent';
+}) {
+  return (
+    <div
+      style={{
+        background: 'var(--surface)',
+        border: '1px solid var(--border)',
+        borderRadius: 'var(--radius)',
+        boxShadow: 'var(--shadow-sm)',
+        padding: '16px 18px',
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--fg-muted)', fontSize: 13, marginBottom: 10 }}>
+        <span
+          style={{
+            display: 'inline-flex',
+            padding: 6,
+            borderRadius: 'var(--radius-sm)',
+            background: `var(--${tone}-soft)`,
+            color: `var(--${tone})`,
+          }}
+        >
+          <Icon size={15} />
+        </span>
+        {label}
+      </div>
+      <div style={{ fontSize: 22, fontWeight: 700 }}>
+        {loading ? <RefreshCw size={18} className="spin" style={{ color: 'var(--fg-muted)' }} /> : formatInr(value)}
+      </div>
+    </div>
+  );
+}
+
 export function DashboardScreen({
   session,
   onLogout,
@@ -157,203 +258,309 @@ export function DashboardScreen({
   onPrintCentre,
   onTemplateDesigner,
 }: Props) {
+  const perms = session.permissions;
+  const has = (code: string) => perms.includes(code);
+
+  const canViewSalesReports = has('SALES.VIEW_REPORTS');
+  const canViewPurchaseReports = has('PURCHASE.VIEW_REPORTS');
+  const canViewInventoryReports = has('INVENTORY.VIEW_REPORTS');
+  const showKpiRow = canViewSalesReports || canViewPurchaseReports || canViewInventoryReports;
+
+  const [kpi, setKpi] = useState<KpiSummary>({ totalSales: 0, totalPurchases: 0, receivables: 0, payables: 0, stockValue: 0 });
+  const [kpiLoading, setKpiLoading] = useState(showKpiRow);
+
+  useEffect(() => {
+    if (!showKpiRow) return;
+    let cancelled = false;
+
+    async function loadKpis() {
+      setKpiLoading(true);
+      const [salesRes, purchaseRes, receivablesRes, payablesRes, stockRes] = await Promise.all([
+        canViewSalesReports ? window.mhts.listSalesInvoices() : null,
+        canViewPurchaseReports ? window.mhts.listPurchaseInvoices() : null,
+        canViewSalesReports ? window.mhts.listReceivables() : null,
+        canViewPurchaseReports ? window.mhts.listPayables() : null,
+        canViewInventoryReports ? window.mhts.getStockPosition({}) : null,
+      ]);
+      if (cancelled) return;
+
+      setKpi({
+        totalSales:
+          salesRes?.ok && salesRes.data ? salesRes.data.filter((row) => !row.cancelledAt).reduce((sum, row) => sum + row.totalAmount, 0) : 0,
+        totalPurchases:
+          purchaseRes?.ok && purchaseRes.data
+            ? purchaseRes.data.filter((row) => !row.cancelledAt).reduce((sum, row) => sum + row.totalAmount, 0)
+            : 0,
+        receivables: receivablesRes?.ok && receivablesRes.data ? receivablesRes.data.reduce((sum, row) => sum + row.outstandingAmount, 0) : 0,
+        payables: payablesRes?.ok && payablesRes.data ? payablesRes.data.reduce((sum, row) => sum + row.outstandingAmount, 0) : 0,
+        stockValue: stockRes?.ok && stockRes.data ? stockRes.data.reduce((sum, row) => sum + row.valueRupees, 0) : 0,
+      });
+      setKpiLoading(false);
+    }
+
+    loadKpis();
+    return () => {
+      cancelled = true;
+    };
+  }, [showKpiRow, canViewSalesReports, canViewPurchaseReports, canViewInventoryReports]);
+
+  const sections: NavSection[] = useMemo(
+    () => [
+      {
+        title: 'Vouchers',
+        icon: Receipt,
+        items: [
+          { label: 'Payment', onClick: onPaymentVoucher, show: has('ACCOUNTING.CREATE_VOUCHER') },
+          { label: 'Receipt', onClick: onReceiptVoucher, show: has('ACCOUNTING.CREATE_VOUCHER') },
+          { label: 'Contra', onClick: onContraVoucher, show: has('ACCOUNTING.CREATE_VOUCHER') },
+          { label: 'Journal', onClick: onJournalVoucher, show: has('ACCOUNTING.CREATE_VOUCHER') },
+        ],
+      },
+      {
+        title: 'Accounting reports',
+        icon: BookOpen,
+        items: [
+          { label: 'Chart of accounts', onClick: onChartOfAccounts, show: has('ACCOUNTING.VIEW_REPORTS') },
+          { label: 'Voucher register', onClick: onVoucherRegister, show: has('ACCOUNTING.VIEW_REPORTS') },
+          { label: 'Trial balance', onClick: onTrialBalance, show: has('ACCOUNTING.VIEW_REPORTS') },
+          { label: 'Profit & Loss', onClick: onProfitAndLoss, show: has('ACCOUNTING.VIEW_REPORTS') },
+          { label: 'Balance sheet', onClick: onBalanceSheet, show: has('ACCOUNTING.VIEW_REPORTS') },
+        ],
+      },
+      {
+        title: 'Customers & suppliers',
+        icon: Users,
+        items: [{ label: 'Customers & suppliers', onClick: onParties, show: has('SALES.MANAGE_PARTIES') || has('PURCHASE.VIEW_REPORTS') }],
+      },
+      {
+        title: 'Sales',
+        icon: ShoppingCart,
+        items: [
+          { label: 'New sales invoice', onClick: onNewSalesInvoice, show: has('SALES.CREATE_INVOICE') },
+          { label: 'Sales invoice register', onClick: onSalesInvoiceRegister, show: has('SALES.CREATE_INVOICE') },
+          { label: 'Customer receipt', onClick: onCustomerReceipt, show: has('SALES.CREATE_INVOICE') },
+          { label: 'New sales order', onClick: onNewSalesOrder, show: has('SALES.CREATE_ORDER') },
+          { label: 'Sales order register', onClick: onSalesOrderRegister, show: has('SALES.CREATE_ORDER') },
+          { label: 'Receivables', onClick: onReceivables, show: canViewSalesReports },
+        ],
+      },
+      {
+        title: 'Purchase',
+        icon: Truck,
+        items: [
+          { label: 'New purchase invoice', onClick: onNewPurchaseInvoice, show: has('PURCHASE.CREATE_INVOICE') },
+          { label: 'Purchase invoice register', onClick: onPurchaseInvoiceRegister, show: has('PURCHASE.CREATE_INVOICE') },
+          { label: 'Supplier payment', onClick: onSupplierPayment, show: has('PURCHASE.CREATE_INVOICE') },
+          { label: 'New purchase order', onClick: onNewPurchaseOrder, show: has('PURCHASE.CREATE_ORDER') },
+          { label: 'Purchase order register', onClick: onPurchaseOrderRegister, show: has('PURCHASE.CREATE_ORDER') },
+          { label: 'Payables', onClick: onPayables, show: canViewPurchaseReports },
+          { label: 'MSME ageing (43B(h))', onClick: onMsmeAgeing, show: canViewPurchaseReports },
+        ],
+      },
+      {
+        title: 'Inventory setup',
+        icon: Package,
+        items: [
+          { label: 'Units of measure', onClick: onManageUnits, show: has('INVENTORY.MANAGE_UNITS') },
+          { label: 'Warehouses', onClick: onManageWarehouses, show: has('INVENTORY.MANAGE_WAREHOUSES') },
+          { label: 'Items', onClick: onManageItems, show: has('INVENTORY.MANAGE_ITEMS') },
+        ],
+      },
+      {
+        title: 'Stock operations',
+        icon: ClipboardList,
+        items: [
+          { label: 'Record opening stock', onClick: onRecordOpeningStock, show: has('INVENTORY.RECORD_OPENING_STOCK') },
+          { label: 'Stock adjustment', onClick: onStockAdjustment, show: has('INVENTORY.ADJUST_STOCK') },
+          { label: 'Stock transfer', onClick: onStockTransfer, show: has('INVENTORY.TRANSFER_STOCK') },
+        ],
+      },
+      {
+        title: 'Stock reports',
+        icon: BarChart3,
+        items: [
+          { label: 'Stock summary', onClick: onStockSummary, show: canViewInventoryReports },
+          { label: 'Stock movement register', onClick: onStockMovementRegister, show: canViewInventoryReports },
+          { label: 'Stock valuation vs. ledger', onClick: onStockValuationVsLedger, show: canViewInventoryReports },
+        ],
+      },
+      {
+        title: 'GST',
+        icon: Percent,
+        items: [
+          { label: 'Manage GST rates', onClick: onManageGstRates, show: has('GST.MANAGE_RATES') },
+          { label: 'GST summary', onClick: onGstSummary, show: has('GST.VIEW_REPORTS') },
+          { label: 'GST returns (GSTR-1/3B/9/9C)', onClick: onGstReturns, show: has('GST.VIEW_REPORTS') },
+        ],
+      },
+      {
+        title: 'Banking',
+        icon: Landmark,
+        items: [
+          { label: 'Bank accounts', onClick: onBankAccounts, show: has('BANKING.MANAGE_BANK_ACCOUNTS') },
+          { label: 'Bank reconciliation', onClick: onBankReconciliation, show: has('BANKING.VIEW_REPORTS') },
+          { label: 'Import bank statement', onClick: onBankStatementImport, show: has('BANKING.IMPORT_STATEMENT') },
+          { label: 'Cheque register', onClick: onChequeRegister, show: has('BANKING.VIEW_REPORTS') },
+        ],
+      },
+      {
+        title: 'Expense & HR',
+        icon: Wallet,
+        items: [
+          { label: 'Employees', onClick: onEmployees, show: has('EXPENSE.MANAGE_EMPLOYEES') },
+          { label: 'New expense claim', onClick: onNewExpenseClaim, show: has('EXPENSE.CREATE_CLAIM') },
+          { label: 'Expense claim register', onClick: onExpenseClaimRegister, show: has('EXPENSE.VIEW_REPORTS') },
+          { label: 'Outstanding reimbursements', onClick: onOutstandingReimbursements, show: has('EXPENSE.VIEW_REPORTS') },
+        ],
+      },
+      {
+        title: 'Documents',
+        icon: FileSearch,
+        items: [{ label: 'Document search', onClick: onDocumentSearch, show: has('DOCUMENTS.VIEW') }],
+      },
+      {
+        title: 'Payroll',
+        icon: UserCog,
+        items: [
+          { label: 'Employee payroll profiles', onClick: onEmployeePayrollProfile, show: has('PAYROLL.MANAGE_EMPLOYEE_PROFILE') },
+          { label: 'Salary components', onClick: onSalaryComponents, show: has('PAYROLL.MANAGE_SALARY_STRUCTURE') },
+          { label: 'Salary structure (CTC)', onClick: onSalaryStructure, show: has('PAYROLL.MANAGE_SALARY_STRUCTURE') },
+          { label: 'Payroll settings', onClick: onPayrollSettings, show: has('PAYROLL.MANAGE_RULES') },
+          { label: 'Manage payroll rules', onClick: onManagePayrollRules, show: has('PAYROLL.MANAGE_RULES') },
+          { label: 'Attendance', onClick: onAttendance, show: has('PAYROLL.MANAGE_ATTENDANCE') },
+          { label: 'Leave', onClick: onLeave, show: has('PAYROLL.APPLY_LEAVE') || has('PAYROLL.APPROVE_LEAVE') },
+          { label: 'Payroll runs', onClick: onPayrollRuns, show: has('PAYROLL.RUN_PAYROLL') || has('PAYROLL.VIEW_REPORTS') },
+          { label: 'Gratuity', onClick: onGratuity, show: has('PAYROLL.MANAGE_GRATUITY') || has('PAYROLL.VIEW_REPORTS') },
+        ],
+      },
+      {
+        title: 'Cost centres & fixed assets',
+        icon: PiggyBank,
+        items: [
+          { label: 'Cost centres', onClick: onCostCentres, show: has('ACCOUNTING.VIEW_REPORTS') },
+          { label: 'Budgets', onClick: onBudgets, show: has('ACCOUNTING.MANAGE_BUDGETS') },
+          { label: 'Fixed asset classes', onClick: onAssetClasses, show: has('FIXED_ASSETS.MANAGE_ASSET_CLASSES') },
+          { label: 'Fixed asset register', onClick: onFixedAssetRegister, show: has('FIXED_ASSETS.MANAGE_ASSETS') },
+          { label: 'Run depreciation', onClick: onRunDepreciation, show: has('FIXED_ASSETS.RUN_DEPRECIATION') },
+          { label: 'Manage fixed asset rates', onClick: onManageFixedAssetRates, show: has('FIXED_ASSETS.MANAGE_ASSET_CLASSES') },
+        ],
+      },
+      {
+        title: 'Branches & multi-currency',
+        icon: GitBranch,
+        items: [
+          { label: 'Branches', onClick: onBranches, show: has('ACCOUNTING.VIEW_REPORTS') },
+          { label: 'Inter-branch transfer', onClick: onInterBranchTransfer, show: has('ACCOUNTING.MANAGE_BRANCHES') },
+          { label: 'Branch-wise reports', onClick: onBranchReports, show: has('ACCOUNTING.VIEW_REPORTS') },
+          { label: 'Manage exchange rates', onClick: onManageExchangeRates, show: has('MULTI_CURRENCY.MANAGE_EXCHANGE_RATES') },
+          { label: 'Run FX revaluation', onClick: onRunFxRevaluation, show: has('MULTI_CURRENCY.RUN_REVALUATION') },
+        ],
+      },
+      {
+        title: 'Manufacturing',
+        icon: Factory,
+        items: [
+          { label: 'Bills of material', onClick: onBillsOfMaterial, show: has('MANUFACTURING.MANAGE_BOM') },
+          { label: 'Manufacturing journal', onClick: onManufacturingJournal, show: has('MANUFACTURING.POST_JOURNAL') },
+          { label: 'Manufacturing journal register', onClick: onManufacturingJournalRegister, show: has('MANUFACTURING.POST_JOURNAL') },
+        ],
+      },
+      {
+        title: 'Print',
+        icon: Printer,
+        items: [
+          { label: 'Company letterhead', onClick: onCompanyLetterhead, show: has('PRINT.MANAGE_LETTERHEAD') },
+          { label: 'Print Centre', onClick: onPrintCentre, show: has('PRINT.PRINT_DOCUMENTS') },
+          { label: 'Template designer', onClick: onTemplateDesigner, show: has('PRINT.MANAGE_LETTERHEAD') },
+        ],
+      },
+      {
+        title: 'System',
+        icon: Settings,
+        items: [
+          { label: 'Manage users', onClick: onManageUsers, show: has('SYSTEM.MANAGE_USERS') },
+          { label: 'Manage roles', onClick: onManageRoles, show: has('SYSTEM.MANAGE_ROLES') },
+          { label: 'Backup & restore', onClick: onBackup, show: has('SYSTEM.MANAGE_COMPANY') },
+          { label: 'Verify audit trail', onClick: onVerifyAuditTrail, show: has('SYSTEM.VIEW_AUDIT_LOG') },
+        ],
+      },
+    ],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [perms],
+  );
+
+  const visibleSections = sections.filter((section) => section.items.some((item) => item.show));
+
   return (
-    <div style={{ padding: 24, fontFamily: 'sans-serif', maxWidth: 480 }}>
-      <h1>{session.companyName}</h1>
-      <p>
-        Signed in as <strong>{session.userName}</strong> ({session.email})
-      </p>
-      <p>
-        Role: <strong>{session.roleName}</strong>
-      </p>
-      <p>Permissions granted to this role:</p>
-      <ul>
-        {session.permissions.map((code) => (
-          <li key={code}>{code}</li>
-        ))}
-      </ul>
-      {session.permissions.includes('ACCOUNTING.CREATE_VOUCHER') && (
-        <p>
-          <button onClick={onPaymentVoucher}>Payment</button>{' '}
-          <button onClick={onReceiptVoucher}>Receipt</button>{' '}
-          <button onClick={onContraVoucher}>Contra</button>{' '}
-          <button onClick={onJournalVoucher}>Journal</button>
-        </p>
-      )}
-      {session.permissions.includes('ACCOUNTING.VIEW_REPORTS') && (
-        <p>
-          <button onClick={onChartOfAccounts}>Chart of accounts</button>{' '}
-          <button onClick={onVoucherRegister}>Voucher register</button>{' '}
-          <button onClick={onTrialBalance}>Trial balance</button>{' '}
-          <button onClick={onProfitAndLoss}>Profit &amp; Loss</button>{' '}
-          <button onClick={onBalanceSheet}>Balance sheet</button>
-        </p>
-      )}
-      {(session.permissions.includes('SALES.MANAGE_PARTIES') || session.permissions.includes('PURCHASE.VIEW_REPORTS')) && (
-        <p>
-          <button onClick={onParties}>Customers &amp; suppliers</button>
-        </p>
-      )}
-      {session.permissions.includes('SALES.CREATE_INVOICE') && (
-        <p>
-          <button onClick={onNewSalesInvoice}>New sales invoice</button>{' '}
-          <button onClick={onSalesInvoiceRegister}>Sales invoice register</button>{' '}
-          <button onClick={onCustomerReceipt}>Customer receipt</button>
-        </p>
-      )}
-      {session.permissions.includes('SALES.CREATE_ORDER') && (
-        <p>
-          <button onClick={onNewSalesOrder}>New sales order</button>{' '}
-          <button onClick={onSalesOrderRegister}>Sales order register</button>
-        </p>
-      )}
-      {session.permissions.includes('PURCHASE.CREATE_INVOICE') && (
-        <p>
-          <button onClick={onNewPurchaseInvoice}>New purchase invoice</button>{' '}
-          <button onClick={onPurchaseInvoiceRegister}>Purchase invoice register</button>{' '}
-          <button onClick={onSupplierPayment}>Supplier payment</button>
-        </p>
-      )}
-      {session.permissions.includes('PURCHASE.CREATE_ORDER') && (
-        <p>
-          <button onClick={onNewPurchaseOrder}>New purchase order</button>{' '}
-          <button onClick={onPurchaseOrderRegister}>Purchase order register</button>
-        </p>
-      )}
-      {session.permissions.includes('SALES.VIEW_REPORTS') && (
-        <p>
-          <button onClick={onReceivables}>Receivables</button>
-        </p>
-      )}
-      {session.permissions.includes('PURCHASE.VIEW_REPORTS') && (
-        <p>
-          <button onClick={onPayables}>Payables</button>{' '}
-          <button onClick={onMsmeAgeing}>MSME ageing (43B(h))</button>
-        </p>
-      )}
-      {(session.permissions.includes('INVENTORY.MANAGE_ITEMS') ||
-        session.permissions.includes('INVENTORY.MANAGE_WAREHOUSES') ||
-        session.permissions.includes('INVENTORY.MANAGE_UNITS')) && (
-        <p>
-          {session.permissions.includes('INVENTORY.MANAGE_UNITS') && <button onClick={onManageUnits}>Units of measure</button>}{' '}
-          {session.permissions.includes('INVENTORY.MANAGE_WAREHOUSES') && <button onClick={onManageWarehouses}>Warehouses</button>}{' '}
-          {session.permissions.includes('INVENTORY.MANAGE_ITEMS') && <button onClick={onManageItems}>Items</button>}
-        </p>
-      )}
-      {(session.permissions.includes('INVENTORY.RECORD_OPENING_STOCK') || session.permissions.includes('INVENTORY.ADJUST_STOCK') || session.permissions.includes('INVENTORY.TRANSFER_STOCK')) && (
-        <p>
-          {session.permissions.includes('INVENTORY.RECORD_OPENING_STOCK') && <button onClick={onRecordOpeningStock}>Record opening stock</button>}{' '}
-          {session.permissions.includes('INVENTORY.ADJUST_STOCK') && <button onClick={onStockAdjustment}>Stock adjustment</button>}{' '}
-          {session.permissions.includes('INVENTORY.TRANSFER_STOCK') && <button onClick={onStockTransfer}>Stock transfer</button>}
-        </p>
-      )}
-      {session.permissions.includes('INVENTORY.VIEW_REPORTS') && (
-        <p>
-          <button onClick={onStockSummary}>Stock summary</button>{' '}
-          <button onClick={onStockMovementRegister}>Stock movement register</button>{' '}
-          <button onClick={onStockValuationVsLedger}>Stock valuation vs. ledger</button>
-        </p>
-      )}
-      {(session.permissions.includes('GST.MANAGE_RATES') || session.permissions.includes('GST.VIEW_REPORTS')) && (
-        <p>
-          {session.permissions.includes('GST.MANAGE_RATES') && <button onClick={onManageGstRates}>Manage GST rates</button>}{' '}
-          {session.permissions.includes('GST.VIEW_REPORTS') && <button onClick={onGstSummary}>GST summary</button>}{' '}
-          {session.permissions.includes('GST.VIEW_REPORTS') && <button onClick={onGstReturns}>GST returns (GSTR-1/3B/9/9C)</button>}
-        </p>
-      )}
-      {(session.permissions.includes('BANKING.MANAGE_BANK_ACCOUNTS') ||
-        session.permissions.includes('BANKING.VIEW_REPORTS') ||
-        session.permissions.includes('BANKING.IMPORT_STATEMENT')) && (
-        <p>
-          {session.permissions.includes('BANKING.MANAGE_BANK_ACCOUNTS') && <button onClick={onBankAccounts}>Bank accounts</button>}{' '}
-          {session.permissions.includes('BANKING.VIEW_REPORTS') && <button onClick={onBankReconciliation}>Bank reconciliation</button>}{' '}
-          {session.permissions.includes('BANKING.IMPORT_STATEMENT') && <button onClick={onBankStatementImport}>Import bank statement</button>}{' '}
-          {session.permissions.includes('BANKING.VIEW_REPORTS') && <button onClick={onChequeRegister}>Cheque register</button>}
-        </p>
-      )}
-      {(session.permissions.includes('EXPENSE.MANAGE_EMPLOYEES') ||
-        session.permissions.includes('EXPENSE.CREATE_CLAIM') ||
-        session.permissions.includes('EXPENSE.VIEW_REPORTS')) && (
-        <p>
-          {session.permissions.includes('EXPENSE.MANAGE_EMPLOYEES') && <button onClick={onEmployees}>Employees</button>}{' '}
-          {session.permissions.includes('EXPENSE.CREATE_CLAIM') && <button onClick={onNewExpenseClaim}>New expense claim</button>}{' '}
-          {session.permissions.includes('EXPENSE.VIEW_REPORTS') && <button onClick={onExpenseClaimRegister}>Expense claim register</button>}{' '}
-          {session.permissions.includes('EXPENSE.VIEW_REPORTS') && <button onClick={onOutstandingReimbursements}>Outstanding reimbursements</button>}
-        </p>
-      )}
-      {session.permissions.includes('DOCUMENTS.VIEW') && (
-        <p>
-          <button onClick={onDocumentSearch}>Document search</button>
-        </p>
-      )}
-      {(session.permissions.includes('PAYROLL.MANAGE_EMPLOYEE_PROFILE') ||
-        session.permissions.includes('PAYROLL.MANAGE_SALARY_STRUCTURE') ||
-        session.permissions.includes('PAYROLL.MANAGE_RULES') ||
-        session.permissions.includes('PAYROLL.MANAGE_ATTENDANCE') ||
-        session.permissions.includes('PAYROLL.APPLY_LEAVE') ||
-        session.permissions.includes('PAYROLL.RUN_PAYROLL') ||
-        session.permissions.includes('PAYROLL.MANAGE_GRATUITY') ||
-        session.permissions.includes('PAYROLL.VIEW_REPORTS')) && (
-        <p>
-          {session.permissions.includes('PAYROLL.MANAGE_EMPLOYEE_PROFILE') && <button onClick={onEmployeePayrollProfile}>Employee payroll profiles</button>}{' '}
-          {session.permissions.includes('PAYROLL.MANAGE_SALARY_STRUCTURE') && <button onClick={onSalaryComponents}>Salary components</button>}{' '}
-          {session.permissions.includes('PAYROLL.MANAGE_SALARY_STRUCTURE') && <button onClick={onSalaryStructure}>Salary structure (CTC)</button>}{' '}
-          {session.permissions.includes('PAYROLL.MANAGE_RULES') && <button onClick={onPayrollSettings}>Payroll settings</button>}{' '}
-          {session.permissions.includes('PAYROLL.MANAGE_RULES') && <button onClick={onManagePayrollRules}>Manage payroll rules</button>}{' '}
-          {session.permissions.includes('PAYROLL.MANAGE_ATTENDANCE') && <button onClick={onAttendance}>Attendance</button>}{' '}
-          {(session.permissions.includes('PAYROLL.APPLY_LEAVE') || session.permissions.includes('PAYROLL.APPROVE_LEAVE')) && <button onClick={onLeave}>Leave</button>}{' '}
-          {(session.permissions.includes('PAYROLL.RUN_PAYROLL') || session.permissions.includes('PAYROLL.VIEW_REPORTS')) && <button onClick={onPayrollRuns}>Payroll runs</button>}{' '}
-          {(session.permissions.includes('PAYROLL.MANAGE_GRATUITY') || session.permissions.includes('PAYROLL.VIEW_REPORTS')) && <button onClick={onGratuity}>Gratuity</button>}
-        </p>
-      )}
-      {(session.permissions.includes('ACCOUNTING.MANAGE_COST_CENTRES') ||
-        session.permissions.includes('ACCOUNTING.VIEW_REPORTS') ||
-        session.permissions.includes('ACCOUNTING.MANAGE_BUDGETS') ||
-        session.permissions.includes('FIXED_ASSETS.MANAGE_ASSET_CLASSES') ||
-        session.permissions.includes('FIXED_ASSETS.MANAGE_ASSETS') ||
-        session.permissions.includes('FIXED_ASSETS.RUN_DEPRECIATION')) && (
-        <p>
-          {session.permissions.includes('ACCOUNTING.VIEW_REPORTS') && <button onClick={onCostCentres}>Cost centres</button>}{' '}
-          {session.permissions.includes('ACCOUNTING.MANAGE_BUDGETS') && <button onClick={onBudgets}>Budgets</button>}{' '}
-          {session.permissions.includes('FIXED_ASSETS.MANAGE_ASSET_CLASSES') && <button onClick={onAssetClasses}>Fixed asset classes</button>}{' '}
-          {session.permissions.includes('FIXED_ASSETS.MANAGE_ASSETS') && <button onClick={onFixedAssetRegister}>Fixed asset register</button>}{' '}
-          {session.permissions.includes('FIXED_ASSETS.RUN_DEPRECIATION') && <button onClick={onRunDepreciation}>Run depreciation</button>}{' '}
-          {session.permissions.includes('FIXED_ASSETS.MANAGE_ASSET_CLASSES') && <button onClick={onManageFixedAssetRates}>Manage fixed asset rates</button>}
-        </p>
-      )}
-      {(session.permissions.includes('ACCOUNTING.MANAGE_BRANCHES') ||
-        session.permissions.includes('ACCOUNTING.VIEW_REPORTS') ||
-        session.permissions.includes('MULTI_CURRENCY.MANAGE_EXCHANGE_RATES') ||
-        session.permissions.includes('MULTI_CURRENCY.RUN_REVALUATION')) && (
-        <p>
-          {session.permissions.includes('ACCOUNTING.VIEW_REPORTS') && <button onClick={onBranches}>Branches</button>}{' '}
-          {session.permissions.includes('ACCOUNTING.MANAGE_BRANCHES') && <button onClick={onInterBranchTransfer}>Inter-branch transfer</button>}{' '}
-          {session.permissions.includes('ACCOUNTING.VIEW_REPORTS') && <button onClick={onBranchReports}>Branch-wise reports</button>}{' '}
-          {session.permissions.includes('MULTI_CURRENCY.MANAGE_EXCHANGE_RATES') && <button onClick={onManageExchangeRates}>Manage exchange rates</button>}{' '}
-          {session.permissions.includes('MULTI_CURRENCY.RUN_REVALUATION') && <button onClick={onRunFxRevaluation}>Run FX revaluation</button>}
-        </p>
-      )}
-      {(session.permissions.includes('MANUFACTURING.MANAGE_BOM') || session.permissions.includes('MANUFACTURING.POST_JOURNAL')) && (
-        <p>
-          {session.permissions.includes('MANUFACTURING.MANAGE_BOM') && <button onClick={onBillsOfMaterial}>Bills of material</button>}{' '}
-          {session.permissions.includes('MANUFACTURING.POST_JOURNAL') && <button onClick={onManufacturingJournal}>Manufacturing journal</button>}{' '}
-          {session.permissions.includes('MANUFACTURING.POST_JOURNAL') && <button onClick={onManufacturingJournalRegister}>Manufacturing journal register</button>}
-        </p>
-      )}
-      {(session.permissions.includes('PRINT.MANAGE_LETTERHEAD') || session.permissions.includes('PRINT.PRINT_DOCUMENTS')) && (
-        <p>
-          {session.permissions.includes('PRINT.MANAGE_LETTERHEAD') && <button onClick={onCompanyLetterhead}>Company letterhead</button>}{' '}
-          {session.permissions.includes('PRINT.PRINT_DOCUMENTS') && <button onClick={onPrintCentre}>Print Centre</button>}{' '}
-          {session.permissions.includes('PRINT.MANAGE_LETTERHEAD') && <button onClick={onTemplateDesigner}>Template designer</button>}
-        </p>
-      )}
-      <p>
-        {session.permissions.includes('SYSTEM.MANAGE_USERS') && <button onClick={onManageUsers}>Manage users</button>}{' '}
-        {session.permissions.includes('SYSTEM.MANAGE_ROLES') && <button onClick={onManageRoles}>Manage roles</button>}{' '}
-        {session.permissions.includes('SYSTEM.MANAGE_COMPANY') && <button onClick={onBackup}>Backup &amp; restore</button>}{' '}
-        {session.permissions.includes('SYSTEM.VIEW_AUDIT_LOG') && <button onClick={onVerifyAuditTrail}>Verify audit trail</button>}{' '}
-        <button onClick={onLogout}>Sign out</button>
-      </p>
+    <div style={{ minHeight: '100vh', background: 'var(--bg-secondary)' }}>
+      <header
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          padding: '18px 28px',
+          background: 'var(--surface)',
+          borderBottom: '1px solid var(--border)',
+        }}
+      >
+        <div>
+          <div style={{ fontSize: 20, fontWeight: 700 }}>{session.companyName}</div>
+          <div style={{ fontSize: 13, color: 'var(--fg-muted)', display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
+            <ShieldCheck size={13} />
+            {session.userName} ({session.email}) &middot; {session.roleName}
+          </div>
+        </div>
+        <button onClick={onLogout} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+          <LogOut size={16} /> Sign out
+        </button>
+      </header>
+
+      <div style={{ padding: 28, maxWidth: 1280, margin: '0 auto' }}>
+        {showKpiRow && (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16, marginBottom: 28 }}>
+            {canViewSalesReports && <KpiCard label="Total Sales" value={kpi.totalSales} loading={kpiLoading} icon={TrendingUp} tone="success" />}
+            {canViewPurchaseReports && (
+              <KpiCard label="Total Purchases" value={kpi.totalPurchases} loading={kpiLoading} icon={ShoppingCart} tone="accent" />
+            )}
+            {canViewSalesReports && (
+              <KpiCard label="Receivables" value={kpi.receivables} loading={kpiLoading} icon={ArrowDownToLine} tone="success" />
+            )}
+            {canViewPurchaseReports && (
+              <KpiCard label="Payables" value={kpi.payables} loading={kpiLoading} icon={ArrowUpFromLine} tone="warning" />
+            )}
+            {canViewInventoryReports && <KpiCard label="Stock Value" value={kpi.stockValue} loading={kpiLoading} icon={Boxes} tone="accent" />}
+          </div>
+        )}
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 16 }}>
+          {visibleSections.map((section) => (
+            <section
+              key={section.title}
+              style={{
+                background: 'var(--surface)',
+                border: '1px solid var(--border)',
+                borderRadius: 'var(--radius)',
+                boxShadow: 'var(--shadow-sm)',
+                padding: 18,
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, fontWeight: 600, fontSize: 14 }}>
+                <section.icon size={17} style={{ color: 'var(--accent)' }} />
+                {section.title}
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                {section.items
+                  .filter((item) => item.show)
+                  .map((item) => (
+                    <button key={item.label} onClick={item.onClick}>
+                      {item.label}
+                    </button>
+                  ))}
+              </div>
+            </section>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
