@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useState } from 'react';
+import { ArrowLeft, Landmark } from 'lucide-react';
 import type { AccountType, BankAccountSummary, SessionInfo } from '../../../shared/ipc';
 import { AttachmentsPanel } from './AttachmentsPanel';
 
@@ -67,103 +68,112 @@ export function BankAccountsScreen({ session, onBack }: Props) {
   }
 
   return (
-    <div style={{ padding: 24, fontFamily: 'sans-serif', maxWidth: 800 }}>
-      <h1>Bank accounts</h1>
-      {error && <p style={{ color: 'crimson' }}>{error}</p>}
+    <div className="page" style={{ maxWidth: 900 }}>
+      <div className="page-header">
+        <button type="button" className="back-link" onClick={onBack}>
+          <ArrowLeft size={16} /> Back
+        </button>
+        <h1>
+          <Landmark size={18} style={{ color: 'var(--accent)' }} /> Bank accounts
+        </h1>
+      </div>
 
-      {accounts === null ? (
-        <p>Loading…</p>
-      ) : (
-        <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 24 }}>
-          <thead>
-            <tr>
-              <th style={{ textAlign: 'left' }}>Name</th>
-              <th style={{ textAlign: 'left' }}>Bank</th>
-              <th style={{ textAlign: 'left' }}>Account No.</th>
-              <th style={{ textAlign: 'left' }}>IFSC</th>
-              <th style={{ textAlign: 'left' }}>Type</th>
-              <th style={{ textAlign: 'right' }}>Balance (₹)</th>
-              <th />
-            </tr>
-          </thead>
-          <tbody>
-            {accounts.map((account) => (
-              <Fragment key={account.id}>
-                <tr style={{ opacity: account.isActive ? 1 : 0.6 }}>
-                  <td>{account.ledgerName}</td>
-                  <td>{account.bankName}</td>
-                  <td>{account.accountNumber}</td>
-                  <td>{account.ifscCode}</td>
-                  <td>{account.accountType}</td>
-                  <td style={{ textAlign: 'right' }}>{account.currentBalance.toFixed(2)}</td>
-                  <td>
-                    <button type="button" onClick={() => setExpandedId(expandedId === account.id ? null : account.id)}>
-                      {expandedId === account.id ? 'Hide' : 'Attachments'}
-                    </button>
-                  </td>
-                </tr>
-                {expandedId === account.id && (
-                  <tr>
-                    <td colSpan={7}>
-                      <AttachmentsPanel session={session} entityType="BankAccount" entityId={account.id} />
+      {error && <p className="error-text">{error}</p>}
+
+      <div className="card" style={{ overflowX: 'auto' }}>
+        {accounts === null ? (
+          <p className="empty-state">Loading…</p>
+        ) : (
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Bank</th>
+                <th>Account No.</th>
+                <th>IFSC</th>
+                <th>Type</th>
+                <th className="num">Balance (₹)</th>
+                <th />
+              </tr>
+            </thead>
+            <tbody>
+              {accounts.map((account) => (
+                <Fragment key={account.id}>
+                  <tr style={{ opacity: account.isActive ? 1 : 0.6 }}>
+                    <td>{account.ledgerName}</td>
+                    <td>{account.bankName}</td>
+                    <td>{account.accountNumber}</td>
+                    <td>{account.ifscCode}</td>
+                    <td>{account.accountType}</td>
+                    <td className="num">{account.currentBalance.toFixed(2)}</td>
+                    <td>
+                      <button type="button" onClick={() => setExpandedId(expandedId === account.id ? null : account.id)}>
+                        {expandedId === account.id ? 'Hide' : 'Attachments'}
+                      </button>
                     </td>
                   </tr>
-                )}
-              </Fragment>
-            ))}
-          </tbody>
-        </table>
-      )}
+                  {expandedId === account.id && (
+                    <tr>
+                      <td colSpan={7}>
+                        <AttachmentsPanel session={session} entityType="BankAccount" entityId={account.id} />
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
 
       {canManage && (
-        <form onSubmit={handleCreate} style={{ marginBottom: 24 }}>
+        <form onSubmit={handleCreate} className="card">
           <h2>New bank account</h2>
-          <label>
-            Display name
-            <input value={name} onChange={(e) => setName(e.target.value)} required />
-          </label>{' '}
-          <label>
-            Bank name
-            <input value={bankName} onChange={(e) => setBankName(e.target.value)} required />
-          </label>
-          <br />
-          <label>
-            Account number
-            <input value={accountNumber} onChange={(e) => setAccountNumber(e.target.value)} required />
-          </label>{' '}
-          <label>
-            IFSC code
-            <input value={ifscCode} onChange={(e) => setIfscCode(e.target.value.toUpperCase())} required style={{ width: 120 }} />
-          </label>{' '}
-          <label>
-            Branch
-            <input value={branchName} onChange={(e) => setBranchName(e.target.value)} />
-          </label>
-          <br />
-          <label>
-            Account type
-            <select value={accountType} onChange={(e) => setAccountType(e.target.value as AccountType)}>
-              {ACCOUNT_TYPES.map((type) => (
-                <option key={type} value={type}>
-                  {type}
-                </option>
-              ))}
-            </select>
-          </label>{' '}
-          <label>
-            Opening balance (₹)
-            <input type="number" step="0.01" value={openingBalanceRupees} onChange={(e) => setOpeningBalanceRupees(e.target.value)} style={{ width: 100 }} />
-          </label>
-          <br />
-          <button type="submit" disabled={submitting}>
-            {submitting ? 'Adding…' : 'Add bank account'}
-          </button>
+          <div className="field-row">
+            <label className="field">
+              Display name
+              <input value={name} onChange={(e) => setName(e.target.value)} required />
+            </label>
+            <label className="field">
+              Bank name
+              <input value={bankName} onChange={(e) => setBankName(e.target.value)} required />
+            </label>
+            <label className="field">
+              Branch
+              <input value={branchName} onChange={(e) => setBranchName(e.target.value)} />
+            </label>
+          </div>
+          <div className="field-row">
+            <label className="field">
+              Account number
+              <input value={accountNumber} onChange={(e) => setAccountNumber(e.target.value)} required />
+            </label>
+            <label className="field">
+              IFSC code
+              <input value={ifscCode} onChange={(e) => setIfscCode(e.target.value.toUpperCase())} required style={{ width: 140 }} />
+            </label>
+            <label className="field">
+              Account type
+              <select value={accountType} onChange={(e) => setAccountType(e.target.value as AccountType)}>
+                {ACCOUNT_TYPES.map((type) => (
+                  <option key={type} value={type}>
+                    {type}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="field">
+              Opening balance (₹)
+              <input type="number" step="0.01" value={openingBalanceRupees} onChange={(e) => setOpeningBalanceRupees(e.target.value)} style={{ width: 140 }} />
+            </label>
+          </div>
+          <div className="form-actions">
+            <button type="submit" className="btn-primary" disabled={submitting}>
+              {submitting ? 'Adding…' : 'Add bank account'}
+            </button>
+          </div>
         </form>
       )}
-
-      <button type="button" onClick={onBack}>
-        Back to dashboard
-      </button>
     </div>
   );
 }

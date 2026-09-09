@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { ArrowLeft, CheckCheck } from 'lucide-react';
 import type { BankAccountSummary, BankReconciliationStatement, ReconcilableLineRow, SessionInfo } from '../../../shared/ipc';
 
 interface Props {
@@ -87,120 +88,132 @@ export function BankReconciliationScreen({ session, onBack }: Props) {
   }
 
   const tieOutDiff = statement && statementBalanceInput ? Number(statementBalanceInput) - statement.calculatedBankBalance : null;
+  const tiesOut = tieOutDiff !== null && Math.abs(tieOutDiff) < 0.005;
 
   return (
-    <div style={{ padding: 24, fontFamily: 'sans-serif', maxWidth: 960 }}>
-      <h1>Bank reconciliation</h1>
-      <p>
-        <label>
-          Bank account{' '}
-          <select value={bankLedgerId} onChange={(e) => setBankLedgerId(e.target.value)}>
-            {accounts.map((account) => (
-              <option key={account.id} value={account.ledgerAccountId}>
-                {account.ledgerName} ({account.bankName})
-              </option>
-            ))}
-          </select>
-        </label>{' '}
-        <label>
-          From <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
-        </label>{' '}
-        <label>
-          To <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} />
-        </label>{' '}
-        <button type="button" onClick={refresh} disabled={loading || !bankLedgerId}>
-          {loading ? 'Loading…' : 'Run'}
+    <div className="page" style={{ maxWidth: 1080 }}>
+      <div className="page-header">
+        <button type="button" className="back-link" onClick={onBack}>
+          <ArrowLeft size={16} /> Back
         </button>
-      </p>
-      {error && <p style={{ color: 'crimson' }}>{error}</p>}
+        <h1>
+          <CheckCheck size={18} style={{ color: 'var(--accent)' }} /> Bank reconciliation
+        </h1>
+      </div>
+
+      <div className="card">
+        <div className="field-row" style={{ alignItems: 'flex-end' }}>
+          <label className="field">
+            Bank account
+            <select value={bankLedgerId} onChange={(e) => setBankLedgerId(e.target.value)}>
+              {accounts.map((account) => (
+                <option key={account.id} value={account.ledgerAccountId}>
+                  {account.ledgerName} ({account.bankName})
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="field" style={{ maxWidth: 180 }}>
+            From
+            <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
+          </label>
+          <label className="field" style={{ maxWidth: 180 }}>
+            To
+            <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} />
+          </label>
+          <button type="button" className="btn-primary" onClick={refresh} disabled={loading || !bankLedgerId} style={{ marginBottom: 12 }}>
+            {loading ? 'Loading…' : 'Run'}
+          </button>
+        </div>
+      </div>
+
+      {error && <p className="error-text">{error}</p>}
 
       {lines && (
-        <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 24 }}>
-          <thead>
-            <tr>
-              <th>Reconciled</th>
-              <th style={{ textAlign: 'left' }}>Voucher</th>
-              <th style={{ textAlign: 'left' }}>Date</th>
-              <th style={{ textAlign: 'left' }}>Narration</th>
-              <th style={{ textAlign: 'right' }}>Debit (₹)</th>
-              <th style={{ textAlign: 'right' }}>Credit (₹)</th>
-              <th style={{ textAlign: 'left' }}>Bank statement date</th>
-            </tr>
-          </thead>
-          <tbody>
-            {lines.map((line) => (
-              <tr key={line.voucherLineId} style={{ opacity: busyLineId === line.voucherLineId ? 0.5 : 1 }}>
-                <td style={{ textAlign: 'center' }}>
-                  <input type="checkbox" checked={line.isReconciled} disabled={!canReconcile || busyLineId === line.voucherLineId} onChange={() => handleToggle(line)} />
-                </td>
-                <td>
-                  {line.voucherType} #{line.voucherNumber}
-                </td>
-                <td>{line.voucherDate}</td>
-                <td>{line.narration ?? ''}</td>
-                <td style={{ textAlign: 'right' }}>{line.debitAmount > 0 ? line.debitAmount.toFixed(2) : ''}</td>
-                <td style={{ textAlign: 'right' }}>{line.creditAmount > 0 ? line.creditAmount.toFixed(2) : ''}</td>
-                <td>
-                  {line.isReconciled ? (
-                    <input
-                      type="date"
-                      value={line.bankStatementDate ?? ''}
-                      disabled={!canReconcile || busyLineId === line.voucherLineId}
-                      onChange={(e) => handleStatementDateChange(line, e.target.value)}
-                    />
-                  ) : (
-                    '—'
-                  )}
-                </td>
+        <div className="card" style={{ overflowX: 'auto' }}>
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Reconciled</th>
+                <th>Voucher</th>
+                <th>Date</th>
+                <th>Narration</th>
+                <th className="num">Debit (₹)</th>
+                <th className="num">Credit (₹)</th>
+                <th>Bank statement date</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
-
-      {statement && (
-        <div style={{ border: '1px solid #ccc', padding: 16, maxWidth: 420 }}>
-          <h2>Reconciliation statement (as of {statement.asOfDate})</h2>
-          <table style={{ width: '100%' }}>
+            </thead>
             <tbody>
-              <tr>
-                <td>Book balance</td>
-                <td style={{ textAlign: 'right' }}>₹{statement.bookBalance.toFixed(2)}</td>
-              </tr>
-              <tr>
-                <td>+ Uncleared payments</td>
-                <td style={{ textAlign: 'right' }}>₹{statement.unclearedPayments.toFixed(2)}</td>
-              </tr>
-              <tr>
-                <td>− Uncleared receipts</td>
-                <td style={{ textAlign: 'right' }}>₹{statement.unclearedReceipts.toFixed(2)}</td>
-              </tr>
-              <tr style={{ fontWeight: 'bold', borderTop: '1px solid #333' }}>
-                <td>= Calculated bank balance</td>
-                <td style={{ textAlign: 'right' }}>₹{statement.calculatedBankBalance.toFixed(2)}</td>
-              </tr>
+              {lines.map((line) => (
+                <tr key={line.voucherLineId} style={{ opacity: busyLineId === line.voucherLineId ? 0.5 : 1 }}>
+                  <td style={{ textAlign: 'center' }}>
+                    <input type="checkbox" checked={line.isReconciled} disabled={!canReconcile || busyLineId === line.voucherLineId} onChange={() => handleToggle(line)} />
+                  </td>
+                  <td>
+                    {line.voucherType} #{line.voucherNumber}
+                  </td>
+                  <td>{line.voucherDate}</td>
+                  <td>{line.narration ?? ''}</td>
+                  <td className="num">{line.debitAmount > 0 ? line.debitAmount.toFixed(2) : ''}</td>
+                  <td className="num">{line.creditAmount > 0 ? line.creditAmount.toFixed(2) : ''}</td>
+                  <td>
+                    {line.isReconciled ? (
+                      <input
+                        type="date"
+                        value={line.bankStatementDate ?? ''}
+                        disabled={!canReconcile || busyLineId === line.voucherLineId}
+                        onChange={(e) => handleStatementDateChange(line, e.target.value)}
+                      />
+                    ) : (
+                      '—'
+                    )}
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
-          <p style={{ marginTop: 12 }}>
-            <label>
-              Actual bank statement balance (₹){' '}
-              <input type="number" step="0.01" value={statementBalanceInput} onChange={(e) => setStatementBalanceInput(e.target.value)} style={{ width: 120 }} />
-            </label>
-          </p>
-          {tieOutDiff !== null && (
-            <p style={{ color: Math.abs(tieOutDiff) < 0.005 ? 'green' : 'crimson' }}>
-              {Math.abs(tieOutDiff) < 0.005 ? 'Ties out to the paisa.' : `Differs by ₹${tieOutDiff.toFixed(2)} — check for unreconciled items or a bank error.`}
-            </p>
-          )}
-          <p>{statement.unclearedLineCount} unreconciled line(s) up to this date.</p>
         </div>
       )}
 
-      <p>
-        <button type="button" onClick={onBack}>
-          Back to dashboard
-        </button>
-      </p>
+      {statement && (
+        <div className="card" style={{ maxWidth: 460 }}>
+          <h2>Reconciliation statement (as of {statement.asOfDate})</h2>
+          <table className="data-table">
+            <tbody>
+              <tr>
+                <td>Book balance</td>
+                <td className="num">₹{statement.bookBalance.toFixed(2)}</td>
+              </tr>
+              <tr>
+                <td>+ Uncleared payments</td>
+                <td className="num">₹{statement.unclearedPayments.toFixed(2)}</td>
+              </tr>
+              <tr>
+                <td>− Uncleared receipts</td>
+                <td className="num">₹{statement.unclearedReceipts.toFixed(2)}</td>
+              </tr>
+            </tbody>
+            <tfoot>
+              <tr>
+                <td>= Calculated bank balance</td>
+                <td className="num">₹{statement.calculatedBankBalance.toFixed(2)}</td>
+              </tr>
+            </tfoot>
+          </table>
+          <label className="field" style={{ marginTop: 16, maxWidth: 220 }}>
+            Actual bank statement balance (₹)
+            <input type="number" step="0.01" value={statementBalanceInput} onChange={(e) => setStatementBalanceInput(e.target.value)} />
+          </label>
+          {tieOutDiff !== null && (
+            <p style={{ marginTop: 4 }}>
+              <span className={`badge ${tiesOut ? 'badge-success' : 'badge-warning'}`}>
+                {tiesOut ? 'Ties out to the paisa.' : `Differs by ₹${tieOutDiff.toFixed(2)} — check for unreconciled items or a bank error.`}
+              </span>
+            </p>
+          )}
+          <p style={{ color: 'var(--fg-muted)', fontSize: 13, marginTop: 12, marginBottom: 0 }}>{statement.unclearedLineCount} unreconciled line(s) up to this date.</p>
+        </div>
+      )}
     </div>
   );
 }
