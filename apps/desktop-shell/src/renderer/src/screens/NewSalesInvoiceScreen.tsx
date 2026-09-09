@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { ArrowLeft, FileText } from 'lucide-react';
 import type { BranchSummary, DocumentLineInput, ItemSummary, LedgerAccountSummary, PartySummary, WarehouseSummary } from '../../../shared/ipc';
 import { DocumentLinesEditor } from './DocumentLinesEditor';
 
@@ -74,54 +75,72 @@ export function NewSalesInvoiceScreen({ onCreated, onBack }: Props) {
   }
 
   return (
-    <div style={{ padding: 24, fontFamily: 'sans-serif', maxWidth: 800 }}>
-      <h1>New sales invoice</h1>
-      <form onSubmit={handleSubmit}>
-        <label>
-          Customer
-          <select value={partyId} onChange={(e) => setPartyId(e.target.value)} required>
-            <option value="" disabled>
-              Select customer
-            </option>
-            {parties.map((party) => (
-              <option key={party.id} value={party.id}>
-                {party.name}
-              </option>
-            ))}
-          </select>
-        </label>{' '}
-        <label>
-          Date
-          <input type="date" value={invoiceDate} onChange={(e) => setInvoiceDate(e.target.value)} required />
-        </label>
-        <br />
-        <label>
-          Narration
-          <input value={narration} onChange={(e) => setNarration(e.target.value)} style={{ width: '100%' }} />
-        </label>{' '}
-        <label>
-          Branch
-          <select value={branchId} onChange={(e) => setBranchId(e.target.value)}>
-            <option value="">—</option>
-            {branches.map((b) => (
-              <option key={b.id} value={b.id}>
-                {b.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <br />
-        <label style={{ fontSize: 12 }}>
-          <input type="checkbox" checked={isForeignCurrency} onChange={(e) => setIsForeignCurrency(e.target.checked)} /> Foreign-currency invoice
-        </label>
-        {isForeignCurrency && (
-          <span style={{ marginLeft: 8 }}>
-            <input value={currency} onChange={(e) => setCurrency(e.target.value.toUpperCase())} style={{ width: 50 }} placeholder="USD" />{' '}
-            <input type="number" step="0.0001" value={exchangeRate || ''} onChange={(e) => setExchangeRate(Number(e.target.value) || 0)} style={{ width: 100 }} placeholder="Rate (₹ per unit)" />
-          </span>
-        )}
+    <div className="page" style={{ maxWidth: 860 }}>
+      <div className="page-header">
+        <button type="button" className="back-link" onClick={onBack} disabled={submitting}>
+          <ArrowLeft size={16} /> Back
+        </button>
+        <h1>
+          <FileText size={18} style={{ color: 'var(--accent)' }} /> New sales invoice
+        </h1>
+      </div>
 
-        <div style={{ marginTop: 16 }}>
+      <form onSubmit={handleSubmit}>
+        <div className="card">
+          <div className="field-row">
+            <label className="field">
+              Customer
+              <select value={partyId} onChange={(e) => setPartyId(e.target.value)} required>
+                <option value="" disabled>
+                  Select customer
+                </option>
+                {parties.map((party) => (
+                  <option key={party.id} value={party.id}>
+                    {party.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="field">
+              Date
+              <input type="date" value={invoiceDate} onChange={(e) => setInvoiceDate(e.target.value)} required />
+            </label>
+            <label className="field">
+              Branch
+              <select value={branchId} onChange={(e) => setBranchId(e.target.value)}>
+                <option value="">—</option>
+                {branches.map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {b.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+          <label className="field">
+            Narration
+            <input value={narration} onChange={(e) => setNarration(e.target.value)} />
+          </label>
+          <label className="field" style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <input type="checkbox" checked={isForeignCurrency} onChange={(e) => setIsForeignCurrency(e.target.checked)} />
+            Foreign-currency invoice
+          </label>
+          {isForeignCurrency && (
+            <div className="field-row">
+              <label className="field">
+                Currency
+                <input value={currency} onChange={(e) => setCurrency(e.target.value.toUpperCase())} style={{ width: 80 }} placeholder="USD" />
+              </label>
+              <label className="field">
+                Rate (₹ per unit)
+                <input type="number" step="0.0001" value={exchangeRate || ''} onChange={(e) => setExchangeRate(Number(e.target.value) || 0)} style={{ width: 140 }} />
+              </label>
+            </div>
+          )}
+        </div>
+
+        <div className="card">
+          <h2>Line items</h2>
           <DocumentLinesEditor
             lines={lines}
             ledgers={ledgers}
@@ -135,14 +154,16 @@ export function NewSalesInvoiceScreen({ onCreated, onBack }: Props) {
           />
         </div>
 
-        {error && <p style={{ color: 'crimson' }}>{error}</p>}
+        {error && <p className="error-text">{error}</p>}
 
-        <button type="submit" disabled={submitting || parties.length === 0 || (isForeignCurrency && exchangeRate <= 0)}>
-          {submitting ? 'Saving…' : 'Save invoice'}
-        </button>{' '}
-        <button type="button" onClick={onBack} disabled={submitting}>
-          Back
-        </button>
+        <div className="form-actions">
+          <button type="submit" className="btn-primary" disabled={submitting || parties.length === 0 || (isForeignCurrency && exchangeRate <= 0)}>
+            {submitting ? 'Saving…' : 'Save invoice'}
+          </button>
+          <button type="button" onClick={onBack} disabled={submitting}>
+            Cancel
+          </button>
+        </div>
       </form>
     </div>
   );

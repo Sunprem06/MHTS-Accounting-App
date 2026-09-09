@@ -18,7 +18,7 @@ Then paste the latest entry from the **Session Handoff Log** (Section 4 of this 
 
 | # | Phase | Scope | Status | Owner | Notes |
 |---|---|---|---|---|---|
-| 0 | Foundation | Shell, DB, auth, RBAC, audit trail, backup framework, theme, license/white-label plumbing | 🟨 In progress | | Electron+React shell (real packaged app relaunch-verified, not just build-verified) with a real IPC boundary; multi-company creation, per-company login credentials, offline account lockout, offline Super Admin password reset, recovery-key-based recovery, and an invite-a-new-user flow, all verified end-to-end against real encrypted files. Backup/restore (raw encrypted file export + a verify-and-rollback restore), a theme engine (light/dark + white-label brand.config.json), and Ed25519-signed offline licensing with local machine-binding (soft-gated: only new company creation is blocked without one) are now built and verified too. Still open: a real manual click-through of the GUI on a normal dev machine — this sandboxed environment has no interactive desktop session, so every session including this one has only verified via real handler calls against real encrypted files, never an actual mouse click. Session 31 (2026-09-09) redesigned the post-login Dashboard screen (KPI row + card-style nav, on the same theme engine as the session-30 Company List redesign) as a pilot before rolling the same treatment out to the other ~88 screens, which are all still plain unstyled button lists. |
+| 0 | Foundation | Shell, DB, auth, RBAC, audit trail, backup framework, theme, license/white-label plumbing | 🟨 In progress | | Electron+React shell (real packaged app relaunch-verified, not just build-verified) with a real IPC boundary; multi-company creation, per-company login credentials, offline account lockout, offline Super Admin password reset, recovery-key-based recovery, and an invite-a-new-user flow, all verified end-to-end against real encrypted files. Backup/restore (raw encrypted file export + a verify-and-rollback restore), a theme engine (light/dark + white-label brand.config.json), and Ed25519-signed offline licensing with local machine-binding (soft-gated: only new company creation is blocked without one) are now built and verified too. Still open: a real manual click-through of the GUI on a normal dev machine — this sandboxed environment has no interactive desktop session, so every session including this one has only verified via real handler calls against real encrypted files, never an actual mouse click. Session 31 (2026-09-09) redesigned the post-login Dashboard screen (KPI row + card-style nav, on the same theme engine as the session-30 Company List redesign) as a pilot, then — same session, after the user merged the Dashboard PR — extended the same treatment to all 7 screens in the Sales module (new invoice, new order, both registers, customer receipt, receivables, customers & suppliers). ~81 screens across every other module (Purchase, Inventory, Accounting Core reports, GST, Banking, Payroll, Fixed Assets, Branches, Manufacturing, Print, System) are still plain unstyled forms/tables. |
 | 1 | Accounting Core | Chart of accounts, ledgers, vouchers, double-entry, TB/P&L/BS | ✅ Done | | Every item in the Blueprint's Phase 1 line is built, verified end-to-end, and has a real working UI: Chart of Accounts, ledgers, double-entry vouchers (unbalanced/malformed entries impossible — the exit criterion is a real tested code path), Trial Balance, Profit & Loss, and Balance Sheet (Assets = Liabilities + Equity proven to balance, incl. a Current Earnings roll-up). The two items previously deferred beyond the Blueprint's literal scope are now also done: voucher cancellation (via an auto-generated reversal voucher, not a destructive edit, with a new Voucher Register screen to find and cancel one) and dedicated Payment/Receipt/Contra voucher forms (auto-balancing, alongside the generic Journal form). Still open, not oversights (see Open Questions): opening-balance netting across ledgers. |
 | 2 | Sales + Purchase | Customers, suppliers, invoices, receivables/payables, vendor TDS, 43B(h) flag | ✅ Done | | Customer/supplier master (unified `business_party`, own dedicated ledger under the existing Sundry Debtors/Creditors groups); Sales/Purchase Invoices AND Orders (order→invoice conversion), all posting through the unchanged Phase 1 double-entry engine; vendor TDS (194C/194J/194Q/194I) with threshold-aware deduction, rate resolved from a new versioned rule_set mechanism (never hardcoded); Section 43B(h) MSME due-date stamping + an ageing report. Bill-wise (invoice-level) payment allocation added in a follow-up session: Customer Receipt/Supplier Payment screens link a Receipt/Payment voucher to the specific invoice(s) it settles, so MSME ageing is now exact (not FIFO-estimated) for any invoice paid through them — the generic Payment/Receipt screens still work unchanged for anything not tied to an invoice. Verified end-to-end against real encrypted files. Deferred, tracked in Open Questions: TDS Form 26Q/16A generation, a rate-editing admin UI, 194Q's buyer-turnover eligibility gate. |
 | 3 | Inventory | Items, units, warehouses, batches, valuation | ✅ Done | | Item/Unit/Warehouse/Batch master data; an append-only `stock_movement` ledger with FIFO-layer or weighted-average costing (`core-inventory`); Sales/Purchase invoices wired so a stockable item line moves stock and (on a sale) posts a self-balancing Cost-of-Goods-Sold voucher-line pair on the SAME atomic voucher; Stock Adjustment/Transfer/Opening Stock, Stock Summary, Stock Movement Register, and a Stock Valuation vs Ledger reconciliation view demonstrating the Blueprint's literal exit criterion. Verified end-to-end via real handler calls against a real encrypted company DB (FIFO multi-layer consumption, rounding-remainder absorption, weighted-average costing, batch isolation, insufficient-stock rollback, GL postings, and the invoice/order integration all independently checked). Deliberately deferred, tracked in Open Questions: full stock-aware invoice cancellation (a hard guard blocks it instead), alternate-UOM conversion, auto-batch-selection on issue. |
@@ -355,6 +355,76 @@ Next concrete step:
 ```
 
 ### Entries:
+```
+Date: 2026-09-09 (session 31, continued — Sales module)
+Phase: Not phase-numbered — UI redesign initiative, continuing straight
+  on from the Dashboard pilot entry below (same session). The user
+  installed gh (GitHub CLI) into this environment mid-session so PRs
+  can be created directly going forward — see Key Decisions Log — then
+  merged the Dashboard PR (#33) and asked to continue.
+What was completed: asked the user (AskUserQuestion) how to scope the
+  next batch, three options offered (extract a shared shell first /
+  highest-traffic screens next / one full module end-to-end) — user
+  picked "one full module," then picked Sales specifically. Pulled
+  local main up to date with the merged PR #33 first. Redesigned all 7
+  screens that make up the Sales module: NewSalesInvoiceScreen,
+  NewSalesOrderScreen, SalesInvoiceRegisterScreen,
+  SalesOrderRegisterScreen, CustomerReceiptScreen, ReceivablesScreen,
+  PartiesScreen (Customers & suppliers — shared with Purchase, included
+  here since it's a Sales nav entry point too and it would have been
+  an odd unstyled screen sitting in the middle of an otherwise-styled
+  flow). Per the "one full module, reuse today's approach" scoping
+  (the user did NOT pick "extract a shared shell first"), did not
+  build new React shell components — instead added ~150 lines of
+  reusable CSS utility classes to styles.css (.page, .page-header,
+  .card, .data-table + .num, .badge/-success/-warning/-muted,
+  .field/.field-row, .form-actions, .error-text, .empty-state) that
+  all 7 screens opt into by className, avoiding both "seven files each
+  re-declaring the same inline style object" and "a new component
+  layer" at the same time. Zero functional changes: every window.mhts
+  call, every session.permissions.includes(...) check, and every
+  validation rule is byte-for-byte the same logic as before — visual
+  layer only, verified by diffing the change against the original
+  read of each file before editing. Verified: clean `tsc --noEmit`,
+  clean full `electron-vite build`, and a live rendered walkthrough of
+  all 7 screens (mocked window.mhts + a tab switcher, same esbuild +
+  Python http.server technique as the Dashboard pilot) in both light
+  and dark theme, including interactive checks (toggled the
+  foreign-currency checkbox on New sales invoice, expanded the address
+  editor on Customers & suppliers, confirmed DRAFT/CONFIRMED/CONVERTED/
+  CANCELLED order-status badges render with distinct colors). Scratch
+  preview files/servers deleted/killed afterwards, nothing extra
+  committed (verified via `git status --short` before committing).
+What's still pending in this phase: ~81 screens across every other
+  module (Purchase, Inventory, Accounting Core reports, GST, Banking,
+  Payroll, Fixed Assets, Branches, Manufacturing, Print, System) are
+  still on the old unstyled baseline. Purchase is the natural next
+  candidate — it mirrors Sales screen-for-screen (NewPurchaseInvoice
+  vs NewSalesInvoice, etc.) and could reuse the same CSS classes
+  directly with no new utility classes needed. Committed to a new
+  branch (ui/sales-module-redesign, 1 commit) but NOT pushed and no PR
+  opened as of this entry — ask the user before pushing, same norm as
+  the Dashboard pilot.
+Any decisions made (also add to Section 2): extended the CSS-utility-
+  class approach (not new React shell components) to the Sales module,
+  matching what the user picked when explicitly offered the shared-
+  shell alternative. GitHub CLI (gh) is now installed on this machine
+  and authenticated as the user's own GitHub account (Sunprem06) via
+  device-code web login — future sessions can create PRs directly with
+  `gh pr create` instead of handing the user a manual "create PR" link
+  (note: PATH is only updated at the machine/registry level; a brand
+  new Bash/PowerShell call in a fresh session may need `gh` invoked by
+  full path, "C:\Program Files\GitHub CLI\gh.exe", until that shell's
+  own PATH snapshot picks up the installer's change).
+Any blockers (also add to Section 3): none technical. Same business/
+  product decision as the Dashboard entry, now one module narrower:
+  which module gets the treatment next (Purchase is the suggested
+  default given the screen-for-screen mirror with Sales), and whether
+  to push/PR this Sales-module branch now.
+Next concrete step: revisit module choice for the next batch (Purchase
+  suggested), and confirm push/PR timing before starting more work.
+```
+
 ```
 Date: 2026-09-09 (session 31)
 Phase: Not phase-numbered — UI redesign initiative, pilot. Triggered by

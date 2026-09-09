@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { ArrowLeft, ClipboardList } from 'lucide-react';
 import type { DocumentLineInput, ItemSummary, LedgerAccountSummary, PartySummary, WarehouseSummary } from '../../../shared/ipc';
 import { DocumentLinesEditor } from './DocumentLinesEditor';
 
@@ -61,33 +62,45 @@ export function NewSalesOrderScreen({ onCreated, onBack }: Props) {
   }
 
   return (
-    <div style={{ padding: 24, fontFamily: 'sans-serif', maxWidth: 800 }}>
-      <h1>New sales order</h1>
-      <form onSubmit={handleSubmit}>
-        <label>
-          Customer
-          <select value={partyId} onChange={(e) => setPartyId(e.target.value)} required>
-            <option value="" disabled>
-              Select customer
-            </option>
-            {parties.map((party) => (
-              <option key={party.id} value={party.id}>
-                {party.name}
-              </option>
-            ))}
-          </select>
-        </label>{' '}
-        <label>
-          Date
-          <input type="date" value={orderDate} onChange={(e) => setOrderDate(e.target.value)} required />
-        </label>
-        <br />
-        <label>
-          Narration
-          <input value={narration} onChange={(e) => setNarration(e.target.value)} style={{ width: '100%' }} />
-        </label>
+    <div className="page" style={{ maxWidth: 860 }}>
+      <div className="page-header">
+        <button type="button" className="back-link" onClick={onBack} disabled={submitting}>
+          <ArrowLeft size={16} /> Back
+        </button>
+        <h1>
+          <ClipboardList size={18} style={{ color: 'var(--accent)' }} /> New sales order
+        </h1>
+      </div>
 
-        <div style={{ marginTop: 16 }}>
+      <form onSubmit={handleSubmit}>
+        <div className="card">
+          <div className="field-row">
+            <label className="field">
+              Customer
+              <select value={partyId} onChange={(e) => setPartyId(e.target.value)} required>
+                <option value="" disabled>
+                  Select customer
+                </option>
+                {parties.map((party) => (
+                  <option key={party.id} value={party.id}>
+                    {party.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="field">
+              Date
+              <input type="date" value={orderDate} onChange={(e) => setOrderDate(e.target.value)} required />
+            </label>
+          </div>
+          <label className="field">
+            Narration
+            <input value={narration} onChange={(e) => setNarration(e.target.value)} />
+          </label>
+        </div>
+
+        <div className="card">
+          <h2>Line items</h2>
           <DocumentLinesEditor
             lines={lines}
             ledgers={ledgers}
@@ -101,14 +114,16 @@ export function NewSalesOrderScreen({ onCreated, onBack }: Props) {
           />
         </div>
 
-        {error && <p style={{ color: 'crimson' }}>{error}</p>}
+        {error && <p className="error-text">{error}</p>}
 
-        <button type="submit" disabled={submitting || parties.length === 0}>
-          {submitting ? 'Saving…' : 'Save order'}
-        </button>{' '}
-        <button type="button" onClick={onBack} disabled={submitting}>
-          Back
-        </button>
+        <div className="form-actions">
+          <button type="submit" className="btn-primary" disabled={submitting || parties.length === 0}>
+            {submitting ? 'Saving…' : 'Save order'}
+          </button>
+          <button type="button" onClick={onBack} disabled={submitting}>
+            Cancel
+          </button>
+        </div>
       </form>
     </div>
   );

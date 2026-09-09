@@ -148,6 +148,153 @@ textarea {
   color: var(--fg);
 }
 
+/*
+ * Screen layout utilities (session 31, Sales-module rollout). Lightweight
+ * classes so screens outside the Dashboard reuse the same card/table look
+ * instead of seven copies of the same inline style object. Additive only —
+ * nothing here changes an existing screen that doesn't opt in by class name.
+ */
+.page {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 28px;
+}
+.page-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 20px;
+}
+.page-header h1 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 20px;
+  margin: 0;
+}
+.back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: 1px solid transparent;
+  color: var(--fg-muted);
+  padding: 6px 4px;
+  font-size: 13px;
+}
+.back-link:hover:not(:disabled) {
+  color: var(--accent);
+  border-color: transparent;
+}
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  padding: 20px;
+  margin-bottom: 20px;
+}
+.card h2 {
+  font-size: 15px;
+  margin: 0 0 14px;
+}
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+.data-table th {
+  text-align: left;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--fg-muted);
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+.data-table td {
+  padding: 10px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+.data-table tbody tr:hover {
+  background: var(--bg-secondary);
+}
+.data-table .num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.data-table tfoot td {
+  border-top: 2px solid var(--border);
+  border-bottom: none;
+  font-weight: 600;
+}
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.badge-success {
+  background: var(--success-soft);
+  color: var(--success);
+}
+.badge-warning {
+  background: var(--warning-soft);
+  color: var(--warning);
+}
+.badge-muted {
+  background: var(--bg-secondary);
+  color: var(--fg-muted);
+}
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--fg-muted);
+  margin-bottom: 12px;
+}
+.field input,
+.field select,
+.field textarea {
+  font-size: 14px;
+  color: var(--fg);
+}
+.field-row {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.field-row .field {
+  flex: 1;
+  min-width: 180px;
+  margin-bottom: 0;
+}
+.form-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 18px;
+}
+.error-text {
+  color: var(--danger);
+  background: var(--danger-soft);
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  margin: 0 0 16px;
+}
+.empty-state {
+  color: var(--fg-muted);
+  font-size: 14px;
+  padding: 20px 0;
+  text-align: center;
+}
+
 @keyframes spin {
   to {
     transform: rotate(360deg);
