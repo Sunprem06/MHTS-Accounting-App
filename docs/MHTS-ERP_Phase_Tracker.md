@@ -18,7 +18,7 @@ Then paste the latest entry from the **Session Handoff Log** (Section 4 of this 
 
 | # | Phase | Scope | Status | Owner | Notes |
 |---|---|---|---|---|---|
-| 0 | Foundation | Shell, DB, auth, RBAC, audit trail, backup framework, theme, license/white-label plumbing | 🟨 In progress | | Electron+React shell (real packaged app relaunch-verified, not just build-verified) with a real IPC boundary; multi-company creation, per-company login credentials, offline account lockout, offline Super Admin password reset, recovery-key-based recovery, and an invite-a-new-user flow, all verified end-to-end against real encrypted files. Backup/restore (raw encrypted file export + a verify-and-rollback restore), a theme engine (light/dark + white-label brand.config.json), and Ed25519-signed offline licensing with local machine-binding (soft-gated: only new company creation is blocked without one) are now built and verified too. Still open: a real manual click-through of the GUI on a normal dev machine — this sandboxed environment has no interactive desktop session, so every session including this one has only verified via real handler calls against real encrypted files, never an actual mouse click. Session 31 (2026-09-09) redesigned the post-login Dashboard screen (KPI row + card-style nav, on the same theme engine as the session-30 Company List redesign) as a pilot, then — same session, after the user merged the Dashboard PR — extended the same treatment to all 7 screens in the Sales module (new invoice, new order, both registers, customer receipt, receivables, customers & suppliers), then — same session again, after that PR also merged — to all 7 screens in the Purchase module (new invoice, new order, both registers, supplier payment, payables, MSME ageing), reusing the Sales module's CSS classes as-is, then — same session a fourth time, after that PR also merged — to all 9 Accounting Core screens (Chart of Accounts, Trial Balance, Balance Sheet, Profit & Loss, Voucher Register, and the four voucher forms: Journal/Payment/Receipt/Contra), again with zero new CSS classes needed, then to all 9 Inventory screens (fifth leg), all 4 Banking screens (sixth leg), all 3 GST screens (seventh leg), all 9 Payroll screens (eighth leg, 1839 lines, largest module by screen count), all 6 screens in the Dashboard's "Cost centres & fixed assets" nav group (ninth leg), all 5 Branches/multi-currency screens (tenth leg), and all 3 Manufacturing screens (eleventh leg: Bills of Material, Manufacturing Journal, Manufacturing Journal Register) — from the Inventory leg on, PRs are opened and stacked one on the next (each new module's branch created off the previous module's branch, not off main) without waiting for the previous PR to merge first, per explicit user instruction ("don't wait for me, do one by one, we can finalize at end"); see the Inventory entry in Section 4 for the exact branch-chain mechanics (PR base = ui/branches-fx-redesign for this leg). A brief mid-session "exit" message paused the chain for one turn (see the Manufacturing entry in Section 4) before the user said "no continue" and it resumed. ~26 screens across every other module (Print, System) are still plain unstyled forms/tables. |
+| 0 | Foundation | Shell, DB, auth, RBAC, audit trail, backup framework, theme, license/white-label plumbing | 🟨 In progress | | Electron+React shell (real packaged app relaunch-verified, not just build-verified) with a real IPC boundary; multi-company creation, per-company login credentials, offline account lockout, offline Super Admin password reset, recovery-key-based recovery, and an invite-a-new-user flow, all verified end-to-end against real encrypted files. Backup/restore (raw encrypted file export + a verify-and-rollback restore), a theme engine (light/dark + white-label brand.config.json), and Ed25519-signed offline licensing with local machine-binding (soft-gated: only new company creation is blocked without one) are now built and verified too. Still open: a real manual click-through of the GUI on a normal dev machine — this sandboxed environment has no interactive desktop session, so every session including this one has only verified via real handler calls against real encrypted files, never an actual mouse click. Session 31 (2026-09-09) redesigned the post-login Dashboard screen (KPI row + card-style nav, on the same theme engine as the session-30 Company List redesign) as a pilot, then — same session, after the user merged the Dashboard PR — extended the same treatment to all 7 screens in the Sales module (new invoice, new order, both registers, customer receipt, receivables, customers & suppliers), then — same session again, after that PR also merged — to all 7 screens in the Purchase module (new invoice, new order, both registers, supplier payment, payables, MSME ageing), reusing the Sales module's CSS classes as-is, then — same session a fourth time, after that PR also merged — to all 9 Accounting Core screens (Chart of Accounts, Trial Balance, Balance Sheet, Profit & Loss, Voucher Register, and the four voucher forms: Journal/Payment/Receipt/Contra), again with zero new CSS classes needed, then to all 9 Inventory screens (fifth leg), all 4 Banking screens (sixth leg), all 3 GST screens (seventh leg), all 9 Payroll screens (eighth leg, 1839 lines, largest module by screen count), all 6 screens in the Dashboard's "Cost centres & fixed assets" nav group (ninth leg), all 5 Branches/multi-currency screens (tenth leg), all 3 Manufacturing screens (eleventh leg), and all 3 Print screens (twelfth leg: Company Letterhead, Print Centre, Template Designer) — from the Inventory leg on, PRs are opened and stacked one on the next (each new module's branch created off the previous module's branch, not off main) without waiting for the previous PR to merge first, per explicit user instruction ("don't wait for me, do one by one, we can finalize at end"); see the Inventory entry in Section 4 for the exact branch-chain mechanics (PR base = ui/manufacturing-redesign for this leg). A brief mid-session "exit" message paused the chain for one turn during the Manufacturing leg (see that entry in Section 4) before the user said "no continue" and it resumed; a second break happened between the Manufacturing and Print legs when the user hit a usage limit mid-turn and resumed after it reset — noted here in case a future session sees a timestamp gap and wonders why. ~23 screens in the System module are still plain unstyled forms/tables — the last module in the current 88-screen inventory. |
 | 1 | Accounting Core | Chart of accounts, ledgers, vouchers, double-entry, TB/P&L/BS | ✅ Done | | Every item in the Blueprint's Phase 1 line is built, verified end-to-end, and has a real working UI: Chart of Accounts, ledgers, double-entry vouchers (unbalanced/malformed entries impossible — the exit criterion is a real tested code path), Trial Balance, Profit & Loss, and Balance Sheet (Assets = Liabilities + Equity proven to balance, incl. a Current Earnings roll-up). The two items previously deferred beyond the Blueprint's literal scope are now also done: voucher cancellation (via an auto-generated reversal voucher, not a destructive edit, with a new Voucher Register screen to find and cancel one) and dedicated Payment/Receipt/Contra voucher forms (auto-balancing, alongside the generic Journal form). Still open, not oversights (see Open Questions): opening-balance netting across ledgers. |
 | 2 | Sales + Purchase | Customers, suppliers, invoices, receivables/payables, vendor TDS, 43B(h) flag | ✅ Done | | Customer/supplier master (unified `business_party`, own dedicated ledger under the existing Sundry Debtors/Creditors groups); Sales/Purchase Invoices AND Orders (order→invoice conversion), all posting through the unchanged Phase 1 double-entry engine; vendor TDS (194C/194J/194Q/194I) with threshold-aware deduction, rate resolved from a new versioned rule_set mechanism (never hardcoded); Section 43B(h) MSME due-date stamping + an ageing report. Bill-wise (invoice-level) payment allocation added in a follow-up session: Customer Receipt/Supplier Payment screens link a Receipt/Payment voucher to the specific invoice(s) it settles, so MSME ageing is now exact (not FIFO-estimated) for any invoice paid through them — the generic Payment/Receipt screens still work unchanged for anything not tied to an invoice. Verified end-to-end against real encrypted files. Deferred, tracked in Open Questions: TDS Form 26Q/16A generation, a rate-editing admin UI, 194Q's buyer-turnover eligibility gate. |
 | 3 | Inventory | Items, units, warehouses, batches, valuation | ✅ Done | | Item/Unit/Warehouse/Batch master data; an append-only `stock_movement` ledger with FIFO-layer or weighted-average costing (`core-inventory`); Sales/Purchase invoices wired so a stockable item line moves stock and (on a sale) posts a self-balancing Cost-of-Goods-Sold voucher-line pair on the SAME atomic voucher; Stock Adjustment/Transfer/Opening Stock, Stock Summary, Stock Movement Register, and a Stock Valuation vs Ledger reconciliation view demonstrating the Blueprint's literal exit criterion. Verified end-to-end via real handler calls against a real encrypted company DB (FIFO multi-layer consumption, rounding-remainder absorption, weighted-average costing, batch isolation, insufficient-stock rollback, GL postings, and the invoice/order integration all independently checked). Deliberately deferred, tracked in Open Questions: full stock-aware invoice cancellation (a hard guard blocks it instead), alternate-UOM conversion, auto-batch-selection on issue. |
@@ -355,6 +355,70 @@ Next concrete step:
 ```
 
 ### Entries:
+```
+Date: 2026-09-09 (session 31, continued — Print, twelfth leg)
+Phase: Not phase-numbered — UI redesign initiative, twelfth leg of
+  the no-wait chain (see the Inventory entry below for the workflow-
+  change context). Between this leg and the Manufacturing one, the
+  user hit their usage limit mid-turn; the session picked back up
+  automatically once it reset and continued the chain without
+  needing to be re-told what to do — noted here only so a future
+  session isn't confused by the timestamp gap.
+What was completed: redesigned all 3 Print screens onto the same
+  styles.css classes, no additions: CompanyLetterheadScreen,
+  PrintCentreScreen (a cross-document-type aggregator register
+  spanning 10 different document types with their own status enums),
+  and TemplateDesignerScreen (448 lines — the drag/resize WYSIWYG
+  print-layout canvas, second largest screen in this initiative after
+  GST Returns). Deliberate design call on the canvas: did NOT theme
+  it. The canvas is the literal printable page — it must always
+  render plain white background/black text/blue selection handles
+  regardless of the app's light/dark setting, because it has to match
+  the actual PDF/print output pixel-for-pixel; only the chrome around
+  it (family selector + status badge, fields sidebar, selected-
+  element properties panel) picked up the theme. Also deliberately
+  left Print Centre's per-row status as plain text rather than a
+  badge — unlike every other status field redesigned so far, this one
+  is a raw string spanning invoice/order/expense-claim/payroll-run
+  status enums with no single safe color mapping across all of them.
+  Zero functional changes: every window.mhts call, permission check,
+  and the canvas drag/resize/element-catalog logic is unchanged.
+  Verified: clean `tsc --noEmit`, clean full `electron-vite build`,
+  and a live rendered walkthrough of all 3 screens (mocked
+  window.mhts + tab switcher) in both light and dark theme. The
+  canvas's element-selection interaction (pointerdown-based drag, not
+  a plain click handler) didn't respond to the browser tool's
+  synthetic left_click at first — root-caused to a coordinate-scaling
+  mismatch between the screenshot's reported pixel size and the
+  page's actual layout size in this automation tool, not a real bug
+  (confirmed by dispatching a real PointerEvent at the element's
+  actual getBoundingClientRect() coordinates via JS, which selected it
+  correctly and showed the properties panel with all fields intact).
+  Scratch preview files/servers deleted/killed afterwards, verified
+  via `git status --short` before committing. Branched ui/print-
+  redesign directly off ui/manufacturing-redesign (stacked) —
+  committed, pushed, and PR'd (base ui/manufacturing-redesign)
+  immediately per the no-wait instruction.
+What's still pending in this phase: ~23 screens in the System module
+  (Manage users, Manage roles, Backup & restore, Verify audit trail,
+  and whatever else falls under that Dashboard nav group) — the last
+  module in the current 88-screen inventory for this initiative.
+Any decisions made (also add to Section 2): established a real
+  exception to "restyle everything with the shared tokens" — a canvas
+  that represents a literal, pixel-exact preview of an external output
+  (here, a printed page) should stay unthemed by design, not as an
+  oversight. Worth remembering if a future screen has a similar
+  "this IS the real output" surface (e.g. any other print/export
+  preview).
+Any blockers (also add to Section 3): none.
+Next concrete step: continue to the System module without asking —
+  the last one in this initiative's current scope. Branch off
+  ui/print-redesign, continuing the stack. After System, this session
+  should re-check the Dashboard's original nav-group list against
+  what's actually been covered leg-by-leg, to confirm nothing was
+  missed before telling the user the full 88-screen rollout is done.
+```
+
 ```
 Date: 2026-09-09 (session 31, continued — Manufacturing, eleventh leg)
 Phase: Not phase-numbered — UI redesign initiative, eleventh leg of
