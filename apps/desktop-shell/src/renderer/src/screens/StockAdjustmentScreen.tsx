@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { ArrowLeft, SlidersHorizontal } from 'lucide-react';
 import type { ItemBatchSummary, ItemSummary, WarehouseSummary } from '../../../shared/ipc';
 
 interface Props {
@@ -73,86 +74,104 @@ export function StockAdjustmentScreen({ onCreated, onBack }: Props) {
   }
 
   return (
-    <div style={{ padding: 24, fontFamily: 'sans-serif', maxWidth: 640 }}>
-      <h1>Stock adjustment</h1>
-      <p>Posts a real voucher (Dr/Cr Inventory Adjustments and Stock-in-Hand) alongside the stock movement — this is an in-period value change, unlike opening stock.</p>
-      {error && <p style={{ color: 'crimson' }}>{error}</p>}
-      <form onSubmit={handleSubmit}>
-        <label>
-          Item
-          <select value={itemId} onChange={(e) => setItemId(e.target.value)} required>
-            <option value="" disabled>
-              Select item
-            </option>
-            {items.map((item) => (
-              <option key={item.id} value={item.id}>
-                {item.itemCode} — {item.name}
-              </option>
-            ))}
-          </select>
-        </label>{' '}
-        <label>
-          Warehouse
-          <select value={warehouseId} onChange={(e) => setWarehouseId(e.target.value)} required>
-            <option value="" disabled>
-              Select warehouse
-            </option>
-            {warehouses.map((w) => (
-              <option key={w.id} value={w.id}>
-                {w.name}
-              </option>
-            ))}
-          </select>
-        </label>{' '}
-        <label>
-          Direction
-          <select value={direction} onChange={(e) => setDirection(e.target.value as 'ADJUSTMENT_IN' | 'ADJUSTMENT_OUT')}>
-            <option value="ADJUSTMENT_OUT">Reduce stock (damage/loss)</option>
-            <option value="ADJUSTMENT_IN">Increase stock (found/correction)</option>
-          </select>
-        </label>
-        <br />
-        {selectedItem?.isBatchTracked && (
-          <label>
-            Batch
-            <select value={batchId} onChange={(e) => setBatchId(e.target.value)} required>
-              <option value="" disabled>
-                Select batch
-              </option>
-              {batches.map((batch) => (
-                <option key={batch.id} value={batch.id}>
-                  {batch.batchNumber}
-                </option>
-              ))}
-            </select>
-          </label>
-        )}
-        <label>
-          Quantity ({selectedItem?.unitName ?? 'units'})
-          <input type="number" step="0.001" min="0" value={quantityUnits} onChange={(e) => setQuantityUnits(e.target.value)} required style={{ width: 100 }} />
-        </label>{' '}
-        {direction === 'ADJUSTMENT_IN' && (
-          <label>
-            Rate per unit (₹)
-            <input type="number" step="0.01" min="0" value={ratePerUnitRupees} onChange={(e) => setRatePerUnitRupees(e.target.value)} required style={{ width: 100 }} />
-          </label>
-        )}{' '}
-        <label>
-          Date
-          <input type="date" value={movementDate} onChange={(e) => setMovementDate(e.target.value)} required />
-        </label>
-        <br />
-        <label>
-          Narration
-          <input value={narration} onChange={(e) => setNarration(e.target.value)} style={{ width: '100%' }} />
-        </label>
-        <br />
-        <button type="submit" disabled={submitting || !itemId || !warehouseId}>
-          {submitting ? 'Saving…' : 'Post adjustment'}
-        </button>{' '}
-        <button type="button" onClick={onBack} disabled={submitting}>
-          Back
+    <div className="page" style={{ maxWidth: 700 }}>
+      <div className="page-header">
+        <button type="button" className="back-link" onClick={onBack} disabled={submitting}>
+          <ArrowLeft size={16} /> Back
         </button>
+        <h1>
+          <SlidersHorizontal size={18} style={{ color: 'var(--accent)' }} /> Stock adjustment
+        </h1>
+      </div>
+
+      <p style={{ color: 'var(--fg-muted)', fontSize: 13, marginTop: -8 }}>
+        Posts a real voucher (Dr/Cr Inventory Adjustments and Stock-in-Hand) alongside the stock movement — this is an in-period value change, unlike opening stock.
+      </p>
+
+      <form onSubmit={handleSubmit}>
+        <div className="card">
+          <div className="field-row">
+            <label className="field">
+              Item
+              <select value={itemId} onChange={(e) => setItemId(e.target.value)} required>
+                <option value="" disabled>
+                  Select item
+                </option>
+                {items.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.itemCode} — {item.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="field">
+              Warehouse
+              <select value={warehouseId} onChange={(e) => setWarehouseId(e.target.value)} required>
+                <option value="" disabled>
+                  Select warehouse
+                </option>
+                {warehouses.map((w) => (
+                  <option key={w.id} value={w.id}>
+                    {w.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="field">
+              Direction
+              <select value={direction} onChange={(e) => setDirection(e.target.value as 'ADJUSTMENT_IN' | 'ADJUSTMENT_OUT')}>
+                <option value="ADJUSTMENT_OUT">Reduce stock (damage/loss)</option>
+                <option value="ADJUSTMENT_IN">Increase stock (found/correction)</option>
+              </select>
+            </label>
+          </div>
+          {selectedItem?.isBatchTracked && (
+            <label className="field" style={{ maxWidth: 260 }}>
+              Batch
+              <select value={batchId} onChange={(e) => setBatchId(e.target.value)} required>
+                <option value="" disabled>
+                  Select batch
+                </option>
+                {batches.map((batch) => (
+                  <option key={batch.id} value={batch.id}>
+                    {batch.batchNumber}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+          <div className="field-row">
+            <label className="field">
+              Quantity ({selectedItem?.unitName ?? 'units'})
+              <input type="number" step="0.001" min="0" value={quantityUnits} onChange={(e) => setQuantityUnits(e.target.value)} required style={{ width: 140 }} />
+            </label>
+            {direction === 'ADJUSTMENT_IN' && (
+              <label className="field">
+                Rate per unit (₹)
+                <input type="number" step="0.01" min="0" value={ratePerUnitRupees} onChange={(e) => setRatePerUnitRupees(e.target.value)} required style={{ width: 140 }} />
+              </label>
+            )}
+            <label className="field">
+              Date
+              <input type="date" value={movementDate} onChange={(e) => setMovementDate(e.target.value)} required />
+            </label>
+          </div>
+          <label className="field">
+            Narration
+            <input value={narration} onChange={(e) => setNarration(e.target.value)} />
+          </label>
+        </div>
+
+        {error && <p className="error-text">{error}</p>}
+
+        <div className="form-actions">
+          <button type="submit" className="btn-primary" disabled={submitting || !itemId || !warehouseId}>
+            {submitting ? 'Saving…' : 'Post adjustment'}
+          </button>
+          <button type="button" onClick={onBack} disabled={submitting}>
+            Cancel
+          </button>
+        </div>
       </form>
     </div>
   );

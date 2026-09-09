@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { ArrowLeft, BarChart3 } from 'lucide-react';
 import type { StockPositionRow } from '../../../shared/ipc';
 
 interface Props {
@@ -23,48 +24,54 @@ export function StockSummaryScreen({ onBack }: Props) {
   const totalValue = (rows ?? []).reduce((sum, row) => sum + row.valueRupees, 0);
 
   return (
-    <div style={{ padding: 24, fontFamily: 'sans-serif', maxWidth: 900 }}>
-      <h1>Stock summary</h1>
-      {error && <p style={{ color: 'crimson' }}>{error}</p>}
-      {rows === null ? (
-        <p>Loading…</p>
-      ) : rows.length === 0 ? (
-        <p>No stock on hand.</p>
-      ) : (
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-          <thead>
-            <tr>
-              <th style={{ textAlign: 'left' }}>Item</th>
-              <th style={{ textAlign: 'left' }}>Warehouse</th>
-              <th style={{ textAlign: 'left' }}>Batch</th>
-              <th style={{ textAlign: 'right' }}>Quantity</th>
-              <th style={{ textAlign: 'right' }}>Value (₹)</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row, i) => (
-              <tr key={i}>
-                <td>{row.itemName}</td>
-                <td>{row.warehouseName}</td>
-                <td>{row.batchNumber ?? '—'}</td>
-                <td style={{ textAlign: 'right' }}>{row.quantityUnits}</td>
-                <td style={{ textAlign: 'right' }}>{row.valueRupees.toFixed(2)}</td>
-              </tr>
-            ))}
-          </tbody>
-          <tfoot>
-            <tr style={{ fontWeight: 'bold', borderTop: '2px solid #333' }}>
-              <td colSpan={4}>Total</td>
-              <td style={{ textAlign: 'right' }}>{totalValue.toFixed(2)}</td>
-            </tr>
-          </tfoot>
-        </table>
-      )}
-      <p>
-        <button type="button" onClick={onBack}>
-          Back to dashboard
+    <div className="page" style={{ maxWidth: 1000 }}>
+      <div className="page-header">
+        <button type="button" className="back-link" onClick={onBack}>
+          <ArrowLeft size={16} /> Back
         </button>
-      </p>
+        <h1>
+          <BarChart3 size={18} style={{ color: 'var(--accent)' }} /> Stock summary
+        </h1>
+      </div>
+
+      {error && <p className="error-text">{error}</p>}
+
+      <div className="card" style={{ overflowX: 'auto' }}>
+        {rows === null ? (
+          <p className="empty-state">Loading…</p>
+        ) : rows.length === 0 ? (
+          <p className="empty-state">No stock on hand.</p>
+        ) : (
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Item</th>
+                <th>Warehouse</th>
+                <th>Batch</th>
+                <th className="num">Quantity</th>
+                <th className="num">Value (₹)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row, i) => (
+                <tr key={i}>
+                  <td>{row.itemName}</td>
+                  <td>{row.warehouseName}</td>
+                  <td>{row.batchNumber ?? '—'}</td>
+                  <td className="num">{row.quantityUnits}</td>
+                  <td className="num">{row.valueRupees.toFixed(2)}</td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr>
+                <td colSpan={4}>Total</td>
+                <td className="num">{totalValue.toFixed(2)}</td>
+              </tr>
+            </tfoot>
+          </table>
+        )}
+      </div>
     </div>
   );
 }
