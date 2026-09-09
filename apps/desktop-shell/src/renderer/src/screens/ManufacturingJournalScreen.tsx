@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { ArrowLeft, Factory } from 'lucide-react';
 import type { BillOfMaterialSummary, ItemBatchSummary, ItemSummary, WarehouseSummary } from '../../../shared/ipc';
 
 interface Props {
@@ -93,63 +94,100 @@ export function ManufacturingJournalScreen({ onCreated, onBack }: Props) {
   }
 
   return (
-    <div style={{ padding: 24, fontFamily: 'sans-serif', maxWidth: 700 }}>
-      <h1>Manufacturing journal</h1>
-      {error && <p style={{ color: 'crimson' }}>{error}</p>}
+    <div className="page" style={{ maxWidth: 800 }}>
+      <div className="page-header">
+        <button type="button" className="back-link" onClick={onBack} disabled={submitting}>
+          <ArrowLeft size={16} /> Back
+        </button>
+        <h1>
+          <Factory size={18} style={{ color: 'var(--accent)' }} /> Manufacturing journal
+        </h1>
+      </div>
+
+      {error && <p className="error-text">{error}</p>}
 
       {boms.length === 0 ? (
-        <p>No active bills of material — create one first.</p>
+        <div className="card">
+          <p className="empty-state">No active bills of material — create one first.</p>
+        </div>
       ) : (
         <form onSubmit={handleSubmit}>
-          <label>
-            Bill of material
-            <select value={bomId} onChange={(e) => setBomId(e.target.value)} required>
-              {boms.map((bom) => (
-                <option key={bom.id} value={bom.id}>
-                  {bom.outputItemName} (yields {bom.outputQuantityUnits})
-                </option>
-              ))}
-            </select>
-          </label>{' '}
-          <label>
-            Warehouse
-            <select value={warehouseId} onChange={(e) => setWarehouseId(e.target.value)} required>
-              <option value="" disabled>
-                Select warehouse
-              </option>
-              {warehouses.map((w) => (
-                <option key={w.id} value={w.id}>
-                  {w.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <br />
-          <label>
-            Quantity to produce
-            <input type="number" step="0.001" min="0" value={quantityProducedUnits} onChange={(e) => setQuantityProducedUnits(e.target.value)} required style={{ width: 100 }} />
-          </label>{' '}
-          <label>
-            Date
-            <input type="date" value={journalDate} onChange={(e) => setJournalDate(e.target.value)} required />
-          </label>
+          <div className="card">
+            <div className="field-row">
+              <label className="field" style={{ flex: 2 }}>
+                Bill of material
+                <select value={bomId} onChange={(e) => setBomId(e.target.value)} required>
+                  {boms.map((bom) => (
+                    <option key={bom.id} value={bom.id}>
+                      {bom.outputItemName} (yields {bom.outputQuantityUnits})
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="field">
+                Warehouse
+                <select value={warehouseId} onChange={(e) => setWarehouseId(e.target.value)} required>
+                  <option value="" disabled>
+                    Select warehouse
+                  </option>
+                  {warehouses.map((w) => (
+                    <option key={w.id} value={w.id}>
+                      {w.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            <div className="field-row">
+              <label className="field">
+                Quantity to produce
+                <input type="number" step="0.001" min="0" value={quantityProducedUnits} onChange={(e) => setQuantityProducedUnits(e.target.value)} required style={{ width: 140 }} />
+              </label>
+              <label className="field">
+                Date
+                <input type="date" value={journalDate} onChange={(e) => setJournalDate(e.target.value)} required />
+              </label>
+            </div>
+
+            {outputItem?.isBatchTracked && (
+              <div className="field-row">
+                <label className="field">
+                  Output batch number
+                  <input value={outputBatchNumber} onChange={(e) => setOutputBatchNumber(e.target.value)} required />
+                </label>
+                <label className="field">
+                  Manufacture date
+                  <input type="date" value={manufactureDate} onChange={(e) => setManufactureDate(e.target.value)} />
+                </label>
+                <label className="field">
+                  Expiry date
+                  <input type="date" value={expiryDate} onChange={(e) => setExpiryDate(e.target.value)} />
+                </label>
+              </div>
+            )}
+
+            <label className="field">
+              Narration
+              <input value={narration} onChange={(e) => setNarration(e.target.value)} />
+            </label>
+          </div>
 
           {selectedBom && quantityProducedUnits && (
-            <>
-              <h3>Components to be consumed</h3>
-              <table style={{ borderCollapse: 'collapse' }}>
+            <div className="card" style={{ overflowX: 'auto' }}>
+              <h2>Components to be consumed</h2>
+              <table className="data-table">
                 <thead>
                   <tr>
-                    <th style={{ textAlign: 'left' }}>Component</th>
-                    <th style={{ textAlign: 'right' }}>Quantity</th>
-                    <th style={{ textAlign: 'left' }}>Batch</th>
+                    <th>Component</th>
+                    <th className="num">Quantity</th>
+                    <th>Batch</th>
                   </tr>
                 </thead>
                 <tbody>
                   {selectedBom.lines.map((line) => (
                     <tr key={line.id}>
                       <td>{line.componentItemName}</td>
-                      <td style={{ textAlign: 'right' }}>{(line.quantityUnits * scale).toFixed(3)}</td>
+                      <td className="num">{(line.quantityUnits * scale).toFixed(3)}</td>
                       <td>
                         {items.find((i) => i.id === line.componentItemId)?.isBatchTracked ? (
                           <select value={componentBatchIds[line.componentItemId] ?? ''} onChange={(e) => setComponentBatchIds((prev) => ({ ...prev, [line.componentItemId]: e.target.value }))} required>
@@ -170,39 +208,17 @@ export function ManufacturingJournalScreen({ onCreated, onBack }: Props) {
                   ))}
                 </tbody>
               </table>
-            </>
+            </div>
           )}
 
-          {outputItem?.isBatchTracked && (
-            <>
-              <h3>Output batch</h3>
-              <label>
-                Batch number
-                <input value={outputBatchNumber} onChange={(e) => setOutputBatchNumber(e.target.value)} required />
-              </label>{' '}
-              <label>
-                Manufacture date
-                <input type="date" value={manufactureDate} onChange={(e) => setManufactureDate(e.target.value)} />
-              </label>{' '}
-              <label>
-                Expiry date
-                <input type="date" value={expiryDate} onChange={(e) => setExpiryDate(e.target.value)} />
-              </label>
-            </>
-          )}
-
-          <br />
-          <label>
-            Narration
-            <input value={narration} onChange={(e) => setNarration(e.target.value)} style={{ width: '100%' }} />
-          </label>
-          <br />
-          <button type="submit" disabled={submitting || !bomId || !warehouseId}>
-            {submitting ? 'Posting…' : 'Post journal'}
-          </button>{' '}
-          <button type="button" onClick={onBack} disabled={submitting}>
-            Back
-          </button>
+          <div className="form-actions">
+            <button type="submit" className="btn-primary" disabled={submitting || !bomId || !warehouseId}>
+              {submitting ? 'Posting…' : 'Post journal'}
+            </button>
+            <button type="button" onClick={onBack} disabled={submitting}>
+              Cancel
+            </button>
+          </div>
         </form>
       )}
       {boms.length === 0 && (

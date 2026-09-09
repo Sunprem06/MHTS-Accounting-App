@@ -18,7 +18,7 @@ Then paste the latest entry from the **Session Handoff Log** (Section 4 of this 
 
 | # | Phase | Scope | Status | Owner | Notes |
 |---|---|---|---|---|---|
-| 0 | Foundation | Shell, DB, auth, RBAC, audit trail, backup framework, theme, license/white-label plumbing | 🟨 In progress | | Electron+React shell (real packaged app relaunch-verified, not just build-verified) with a real IPC boundary; multi-company creation, per-company login credentials, offline account lockout, offline Super Admin password reset, recovery-key-based recovery, and an invite-a-new-user flow, all verified end-to-end against real encrypted files. Backup/restore (raw encrypted file export + a verify-and-rollback restore), a theme engine (light/dark + white-label brand.config.json), and Ed25519-signed offline licensing with local machine-binding (soft-gated: only new company creation is blocked without one) are now built and verified too. Still open: a real manual click-through of the GUI on a normal dev machine — this sandboxed environment has no interactive desktop session, so every session including this one has only verified via real handler calls against real encrypted files, never an actual mouse click. Session 31 (2026-09-09) redesigned the post-login Dashboard screen (KPI row + card-style nav, on the same theme engine as the session-30 Company List redesign) as a pilot, then — same session, after the user merged the Dashboard PR — extended the same treatment to all 7 screens in the Sales module (new invoice, new order, both registers, customer receipt, receivables, customers & suppliers), then — same session again, after that PR also merged — to all 7 screens in the Purchase module (new invoice, new order, both registers, supplier payment, payables, MSME ageing), reusing the Sales module's CSS classes as-is, then — same session a fourth time, after that PR also merged — to all 9 Accounting Core screens (Chart of Accounts, Trial Balance, Balance Sheet, Profit & Loss, Voucher Register, and the four voucher forms: Journal/Payment/Receipt/Contra), again with zero new CSS classes needed. ~65 screens across every other module (Inventory, GST, Banking, Payroll, Fixed Assets, Branches, Manufacturing, Print, System) are still plain unstyled forms/tables. |
+| 0 | Foundation | Shell, DB, auth, RBAC, audit trail, backup framework, theme, license/white-label plumbing | 🟨 In progress | | Electron+React shell (real packaged app relaunch-verified, not just build-verified) with a real IPC boundary; multi-company creation, per-company login credentials, offline account lockout, offline Super Admin password reset, recovery-key-based recovery, and an invite-a-new-user flow, all verified end-to-end against real encrypted files. Backup/restore (raw encrypted file export + a verify-and-rollback restore), a theme engine (light/dark + white-label brand.config.json), and Ed25519-signed offline licensing with local machine-binding (soft-gated: only new company creation is blocked without one) are now built and verified too. Still open: a real manual click-through of the GUI on a normal dev machine — this sandboxed environment has no interactive desktop session, so every session including this one has only verified via real handler calls against real encrypted files, never an actual mouse click. Session 31 (2026-09-09) redesigned the post-login Dashboard screen (KPI row + card-style nav, on the same theme engine as the session-30 Company List redesign) as a pilot, then — same session, after the user merged the Dashboard PR — extended the same treatment to all 7 screens in the Sales module (new invoice, new order, both registers, customer receipt, receivables, customers & suppliers), then — same session again, after that PR also merged — to all 7 screens in the Purchase module (new invoice, new order, both registers, supplier payment, payables, MSME ageing), reusing the Sales module's CSS classes as-is, then — same session a fourth time, after that PR also merged — to all 9 Accounting Core screens (Chart of Accounts, Trial Balance, Balance Sheet, Profit & Loss, Voucher Register, and the four voucher forms: Journal/Payment/Receipt/Contra), again with zero new CSS classes needed, then to all 9 Inventory screens (fifth leg), all 4 Banking screens (sixth leg), all 3 GST screens (seventh leg), all 9 Payroll screens (eighth leg, 1839 lines, largest module by screen count), all 6 screens in the Dashboard's "Cost centres & fixed assets" nav group (ninth leg), all 5 Branches/multi-currency screens (tenth leg), all 3 Manufacturing screens (eleventh leg), all 3 Print screens (twelfth leg), and all 4 System screens (thirteenth leg: Manage users, Manage roles, Backup & restore, Verify audit trail) — from the Inventory leg on, PRs are opened and stacked one on the next (each new module's branch created off the previous module's branch, not off main) without waiting for the previous PR to merge first, per explicit user instruction ("don't wait for me, do one by one, we can finalize at end"); see the Inventory entry in Section 4 for the exact branch-chain mechanics (PR base = ui/print-redesign for this leg). A brief mid-session "exit" message paused the chain for one turn during the Manufacturing leg (see that entry in Section 4) before the user said "no continue" and it resumed; a second break happened between the Manufacturing and Print legs when the user hit a usage limit mid-turn and resumed after it reset. After the System leg, a re-check against the Dashboard's original nav-group list (prompted by the prior entry's own "next concrete step") found 5 screens never covered by any leg — Employees, New expense claim, Expense claim register, Outstanding reimbursements, Document search (the Dashboard's separate "Expense & HR" and "Documents" nav groups, distinct from Payroll) — covered as the fourteenth leg (branch `ui/expense-hr-redesign`, off `ui/system-redesign`), which also caught and redesigned 3 shared subcomponents those screens pull in (ExpenseLinesEditor, PaymentInstrumentFields, AttachmentsPanel) that had been left unstyled despite already being used by several previously-"redesigned" screens (Sales/Purchase invoice registers, Voucher Register, Parties). A final explicit cross-check of all 69 nav-handler props in the original (pre-redesign) `DashboardScreen.tsx` against every screen touched across all 14 legs confirmed 1:1 coverage with no gaps — **the full-app UI redesign rollout is complete**, pending the user merging PRs #34 through #45 plus this fourteenth PR in sequence and doing a real interactive click-through once outside this sandboxed environment. |
 | 1 | Accounting Core | Chart of accounts, ledgers, vouchers, double-entry, TB/P&L/BS | ✅ Done | | Every item in the Blueprint's Phase 1 line is built, verified end-to-end, and has a real working UI: Chart of Accounts, ledgers, double-entry vouchers (unbalanced/malformed entries impossible — the exit criterion is a real tested code path), Trial Balance, Profit & Loss, and Balance Sheet (Assets = Liabilities + Equity proven to balance, incl. a Current Earnings roll-up). The two items previously deferred beyond the Blueprint's literal scope are now also done: voucher cancellation (via an auto-generated reversal voucher, not a destructive edit, with a new Voucher Register screen to find and cancel one) and dedicated Payment/Receipt/Contra voucher forms (auto-balancing, alongside the generic Journal form). Still open, not oversights (see Open Questions): opening-balance netting across ledgers. |
 | 2 | Sales + Purchase | Customers, suppliers, invoices, receivables/payables, vendor TDS, 43B(h) flag | ✅ Done | | Customer/supplier master (unified `business_party`, own dedicated ledger under the existing Sundry Debtors/Creditors groups); Sales/Purchase Invoices AND Orders (order→invoice conversion), all posting through the unchanged Phase 1 double-entry engine; vendor TDS (194C/194J/194Q/194I) with threshold-aware deduction, rate resolved from a new versioned rule_set mechanism (never hardcoded); Section 43B(h) MSME due-date stamping + an ageing report. Bill-wise (invoice-level) payment allocation added in a follow-up session: Customer Receipt/Supplier Payment screens link a Receipt/Payment voucher to the specific invoice(s) it settles, so MSME ageing is now exact (not FIFO-estimated) for any invoice paid through them — the generic Payment/Receipt screens still work unchanged for anything not tied to an invoice. Verified end-to-end against real encrypted files. Deferred, tracked in Open Questions: TDS Form 26Q/16A generation, a rate-editing admin UI, 194Q's buyer-turnover eligibility gate. |
 | 3 | Inventory | Items, units, warehouses, batches, valuation | ✅ Done | | Item/Unit/Warehouse/Batch master data; an append-only `stock_movement` ledger with FIFO-layer or weighted-average costing (`core-inventory`); Sales/Purchase invoices wired so a stockable item line moves stock and (on a sale) posts a self-balancing Cost-of-Goods-Sold voucher-line pair on the SAME atomic voucher; Stock Adjustment/Transfer/Opening Stock, Stock Summary, Stock Movement Register, and a Stock Valuation vs Ledger reconciliation view demonstrating the Blueprint's literal exit criterion. Verified end-to-end via real handler calls against a real encrypted company DB (FIFO multi-layer consumption, rounding-remainder absorption, weighted-average costing, batch isolation, insufficient-stock rollback, GL postings, and the invoice/order integration all independently checked). Deliberately deferred, tracked in Open Questions: full stock-aware invoice cancellation (a hard guard blocks it instead), alternate-UOM conversion, auto-batch-selection on issue. |
@@ -355,6 +355,542 @@ Next concrete step:
 ```
 
 ### Entries:
+```
+Date: 2026-09-09 (session 31, continued — Expense & HR + Documents,
+  fourteenth and final leg)
+Phase: Not phase-numbered — UI redesign initiative, fourteenth (final)
+  leg of the no-wait chain (see the Inventory entry below for the
+  workflow-change context).
+What was completed: after the System leg (thirteenth), a self-check
+  against the Dashboard's original nav-group list (recalled from the
+  very start of this session, before any redesign work began) found a
+  real gap: 5 screens under the Dashboard's separate "Expense & HR" and
+  "Documents" nav groups had never been touched by any of the 13 prior
+  legs — EmployeesScreen, NewExpenseClaimScreen,
+  ExpenseClaimRegisterScreen, OutstandingReimbursementsScreen,
+  DocumentSearchScreen — apparently overlooked because of name
+  similarity to the (already fully covered) Payroll module. Redesigned
+  all 5 onto the existing styles.css classes with zero additions and
+  zero functional changes, plus a real status-badge mapping for
+  ExpenseClaimRegisterScreen's 6-state ExpenseClaimStatus enum
+  (APPROVED/REIMBURSED -> badge-success, SUBMITTED -> badge-warning,
+  DRAFT/REJECTED/CANCELLED -> badge-muted), matching the convention
+  already established in PurchaseOrderRegisterScreen. Also found and
+  fixed a related gap while reading these screens: 3 shared
+  subcomponents they import — ExpenseLinesEditor, PaymentInstrumentFields,
+  AttachmentsPanel — were still fully unstyled (inline styles, hardcoded
+  hex colors, no CSS classes) despite already being used inside several
+  screens from *earlier* "redesigned" legs (AttachmentsPanel inside the
+  Sales/Purchase invoice registers, Voucher Register, and Parties;
+  PaymentInstrumentFields inside the Payment/Receipt/Contra voucher
+  screens and Supplier Payment) — themed all 3 onto the same classes,
+  which retroactively fixes those spots in the already-merged PRs too
+  without touching the screens themselves. Branch `ui/expense-hr-
+  redesign`, stacked off `ui/system-redesign` (PR #45). Verified: clean
+  `tsc --noEmit` and clean `electron-vite build`; full esbuild+python
+  static-server+Browser-pane visual walkthrough of all 5 screens in
+  both light and dark theme (confirmed: employee table + add-employee
+  form, new-claim line editor with running total, register's 5 status
+  badges side by side, the reimbursement form's conditional bank-
+  instrument sub-form appearing only for a Bank-Accounts-group ledger,
+  outstanding-reimbursements total row, document search results table);
+  caught and fixed a harness bug mid-verification where the theme
+  toggle set `data-theme` on a nested div instead of
+  `document.documentElement` (so it silently never took effect and
+  every earlier screenshot was actually the browser's default dark
+  preference, not a real light-mode check) before trusting the light-
+  mode pass. Scratch preview files removed, python server killed,
+  `git status --short` confirmed only the 8 intended files touched.
+  Finally, performed the promised final cross-check: every one of the
+  69 nav-handler props (onXxx) in the original, pre-redesign
+  DashboardScreen.tsx (as it existed at the very start of this session)
+  now maps 1:1 to a screen redesigned in one of the 14 legs — no
+  screen was missed. The full-app UI redesign rollout is complete.
+What's still pending in this phase: nothing left to redesign. Pending
+  on the user: merge PR #34 through PR #45 in sequence (each is stacked
+  on the previous branch, not on main), then this fourteenth PR stacked
+  on #45, then do a real interactive mouse-driven click-through of the
+  packaged app on a normal dev machine — every verification this
+  session (and all 13 before it) was via a mocked-IPC static-HTML
+  harness in a sandboxed browser, never the actual Electron app, so a
+  real click-through could still surface a layout issue no mock caught.
+Any decisions made: shared subcomponents used by already-merged screens
+  are in-scope for whichever leg touches them next, even though that
+  means a later leg's diff quietly improves earlier, already-merged
+  PRs — flagging this explicitly here rather than silently; no user
+  confirmation was sought per the standing "don't wait" instruction,
+  but it's called out for visibility at merge time.
+Any blockers: none.
+Next concrete step: none required for this initiative — it's done.
+  Normal next step is simply for the user to review and merge the PR
+  chain (#34 -> #45 -> this fourteenth PR) in order, per their own
+  stated plan ("we can finalize at end").
+```
+```
+Date: 2026-09-09 (session 31, continued — System, thirteenth leg)
+Phase: Not phase-numbered — UI redesign initiative, thirteenth leg of
+  the no-wait chain (see the Inventory entry below for the workflow-
+  change context).
+What was completed: redesigned all 4 System screens onto the same
+  styles.css classes, no additions: ManageUsersScreen, ManageRolesScreen
+  (a scrollable, module-grouped permission checklist shared between
+  the new-role form and per-role editing), BackupScreen,
+  VerifyAuditTrailScreen. One dark-mode-correctness fix in the same
+  vein as the Banking leg's duplicate-row highlight: Manage Users'
+  one-time temporary-password callout was a hardcoded `#f0f0f0` box
+  (unreadable/wrong on dark backgrounds) — changed to the warning-
+  toned card convention. Success/failure messages across all 4
+  screens now use the badge/error-text convention instead of inline
+  var(--accent)/var(--danger) text colors (those screens were
+  already midway to using tokens, just not the badge pattern). Zero
+  other functional changes: every window.mhts call, permission check,
+  and the invite/reset-password/role-permission/backup/audit-
+  verification logic is unchanged. Verified: clean `tsc --noEmit`,
+  clean full `electron-vite build`, and a live rendered walkthrough of
+  all 4 screens (mocked window.mhts + tab switcher) in both light and
+  dark theme, including triggering the invite flow to see the
+  temporary-password callout, editing a role's permissions, and
+  running both the backup and audit-verify actions to see their
+  success badges. Scratch preview files/servers deleted/killed
+  afterwards, verified via `git status --short` before committing.
+  Branched ui/system-redesign directly off ui/print-redesign (stacked)
+  — committed and pushed (base ui/print-redesign); PR not yet opened
+  as of this entry, see the next entry.
+  IMPORTANT — before declaring the rollout done, this entry's own
+  "next concrete step" (carried over from the Print leg) said to
+  re-check the Dashboard's original nav-group list against what
+  actually got covered leg-by-leg. That check found a real gap: 5
+  screens were never redesigned in any leg — EmployeesScreen,
+  NewExpenseClaimScreen, ExpenseClaimRegisterScreen,
+  OutstandingReimbursementsScreen, DocumentSearchScreen. These sit
+  under the Dashboard's "Expense & HR" and "Documents" nav groups,
+  which are separate from "Payroll" (a different nav group entirely,
+  already fully covered in the eighth leg) — easy to conflate the two
+  by name, which is exactly what happened. See the next entry for
+  that fourteenth leg.
+What's still pending in this phase: the 5-screen gap above (now being
+  picked up immediately as a fourteenth leg, not left for a future
+  session) — after that, this initiative's current 88-screen
+  inventory should be fully covered, pending a final Dashboard-nav-
+  group cross-check to actually confirm it.
+Any decisions made (also add to Section 2): none new.
+Any blockers (also add to Section 3): none.
+Next concrete step: do the fourteenth leg (Expense & HR + Documents),
+  then do one more careful pass matching every single button/nav
+  entry in the original DashboardScreen.tsx (read at the very start of
+  this session, before any redesign work began) against the screens
+  actually touched across all fourteen legs, before telling the user
+  the rollout is complete — this session already missed one group
+  once, so a final explicit cross-check is warranted rather than
+  trusting the leg-by-leg memory.
+```
+
+```
+Date: 2026-09-09 (session 31, continued — Print, twelfth leg)
+Phase: Not phase-numbered — UI redesign initiative, twelfth leg of
+  the no-wait chain (see the Inventory entry below for the workflow-
+  change context). Between this leg and the Manufacturing one, the
+  user hit their usage limit mid-turn; the session picked back up
+  automatically once it reset and continued the chain without
+  needing to be re-told what to do — noted here only so a future
+  session isn't confused by the timestamp gap.
+What was completed: redesigned all 3 Print screens onto the same
+  styles.css classes, no additions: CompanyLetterheadScreen,
+  PrintCentreScreen (a cross-document-type aggregator register
+  spanning 10 different document types with their own status enums),
+  and TemplateDesignerScreen (448 lines — the drag/resize WYSIWYG
+  print-layout canvas, second largest screen in this initiative after
+  GST Returns). Deliberate design call on the canvas: did NOT theme
+  it. The canvas is the literal printable page — it must always
+  render plain white background/black text/blue selection handles
+  regardless of the app's light/dark setting, because it has to match
+  the actual PDF/print output pixel-for-pixel; only the chrome around
+  it (family selector + status badge, fields sidebar, selected-
+  element properties panel) picked up the theme. Also deliberately
+  left Print Centre's per-row status as plain text rather than a
+  badge — unlike every other status field redesigned so far, this one
+  is a raw string spanning invoice/order/expense-claim/payroll-run
+  status enums with no single safe color mapping across all of them.
+  Zero functional changes: every window.mhts call, permission check,
+  and the canvas drag/resize/element-catalog logic is unchanged.
+  Verified: clean `tsc --noEmit`, clean full `electron-vite build`,
+  and a live rendered walkthrough of all 3 screens (mocked
+  window.mhts + tab switcher) in both light and dark theme. The
+  canvas's element-selection interaction (pointerdown-based drag, not
+  a plain click handler) didn't respond to the browser tool's
+  synthetic left_click at first — root-caused to a coordinate-scaling
+  mismatch between the screenshot's reported pixel size and the
+  page's actual layout size in this automation tool, not a real bug
+  (confirmed by dispatching a real PointerEvent at the element's
+  actual getBoundingClientRect() coordinates via JS, which selected it
+  correctly and showed the properties panel with all fields intact).
+  Scratch preview files/servers deleted/killed afterwards, verified
+  via `git status --short` before committing. Branched ui/print-
+  redesign directly off ui/manufacturing-redesign (stacked) —
+  committed, pushed, and PR'd (base ui/manufacturing-redesign)
+  immediately per the no-wait instruction.
+What's still pending in this phase: ~23 screens in the System module
+  (Manage users, Manage roles, Backup & restore, Verify audit trail,
+  and whatever else falls under that Dashboard nav group) — the last
+  module in the current 88-screen inventory for this initiative.
+Any decisions made (also add to Section 2): established a real
+  exception to "restyle everything with the shared tokens" — a canvas
+  that represents a literal, pixel-exact preview of an external output
+  (here, a printed page) should stay unthemed by design, not as an
+  oversight. Worth remembering if a future screen has a similar
+  "this IS the real output" surface (e.g. any other print/export
+  preview).
+Any blockers (also add to Section 3): none.
+Next concrete step: continue to the System module without asking —
+  the last one in this initiative's current scope. Branch off
+  ui/print-redesign, continuing the stack. After System, this session
+  should re-check the Dashboard's original nav-group list against
+  what's actually been covered leg-by-leg, to confirm nothing was
+  missed before telling the user the full 88-screen rollout is done.
+```
+
+```
+Date: 2026-09-09 (session 31, continued — Manufacturing, eleventh leg)
+Phase: Not phase-numbered — UI redesign initiative, eleventh leg of
+  the no-wait chain (see the Inventory entry below for the workflow-
+  change context). Mid-leg, the user sent a bare "exit" message while
+  the tsc typecheck tool call was in flight. Read as a possible
+  request to end the session — stopped immediately after that one
+  in-flight check finished (did not start any new work), left the 3
+  already-edited Manufacturing files uncommitted and unpushed on
+  ui/manufacturing-redesign, and asked the user what to do with them
+  rather than guessing. The user replied "no continue" in the next
+  turn, so this leg resumed exactly where it paused: ran the visual
+  preview verification that had been skipped, then committed/pushed/
+  PR'd as normal. Noting this explicitly in case a future session
+  needs to understand why this leg's entry timestamps look like there
+  was a gap.
+What was completed: redesigned all 3 Manufacturing screens onto the
+  same styles.css classes, no additions: BillOfMaterialsScreen,
+  ManufacturingJournalScreen (BOM-driven consume/produce entry with
+  per-component batch selection, scaled quantities shown live as the
+  produce-quantity field changes), ManufacturingJournalRegisterScreen.
+  Applied the badge convention to BOM Active/Superseded status and to
+  journal-line movement type (Consumed/Produced) in the register's
+  drill-down. Zero functional changes: every window.mhts call,
+  permission check, and the BOM-scaling/batch-selection/journal-
+  posting logic is unchanged. Verified: clean `tsc --noEmit`, clean
+  full `electron-vite build`, and a live rendered walkthrough of all 3
+  screens (mocked window.mhts + tab switcher) in both light and dark
+  theme, including typing a produce-quantity to confirm the scaled
+  "components to be consumed" table appears and expanding a journal
+  register row to confirm the Consumed/Produced badges. Scratch
+  preview files/servers deleted/killed afterwards, verified via `git
+  status --short` before committing. Branched ui/manufacturing-
+  redesign directly off ui/branches-fx-redesign (stacked) —
+  committed, pushed, and PR'd (base ui/branches-fx-redesign)
+  immediately per the no-wait instruction, once resumed.
+What's still pending in this phase: ~26 screens across every other
+  module (Print, System) still on the old unstyled baseline — both
+  smaller than everything done so far, likely the last two legs of
+  this initiative for the current 88-screen inventory.
+Any decisions made (also add to Section 2): none new.
+Any blockers (also add to Section 3): none.
+Next concrete step: continue to the next module without asking
+  (remaining candidates: Print, System). Branch off ui/manufacturing-
+  redesign, continuing the stack.
+```
+
+```
+Date: 2026-09-09 (session 31, continued — Branches/FX, tenth leg)
+Phase: Not phase-numbered — UI redesign initiative, tenth leg of the
+  no-wait chain (see the Inventory entry below for the workflow-change
+  context). Picked the Dashboard's "Branches & multi-currency" nav
+  group as the next well-defined batch.
+What was completed: redesigned all 5 screens onto the same
+  styles.css classes, no additions: BranchesScreen, BranchReportsScreen
+  (branch-wise P&L and Balance Sheet, with a consolidated tie-out row
+  and a native <details> disclosure for ledger-level detail — same
+  disclosure-widget call as the Payroll leg's Leave screen),
+  InterBranchTransferScreen, ManageExchangeRatesScreen (a fourth
+  generic versioned-JSON-rate editor, alongside GST/Payroll/Fixed-
+  Assets), and RunFxRevaluationScreen. Applied the badge convention to
+  branch Active/Inactive status. Smallest module leg so far by line
+  count (670 lines / 5 screens) — mostly straightforward given how
+  much of this pattern is now settled. Zero functional changes: every
+  window.mhts call, permission check, and the inter-branch-transfer/
+  revaluation posting logic is unchanged. Verified: clean `tsc
+  --noEmit`, clean full `electron-vite build`, and a live rendered
+  walkthrough of all 5 screens (mocked window.mhts + tab switcher) in
+  both light and dark theme, including running the FX revaluation
+  preview and confirming the branch balance sheet's consolidated row
+  and ledger-detail disclosure render correctly. Scratch preview
+  files/servers deleted/killed afterwards, verified via `git status
+  --short` before committing. Branched ui/branches-fx-redesign
+  directly off ui/fixed-assets-redesign (stacked) — committed, pushed,
+  and PR'd (base ui/fixed-assets-redesign) immediately per the no-wait
+  instruction.
+What's still pending in this phase: ~29 screens across every other
+  module (Manufacturing, Print, System) still on the old unstyled
+  baseline — all smaller than what's been done so far. This is the
+  shortest remaining list yet in this initiative.
+Any decisions made (also add to Section 2): none new.
+Any blockers (also add to Section 3): none.
+Next concrete step: continue to the next module without asking
+  (remaining candidates: Manufacturing, Print, System — likely close
+  to finishing the full 88-screen rollout within this session).
+  Branch off ui/branches-fx-redesign, continuing the stack.
+```
+
+```
+Date: 2026-09-09 (session 31, continued — Fixed Assets, ninth leg)
+Phase: Not phase-numbered — UI redesign initiative, ninth leg of the
+  no-wait chain (see the Inventory entry below for the workflow-change
+  context). Picked the Dashboard's "Cost centres & fixed assets" nav
+  group as the next-smallest well-defined batch after Payroll.
+What was completed: redesigned all 6 screens in that group onto the
+  same styles.css classes, no additions: CostCentresScreen (incl. its
+  cost-centre-wise P&L report), BudgetsScreen (12-month input grid +
+  Budget vs Actual variance drill-down — the grid scrolls horizontally
+  inside its own container rather than overflowing the page),
+  FixedAssetClassesScreen, FixedAssetRegisterScreen (299 lines — the
+  acquire/schedule/dispose lifecycle with an inline dispose panel),
+  RunDepreciationScreen (Schedule II vs IT WDV preview), and
+  ManageFixedAssetRatesScreen (a third generic versioned-JSON-rate
+  editor, alongside GST and Payroll's). Applied the badge convention
+  to cost centre Active/Inactive and asset Active/Disposed status.
+  Budget variance's over-budget highlight was already conditional
+  logic (color: row.varianceAmount > 0 ? 'crimson' : ...) — changed
+  the hardcoded 'crimson' to var(--danger) so it's the same red as
+  everywhere else and (unlike a literal color name) also respects a
+  future white-label brand override, without touching the condition
+  itself. Zero other functional changes: every window.mhts call,
+  permission check, and the acquire/schedule/dispose and budget-
+  variance calculations are unchanged. Verified: clean `tsc --noEmit`,
+  clean full `electron-vite build`, and a live rendered walkthrough of
+  all 6 screens (mocked window.mhts + tab switcher) in both light and
+  dark theme, including expanding Budget vs Actual to confirm the
+  over/under-budget coloring, opening the Fixed Asset Register's
+  inline Dispose panel, and running the Run Depreciation preview.
+  Scratch preview files/servers deleted/killed afterwards, verified
+  via `git status --short` before committing. Branched ui/fixed-
+  assets-redesign directly off ui/payroll-redesign (stacked) —
+  committed, pushed, and PR'd (base ui/payroll-redesign) immediately
+  per the no-wait instruction.
+What's still pending in this phase: ~34 screens across every other
+  module (Branches/multi-currency, Manufacturing, Print, System) still
+  on the old unstyled baseline — all smaller than what's been done so
+  far.
+Any decisions made (also add to Section 2): none new — confirms the
+  "hardcoded color name -> CSS variable" cleanup (spotted once already
+  in the Banking leg's dark-mode duplicate-row fix) is now a recurring
+  pattern worth watching for in every remaining module, not a one-off.
+Any blockers (also add to Section 3): none.
+Next concrete step: continue to the next module without asking
+  (remaining candidates: Branches/multi-currency, Manufacturing,
+  Print, System). Branch off ui/fixed-assets-redesign, continuing the
+  stack.
+```
+
+```
+Date: 2026-09-09 (session 31, continued — Payroll, eighth leg)
+Phase: Not phase-numbered — UI redesign initiative, eighth leg of the
+  no-wait chain (see the Inventory entry below for the workflow-change
+  context). Picked Payroll as flagged (largest remaining module).
+What was completed: redesigned all 9 Payroll screens onto the same
+  styles.css classes, no additions — the largest module by screen
+  count in this initiative (1839 lines): EmployeePayrollProfileScreen,
+  SalaryComponentsScreen, SalaryStructureScreen, PayrollSettingsScreen,
+  ManagePayrollRulesScreen (a generic versioned-JSON-payload rule
+  editor across 6 rule types — PF/ESI/PT/wage-cap/gratuity/TDS-slabs —
+  mirrors ManageGstRatesScreen's pattern), AttendanceScreen (kept the
+  scrollable multi-select employee checklist, restyled its container
+  with the design tokens), LeaveScreen (kept the native <details>/
+  <summary> for the collapsible leave-types section — no existing
+  utility class covers that pattern, so left it as a lightly-styled
+  native element rather than inventing a new one), GratuityScreen, and
+  PayrollRunScreen (331 lines — the full create → process → post →
+  disburse lifecycle on one screen). Applied the tinted-badge
+  convention broadly across the module for the first time on non-
+  voucher status fields: leave application status, payroll run status,
+  gratuity record status AND eligibility, PF/ESI/Gratuity "currently
+  applies" indicators, and salary component "counts as statutory
+  wages" — all were plain Yes/No or plain-text status before. Zero
+  functional changes: every window.mhts call, permission check, the
+  JSON rule-payload parse/validate logic, and the payroll-run lifecycle
+  state machine are unchanged. Verified: clean `tsc --noEmit`, clean
+  full `electron-vite build`, and a live rendered walkthrough of all 9
+  screens (mocked window.mhts + tab switcher) in both light and dark
+  theme, including opening an employee's edit form, opening a POSTED
+  payroll run to confirm the payslip register's per-row Disburse/
+  Print/Save-PDF buttons and the ₹0-outstanding row correctly hiding
+  Disburse, and confirming Payroll Settings' Applies/Does-not-apply
+  badges matched the mocked resolvedApplicability data. Scratch
+  preview files/servers deleted/killed afterwards, verified via `git
+  status --short` before committing. Branched ui/payroll-redesign
+  directly off ui/gst-redesign (stacked) — committed, pushed, and
+  PR'd (base ui/gst-redesign) immediately per the no-wait instruction.
+What's still pending in this phase: ~40 screens across every other
+  module (Fixed Assets, Branches, Manufacturing, Print, System) still
+  on the old unstyled baseline — all meaningfully smaller than Payroll.
+Any decisions made (also add to Section 2): established that not
+  every native HTML pattern needs a new CSS utility class — a
+  <details>/<summary> disclosure widget (Leave screen's leave-types
+  section) was left as a lightly-styled native element rather than
+  building a bespoke accordion component for a single use so far.
+Any blockers (also add to Section 3): none.
+Next concrete step: continue to the next module without asking
+  (remaining candidates, all smaller: Fixed Assets, Branches,
+  Manufacturing, Print, System). Branch off ui/payroll-redesign,
+  continuing the stack.
+```
+
+```
+Date: 2026-09-09 (session 31, continued — GST, seventh leg)
+Phase: Not phase-numbered — UI redesign initiative, seventh leg of the
+  no-wait chain (see the Inventory entry below for the workflow-change
+  context). Picked GST as flagged (compliance-critical, high-visibility).
+What was completed: redesigned all 3 GST screens onto the same
+  styles.css classes, no additions: ManageGstRatesScreen (category-
+  grouped rate table + versioned add/update form — editing never
+  mutates a past rate row in place, it creates a new dated one),
+  GstSummaryScreen (output/input/net-payable tax tables + conditional
+  blocked-ITC/RCM sections), and GstReturnsScreen — 446 lines, the
+  largest single screen redesigned in this initiative. That screen's
+  four report sub-tabs (GSTR1/3B/9/9C) are styled as a button row
+  using the existing .btn-primary class for whichever tab is active,
+  no new tab-widget component; each tab keeps its own From/To or
+  Financial Year toolbar plus Run/Export CSV, all built from existing
+  .field-row/.card patterns. Zero functional changes: every
+  window.mhts call, permission check, the CSV-export column layout per
+  return type, and the GSTR1/3B/9/9C computation/display logic are
+  unchanged. Verified: clean `tsc --noEmit`, clean full `electron-vite
+  build`, and a live rendered walkthrough of all 3 screens (mocked
+  window.mhts + tab switcher) in both light and dark theme, including
+  clicking through all four GSTR sub-tabs with Run and confirming each
+  one's distinct toolbar (date range vs. financial year) and table
+  shape rendered correctly. Scratch preview files/servers deleted/
+  killed afterwards, verified via `git status --short` before
+  committing. Branched ui/gst-redesign directly off ui/banking-
+  redesign (stacked) — committed, pushed, and PR'd (base ui/banking-
+  redesign) immediately per the no-wait instruction.
+What's still pending in this phase: ~49 screens across every other
+  module (Payroll, Fixed Assets, Branches, Manufacturing, Print,
+  System) still on the old unstyled baseline. Payroll is the largest
+  remaining module by screen count.
+Any decisions made (also add to Section 2): none new.
+Any blockers (also add to Section 3): none.
+Next concrete step: continue to the next module without asking.
+  Branch off ui/gst-redesign, continuing the stack.
+```
+
+```
+Date: 2026-09-09 (session 31, continued — Banking, sixth leg)
+Phase: Not phase-numbered — UI redesign initiative, sixth leg of the
+  no-wait chain (see the Inventory entry below for the workflow-change
+  context — this leg follows the same pattern, no per-module pause).
+What was completed: redesigned all 4 Banking screens onto the same
+  styles.css classes, no additions: BankAccountsScreen,
+  BankReconciliationScreen, BankStatementImportScreen (400 lines, the
+  largest screen redesigned so far — CSV column-mapping grid, import-
+  result table, past-imports table, all restyled), ChequeRegisterScreen.
+  Instrument status (PENDING/PRESENTED/CLEARED/BOUNCED/CANCELLED) and
+  the reconciliation tie-out message now use the tinted-badge
+  convention. The statement import's "possible duplicate" row
+  highlight was hardcoded #fff8e1 before — changed to var(--warning-
+  soft) so it actually tracks dark mode instead of showing a bright
+  cream-yellow row on a dark background (this would have been a real
+  dark-mode bug if shipped as-is; caught by reading the code, not by
+  the visual check). Zero other functional changes: every window.mhts
+  call, permission check, and the CSV column-mapping/matching logic is
+  unchanged. Verified: clean `tsc --noEmit`, clean full `electron-vite
+  build`, and a live rendered walkthrough of all 4 screens (mocked
+  window.mhts + tab switcher) in both light and dark theme, including
+  driving the full statement-import flow (choose file → column-mapping
+  preview → Import → duplicate-row highlight) and running the
+  reconciliation report. Scratch preview files/servers deleted/killed
+  afterwards, verified via `git status --short` before committing.
+  Branched ui/banking-redesign directly off ui/inventory-redesign
+  (stacked, same as the Inventory-onward chain) — committed, pushed,
+  and PR'd (base ui/inventory-redesign) immediately per the no-wait
+  instruction.
+What's still pending in this phase: ~52 screens across every other
+  module (GST, Payroll, Fixed Assets, Branches, Manufacturing, Print,
+  System) still on the old unstyled baseline.
+Any decisions made (also add to Section 2): none new.
+Any blockers (also add to Section 3): none.
+Next concrete step: continue to the next module without asking
+  (candidates: GST — compliance-critical; Payroll — large; Fixed
+  Assets, Branches, Manufacturing, Print, System — smaller/narrower).
+  Branch off ui/banking-redesign, continuing the stack.
+```
+
+```
+Date: 2026-09-09 (session 31, continued — Inventory + workflow change)
+Phase: Not phase-numbered — UI redesign initiative, continuing straight
+  on from the Accounting Core entry below (same session, fifth leg).
+  The user merged the Accounting Core PR (#36), and when asked (a)
+  push/PR now? and (b) which module next (no obvious mirror-of-Sales
+  candidate left), answered the second question with an instruction
+  that changes the workflow for the rest of this session: "Dont wait
+  for me do one by one we can finalize at end." Read as: stop pausing
+  after each module to ask which one is next or whether to push — keep
+  going through the remaining modules back-to-back, still opening a
+  PR per module (that part of the pattern wasn't asked to change), but
+  the user will review/merge the whole batch at the end rather than
+  one at a time.
+What was completed: picked Inventory as this leg's module (it was
+  already the top option offered, and the instruction was about
+  cadence, not about skipping the choice silently). Redesigned all 9
+  Inventory screens: ManageUnitsScreen, ManageWarehousesScreen,
+  ManageItemsScreen (incl. verifying the shared GstHsnPicker
+  sub-component renders correctly unmodified inside the new field-row
+  layout), RecordOpeningStockScreen, StockAdjustmentScreen,
+  StockTransferScreen, StockSummaryScreen, StockMovementRegisterScreen,
+  StockValuationVsLedgerScreen. Zero new CSS needed — fifth module in a
+  row where the original Sales-module utility classes generalized
+  without extension. Stock valuation vs. ledger's reconciled/mismatch
+  line is now a tinted badge, matching the P&L and Voucher Register
+  convention. Verified: clean `tsc --noEmit`, clean full `electron-vite
+  build`, and a live rendered walkthrough of all 9 screens (mocked
+  window.mhts + tab switcher) in both light and dark theme, including
+  confirming the reconciled badge computed correctly against mock
+  numbers and that the batch-tracked conditional field appears/
+  disappears correctly when switching between a batch-tracked and a
+  non-batch-tracked item. Scratch preview files/servers deleted/killed
+  afterwards, verified via `git status --short` before committing.
+  IMPORTANT branch-chain mechanics for whoever picks this back up: per
+  the new no-wait instruction, this module's branch
+  (ui/inventory-redesign) was NOT created from origin/main — local
+  main was never re-pulled after Accounting Core's PR #36, because
+  that PR wasn't merged yet when this leg started. Instead
+  ui/inventory-redesign was branched directly from
+  ui/accounting-core-redesign (git checkout -b, no pull first), so it
+  is stacked ON TOP of Accounting Core's commits, not independent of
+  them. Its PR (once opened) should target base
+  ui/accounting-core-redesign, NOT main, or the diff will incorrectly
+  include every file Accounting Core already touched. Same stacking
+  will apply to every subsequent module this session unless a future
+  entry says a rebase onto main happened.
+What's still pending in this phase: ~56 screens across every other
+  module (GST, Banking, Payroll, Fixed Assets, Branches, Manufacturing,
+  Print, System) are still on the old unstyled baseline. Committed to
+  ui/inventory-redesign (1 commit, stacked on
+  ui/accounting-core-redesign) — pushed and PR'd immediately per the
+  new no-wait instruction (see PR number in the commit/PR history, not
+  duplicated here since this entry is written before that step
+  completes within the same turn).
+Any decisions made (also add to Section 2): workflow change captured
+  above — no more per-module pause to ask "push now?" / "which module
+  next?" for the remainder of this session; PRs still get opened per
+  module (not batched into one mega-PR), just not gated on the
+  previous one merging first. Branches stack on each other instead of
+  each starting fresh from main.
+Any blockers (also add to Section 3): none.
+Next concrete step: continue to the next module without asking,
+  picking a reasonable next candidate (Banking pairs naturally with
+  the Accounting Core's Payment/Receipt vouchers already redesigned;
+  GST is compliance-critical and high-visibility) — branch it from
+  ui/inventory-redesign (continuing the stack), and keep going through
+  the remaining modules the same way until they're all done, at which
+  point the user reviews and merges the whole stack in order.
+```
+
 ```
 Date: 2026-09-09 (session 31, continued — Accounting Core)
 Phase: Not phase-numbered — UI redesign initiative, continuing straight

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { ArrowLeft, Users } from 'lucide-react';
 import type { EmployeeSummary, SessionInfo } from '../../../shared/ipc';
 
 interface Props {
@@ -47,60 +48,71 @@ export function EmployeesScreen({ session, onBack }: Props) {
   }
 
   return (
-    <div style={{ padding: 24, fontFamily: 'sans-serif', maxWidth: 720 }}>
-      <h1>Employees</h1>
-      {error && <p style={{ color: 'crimson' }}>{error}</p>}
+    <div className="page" style={{ maxWidth: 780 }}>
+      <div className="page-header">
+        <button type="button" className="back-link" onClick={onBack}>
+          <ArrowLeft size={16} /> Back
+        </button>
+        <h1>
+          <Users size={18} style={{ color: 'var(--accent)' }} /> Employees
+        </h1>
+      </div>
 
-      {employees === null ? (
-        <p>Loading…</p>
-      ) : (
-        <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 24 }}>
-          <thead>
-            <tr>
-              <th style={{ textAlign: 'left' }}>Code</th>
-              <th style={{ textAlign: 'left' }}>Name</th>
-              <th style={{ textAlign: 'left' }}>Department</th>
-              <th style={{ textAlign: 'right' }}>Owed (₹)</th>
-            </tr>
-          </thead>
-          <tbody>
-            {employees.map((employee) => (
-              <tr key={employee.id} style={{ opacity: employee.isActive ? 1 : 0.6 }}>
-                <td>{employee.employeeCode}</td>
-                <td>{employee.name}</td>
-                <td>{employee.department ?? '—'}</td>
-                <td style={{ textAlign: 'right' }}>{employee.outstandingBalance.toFixed(2)}</td>
+      {error && <p className="error-text">{error}</p>}
+
+      <div className="card" style={{ overflowX: 'auto' }}>
+        {employees === null ? (
+          <p className="empty-state">Loading…</p>
+        ) : employees.length === 0 ? (
+          <p className="empty-state">No employees yet.</p>
+        ) : (
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Code</th>
+                <th>Name</th>
+                <th>Department</th>
+                <th className="num">Owed (₹)</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
+            </thead>
+            <tbody>
+              {employees.map((employee) => (
+                <tr key={employee.id} style={{ opacity: employee.isActive ? 1 : 0.6 }}>
+                  <td>{employee.employeeCode}</td>
+                  <td>{employee.name}</td>
+                  <td>{employee.department ?? '—'}</td>
+                  <td className="num">{employee.outstandingBalance.toFixed(2)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
 
       {canManage && (
-        <form onSubmit={handleCreate} style={{ marginBottom: 24 }}>
+        <form onSubmit={handleCreate} className="card">
           <h2>New employee</h2>
-          <label>
-            Employee code
-            <input value={employeeCode} onChange={(e) => setEmployeeCode(e.target.value)} required />
-          </label>{' '}
-          <label>
-            Name
-            <input value={name} onChange={(e) => setName(e.target.value)} required />
-          </label>{' '}
-          <label>
-            Department
-            <input value={department} onChange={(e) => setDepartment(e.target.value)} />
-          </label>
-          <br />
-          <button type="submit" disabled={submitting}>
-            {submitting ? 'Adding…' : 'Add employee'}
-          </button>
+          <div className="field-row">
+            <label className="field">
+              Employee code
+              <input value={employeeCode} onChange={(e) => setEmployeeCode(e.target.value)} required />
+            </label>
+            <label className="field">
+              Name
+              <input value={name} onChange={(e) => setName(e.target.value)} required />
+            </label>
+            <label className="field">
+              Department
+              <input value={department} onChange={(e) => setDepartment(e.target.value)} />
+            </label>
+          </div>
+          <div className="form-actions">
+            <button type="submit" className="btn-primary" disabled={submitting}>
+              {submitting ? 'Adding…' : 'Add employee'}
+            </button>
+          </div>
         </form>
       )}
-
-      <button type="button" onClick={onBack}>
-        Back to dashboard
-      </button>
     </div>
   );
 }

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { ArrowLeft, LayoutTemplate } from 'lucide-react';
 import type {
   ImageTemplateElement,
   LineTemplateElement,
@@ -223,8 +224,8 @@ export function TemplateDesignerScreen({ session, onBack }: Props) {
 
   if (!canManage) {
     return (
-      <div style={{ padding: 24, fontFamily: 'sans-serif' }}>
-        <p>You do not have permission to design print templates.</p>
+      <div className="page">
+        <p className="empty-state">You do not have permission to design print templates.</p>
         <button type="button" onClick={onBack}>
           Back to dashboard
         </button>
@@ -236,99 +237,120 @@ export function TemplateDesignerScreen({ session, onBack }: Props) {
   const previewValues = previewData?.data;
 
   return (
-    <div style={{ padding: 24, fontFamily: 'sans-serif' }}>
-      <h1>Template designer</h1>
-      <p style={{ color: '#666', fontSize: 13 }}>
+    <div className="page" style={{ maxWidth: 1200 }}>
+      <div className="page-header">
+        <button type="button" className="back-link" onClick={onBack}>
+          <ArrowLeft size={16} /> Back
+        </button>
+        <h1>
+          <LayoutTemplate size={18} style={{ color: 'var(--accent)' }} /> Template designer
+        </h1>
+      </div>
+
+      <p style={{ color: 'var(--fg-muted)', fontSize: 13, marginTop: -8 }}>
         Design exactly where each field appears on a printed document. Fields you place here are live-bound — drag to reposition, drag the bottom-right handle to resize. Values shown below are from{' '}
         {previewData?.isPlaceholder ? 'a placeholder sample (no real document of this type exists yet)' : 'your most recent real document of this type'}.
       </p>
 
-      <label>
-        Document family{' '}
-        <select value={family} onChange={(e) => setFamily(e.target.value as TemplateFamily)}>
-          {FAMILY_OPTIONS.map((f) => (
-            <option key={f.value} value={f.value}>
-              {f.label}
-            </option>
-          ))}
-        </select>
-      </label>{' '}
-      {activeLayout ? <span style={{ color: '#2a7a2a' }}>Custom layout active (v{activeLayout.version}).</span> : <span style={{ color: '#666' }}>Using the CLASSIC/MODERN default — no custom layout yet.</span>}
-      {error && <p style={{ color: 'crimson' }}>{error}</p>}
-      {info && <p style={{ color: '#2a7a2a' }}>{info}</p>}
-      {loading && <p>Loading…</p>}
+      <div className="card">
+        <div className="field-row" style={{ alignItems: 'center', marginBottom: 0 }}>
+          <label className="field" style={{ maxWidth: 320, marginBottom: 0 }}>
+            Document family
+            <select value={family} onChange={(e) => setFamily(e.target.value as TemplateFamily)}>
+              {FAMILY_OPTIONS.map((f) => (
+                <option key={f.value} value={f.value}>
+                  {f.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <span className={`badge ${activeLayout ? 'badge-success' : 'badge-muted'}`}>
+            {activeLayout ? `Custom layout active (v${activeLayout.version})` : 'Using CLASSIC/MODERN default'}
+          </span>
+        </div>
+      </div>
 
-      <div style={{ display: 'flex', gap: 16, marginTop: 12, alignItems: 'flex-start' }}>
-        <div style={{ width: 220, flexShrink: 0 }}>
-          <h3 style={{ marginTop: 0 }}>Fields</h3>
-          <div style={{ maxHeight: 360, overflowY: 'auto', border: '1px solid #ccc', padding: 4 }}>
-            <button type="button" onClick={addStaticText} style={{ width: '100%', marginBottom: 4 }}>
-              + Static text
-            </button>
-            <button type="button" onClick={addLine} style={{ width: '100%', marginBottom: 8 }}>
-              + Divider line
-            </button>
-            {catalog.map((entry) => (
-              <button key={entry.path} type="button" onClick={() => addFieldToCanvas(entry)} style={{ display: 'block', width: '100%', textAlign: 'left', marginBottom: 2 }}>
-                + {entry.label} {entry.kind === 'table' ? '(table)' : ''}
+      {error && <p className="error-text">{error}</p>}
+      {info && (
+        <p className="badge badge-success" style={{ display: 'inline-block', marginBottom: 16 }}>
+          {info}
+        </p>
+      )}
+      {loading && <p className="empty-state">Loading…</p>}
+
+      <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
+        <div style={{ width: 240, flexShrink: 0 }}>
+          <div className="card">
+            <h2>Fields</h2>
+            <div style={{ maxHeight: 320, overflowY: 'auto', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', padding: 6 }}>
+              <button type="button" onClick={addStaticText} style={{ width: '100%', marginBottom: 6, display: 'block' }}>
+                + Static text
               </button>
-            ))}
+              <button type="button" onClick={addLine} style={{ width: '100%', marginBottom: 10, display: 'block' }}>
+                + Divider line
+              </button>
+              {catalog.map((entry) => (
+                <button key={entry.path} type="button" onClick={() => addFieldToCanvas(entry)} style={{ display: 'block', width: '100%', textAlign: 'left', marginBottom: 4 }}>
+                  + {entry.label} {entry.kind === 'table' ? '(table)' : ''}
+                </button>
+              ))}
+            </div>
           </div>
 
           {selected && (
-            <div style={{ marginTop: 16, border: '1px solid #ccc', padding: 8 }}>
-              <h3 style={{ marginTop: 0 }}>Selected element</h3>
-              <p style={{ fontSize: 12, color: '#666' }}>Type: {selected.type}</p>
-              <label>
-                X (mm) <input type="number" value={selected.xMm} onChange={(e) => updateElement(selected.id, { xMm: Number(e.target.value) } as Partial<TemplateElement>)} style={{ width: 60 }} />
-              </label>
-              <br />
-              <label>
-                Y (mm) <input type="number" value={selected.yMm} onChange={(e) => updateElement(selected.id, { yMm: Number(e.target.value) } as Partial<TemplateElement>)} style={{ width: 60 }} />
-              </label>
-              <br />
-              <label>
-                Width (mm) <input type="number" value={selected.widthMm} onChange={(e) => updateElement(selected.id, { widthMm: Number(e.target.value) } as Partial<TemplateElement>)} style={{ width: 60 }} />
-              </label>
-              {selected.type !== 'line' && (
-                <>
-                  <br />
-                  <label>
+            <div className="card">
+              <h2>Selected element</h2>
+              <p style={{ fontSize: 12, color: 'var(--fg-muted)', marginTop: -6 }}>Type: {selected.type}</p>
+              <div className="field-row">
+                <label className="field">
+                  X (mm)
+                  <input type="number" value={selected.xMm} onChange={(e) => updateElement(selected.id, { xMm: Number(e.target.value) } as Partial<TemplateElement>)} style={{ width: 70 }} />
+                </label>
+                <label className="field">
+                  Y (mm)
+                  <input type="number" value={selected.yMm} onChange={(e) => updateElement(selected.id, { yMm: Number(e.target.value) } as Partial<TemplateElement>)} style={{ width: 70 }} />
+                </label>
+              </div>
+              <div className="field-row">
+                <label className="field">
+                  Width (mm)
+                  <input type="number" value={selected.widthMm} onChange={(e) => updateElement(selected.id, { widthMm: Number(e.target.value) } as Partial<TemplateElement>)} style={{ width: 70 }} />
+                </label>
+                {selected.type !== 'line' && (
+                  <label className="field">
                     Height (mm)
-                    <input type="number" value={selected.heightMm} onChange={(e) => updateElement(selected.id, { heightMm: Number(e.target.value) } as Partial<TemplateElement>)} style={{ width: 60 }} />
+                    <input type="number" value={selected.heightMm} onChange={(e) => updateElement(selected.id, { heightMm: Number(e.target.value) } as Partial<TemplateElement>)} style={{ width: 70 }} />
                   </label>
-                </>
-              )}
+                )}
+              </div>
 
               {selected.type === 'text' && (
                 <>
-                  <hr />
-                  <label>
+                  <label className="field">
                     Static text
-                    <br />
                     <input
                       value={selected.staticText ?? ''}
                       disabled={selected.fieldPath !== undefined}
                       onChange={(e) => updateElement(selected.id, { staticText: e.target.value } as Partial<TemplateElement>)}
-                      style={{ width: '100%' }}
                     />
                   </label>
-                  {selected.fieldPath && <p style={{ fontSize: 11, color: '#666' }}>Bound to field: {selected.fieldPath}</p>}
-                  <label>
-                    Font size <input type="number" value={selected.style?.fontSizePx ?? 12} onChange={(e) => updateElement(selected.id, { style: { ...selected.style, fontSizePx: Number(e.target.value) } } as Partial<TemplateElement>)} style={{ width: 50 }} />
-                  </label>
-                  <br />
-                  <label>
-                    Bold{' '}
-                    <input
-                      type="checkbox"
-                      checked={selected.style?.fontWeight === 'bold'}
-                      onChange={(e) => updateElement(selected.id, { style: { ...selected.style, fontWeight: e.target.checked ? 'bold' : 'normal' } } as Partial<TemplateElement>)}
-                    />
-                  </label>
-                  <br />
-                  <label>
-                    Align{' '}
+                  {selected.fieldPath && <p style={{ fontSize: 11, color: 'var(--fg-muted)', marginTop: -6 }}>Bound to field: {selected.fieldPath}</p>}
+                  <div className="field-row">
+                    <label className="field">
+                      Font size
+                      <input type="number" value={selected.style?.fontSizePx ?? 12} onChange={(e) => updateElement(selected.id, { style: { ...selected.style, fontSizePx: Number(e.target.value) } } as Partial<TemplateElement>)} style={{ width: 70 }} />
+                    </label>
+                    <label className="field" style={{ flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'center' }}>
+                      <input
+                        type="checkbox"
+                        checked={selected.style?.fontWeight === 'bold'}
+                        onChange={(e) => updateElement(selected.id, { style: { ...selected.style, fontWeight: e.target.checked ? 'bold' : 'normal' } } as Partial<TemplateElement>)}
+                      />
+                      Bold
+                    </label>
+                  </div>
+                  <label className="field">
+                    Align
                     <select value={selected.style?.align ?? 'left'} onChange={(e) => updateElement(selected.id, { style: { ...selected.style, align: e.target.value as 'left' | 'center' | 'right' } } as Partial<TemplateElement>)}>
                       <option value="left">Left</option>
                       <option value="center">Center</option>
@@ -340,8 +362,7 @@ export function TemplateDesignerScreen({ session, onBack }: Props) {
 
               {selected.type === 'table' && (
                 <>
-                  <hr />
-                  <p style={{ fontSize: 12 }}>Row source: {selected.rowSource}</p>
+                  <p style={{ fontSize: 12, color: 'var(--fg-muted)' }}>Row source: {selected.rowSource}</p>
                   {selected.columns.map((col, idx) => (
                     <div key={idx} style={{ fontSize: 12, marginBottom: 4 }}>
                       {col.headerLabel} ({col.fieldPath})
@@ -350,15 +371,17 @@ export function TemplateDesignerScreen({ session, onBack }: Props) {
                 </>
               )}
 
-              <hr />
-              <button type="button" onClick={() => removeElement(selected.id)}>
-                Delete element
-              </button>
+              <div className="form-actions">
+                <button type="button" onClick={() => removeElement(selected.id)}>
+                  Delete element
+                </button>
+              </div>
             </div>
           )}
         </div>
 
-        <div>
+        <div className="card" style={{ padding: 12 }}>
+          {/* This canvas IS the printable page — always plain white/black regardless of app theme, since it must match the literal PDF/print output pixel-for-pixel. Never theme this element. */}
           <div
             ref={canvasRef}
             onPointerMove={onCanvasPointerMove}
@@ -430,19 +453,16 @@ export function TemplateDesignerScreen({ session, onBack }: Props) {
         </div>
       </div>
 
-      <p style={{ marginTop: 16 }}>
-        <button type="button" disabled={saving} onClick={handleSave}>
+      <div className="form-actions">
+        <button type="button" className="btn-primary" disabled={saving} onClick={handleSave}>
           {saving ? 'Working…' : 'Save as new version'}
-        </button>{' '}
+        </button>
         {activeLayout && (
           <button type="button" disabled={saving} onClick={handleRevert}>
             Revert to CLASSIC/MODERN default
           </button>
-        )}{' '}
-        <button type="button" onClick={onBack}>
-          Back to dashboard
-        </button>
-      </p>
+        )}
+      </div>
     </div>
   );
 }

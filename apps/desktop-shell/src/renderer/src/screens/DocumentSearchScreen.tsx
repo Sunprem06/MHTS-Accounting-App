@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { ArrowLeft, Search } from 'lucide-react';
 import type { DocumentSummary } from '../../../shared/ipc';
 
 interface Props {
@@ -37,58 +38,68 @@ export function DocumentSearchScreen({ onBack }: Props) {
   }
 
   return (
-    <div style={{ padding: 24, fontFamily: 'sans-serif', maxWidth: 720 }}>
-      <h1>Document search</h1>
-      <form onSubmit={handleSearch}>
-        <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search by filename or description…" style={{ width: 320 }} />{' '}
-        <button type="submit" disabled={loading}>
-          {loading ? 'Searching…' : 'Search'}
+    <div className="page" style={{ maxWidth: 780 }}>
+      <div className="page-header">
+        <button type="button" className="back-link" onClick={onBack}>
+          <ArrowLeft size={16} /> Back
         </button>
+        <h1>
+          <Search size={18} style={{ color: 'var(--accent)' }} /> Document search
+        </h1>
+      </div>
+
+      <form onSubmit={handleSearch} className="card">
+        <div className="field-row">
+          <label className="field" style={{ flex: 1 }}>
+            Search
+            <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search by filename or description…" />
+          </label>
+        </div>
+        <div className="form-actions">
+          <button type="submit" className="btn-primary" disabled={loading}>
+            {loading ? 'Searching…' : 'Search'}
+          </button>
+        </div>
       </form>
-      {error && <p style={{ color: 'crimson' }}>{error}</p>}
+
+      {error && <p className="error-text">{error}</p>}
 
       {results && (
-        <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: 16 }}>
-          <thead>
-            <tr>
-              <th style={{ textAlign: 'left' }}>File</th>
-              <th style={{ textAlign: 'left' }}>Attached to</th>
-              <th style={{ textAlign: 'left' }}>Description</th>
-              <th style={{ textAlign: 'left' }}>Uploaded</th>
-              <th />
-            </tr>
-          </thead>
-          <tbody>
-            {results.length === 0 ? (
-              <tr>
-                <td colSpan={5}>No matching documents.</td>
-              </tr>
-            ) : (
-              results.map((doc) => (
-                <tr key={doc.id}>
-                  <td>{doc.fileName}</td>
-                  <td>
-                    {doc.entityType} ({doc.entityId.slice(0, 8)}…)
-                  </td>
-                  <td>{doc.description ?? ''}</td>
-                  <td>{doc.uploadedAt}</td>
-                  <td>
-                    <button type="button" onClick={() => handleDownload(doc.id)}>
-                      Download
-                    </button>
-                  </td>
+        <div className="card" style={{ overflowX: 'auto' }}>
+          {results.length === 0 ? (
+            <p className="empty-state">No matching documents.</p>
+          ) : (
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>File</th>
+                  <th>Attached to</th>
+                  <th>Description</th>
+                  <th>Uploaded</th>
+                  <th />
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+              </thead>
+              <tbody>
+                {results.map((doc) => (
+                  <tr key={doc.id}>
+                    <td>{doc.fileName}</td>
+                    <td>
+                      {doc.entityType} ({doc.entityId.slice(0, 8)}…)
+                    </td>
+                    <td>{doc.description ?? ''}</td>
+                    <td>{doc.uploadedAt}</td>
+                    <td>
+                      <button type="button" onClick={() => handleDownload(doc.id)}>
+                        Download
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
       )}
-
-      <p style={{ marginTop: 16 }}>
-        <button type="button" onClick={onBack}>
-          Back to dashboard
-        </button>
-      </p>
     </div>
   );
 }

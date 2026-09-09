@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { ArrowLeft, Coins } from 'lucide-react';
 import type { ExchangeRateVersionSummary, SessionInfo } from '../../../shared/ipc';
 
 interface Props {
@@ -51,74 +52,79 @@ export function ManageExchangeRatesScreen({ session, onBack }: Props) {
   }
 
   return (
-    <div style={{ padding: 24, fontFamily: 'sans-serif', maxWidth: 900 }}>
-      <h1>Manage exchange rates</h1>
-      <p style={{ fontSize: 12, color: '#666' }}>
+    <div className="page" style={{ maxWidth: 900 }}>
+      <div className="page-header">
+        <button type="button" className="back-link" onClick={onBack}>
+          <ArrowLeft size={16} /> Back
+        </button>
+        <h1>
+          <Coins size={18} style={{ color: 'var(--accent)' }} /> Manage exchange rates
+        </h1>
+      </div>
+
+      <p style={{ color: 'var(--fg-muted)', fontSize: 13, marginTop: -8 }}>
         Rates are versioned, date-effective data (per currency) — never hardcoded. A handful of illustrative starting rates were seeded at installation;
         verify against a live source before relying on these for a real invoice or settlement.
       </p>
-      {error && <p style={{ color: 'crimson' }}>{error}</p>}
 
-      <h2>Currently active rates</h2>
-      {active === null ? (
-        <p>Loading…</p>
-      ) : (
-        <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 24 }}>
-          <thead>
-            <tr>
-              <th style={{ textAlign: 'left' }}>Currency</th>
-              <th style={{ textAlign: 'left' }}>Effective from</th>
-              <th style={{ textAlign: 'right' }}>Rate (per 1 unit, in ₹)</th>
-            </tr>
-          </thead>
-          <tbody>
-            {active.map((r) => (
-              <tr key={r.id}>
-                <td>{r.currency}</td>
-                <td>{r.effectiveFrom}</td>
-                <td style={{ textAlign: 'right' }}>{r.rate.toFixed(4)}</td>
-              </tr>
-            ))}
-            {active.length === 0 && (
+      {error && <p className="error-text">{error}</p>}
+
+      <div className="card" style={{ overflowX: 'auto' }}>
+        <h2>Currently active rates</h2>
+        {active === null ? (
+          <p className="empty-state">Loading…</p>
+        ) : active.length === 0 ? (
+          <p className="empty-state">No exchange rates configured yet.</p>
+        ) : (
+          <table className="data-table">
+            <thead>
               <tr>
-                <td colSpan={3}>No exchange rates configured yet.</td>
+                <th>Currency</th>
+                <th>Effective from</th>
+                <th className="num">Rate (per 1 unit, in ₹)</th>
               </tr>
-            )}
-          </tbody>
-        </table>
-      )}
+            </thead>
+            <tbody>
+              {active.map((r) => (
+                <tr key={r.id}>
+                  <td>{r.currency}</td>
+                  <td>{r.effectiveFrom}</td>
+                  <td className="num">{r.rate.toFixed(4)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
 
       {canManage && (
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit} className="card">
           <h2>Add a new dated version</h2>
-          <label>
-            Currency code (e.g. USD)
-            <input value={currency} onChange={(e) => setCurrency(e.target.value)} required style={{ width: 80 }} />
-          </label>{' '}
-          <label>
-            Effective from
-            <input type="date" value={effectiveFrom} onChange={(e) => setEffectiveFrom(e.target.value)} required />
-          </label>{' '}
-          <label>
-            Rate (₹ per 1 unit)
-            <input type="number" step="0.0001" min="0.0001" value={rate || ''} onChange={(e) => setRate(Number(e.target.value) || 0)} required style={{ width: 120 }} />
-          </label>
-          <br />
-          <label>
+          <div className="field-row">
+            <label className="field">
+              Currency code (e.g. USD)
+              <input value={currency} onChange={(e) => setCurrency(e.target.value)} required style={{ width: 100 }} />
+            </label>
+            <label className="field">
+              Effective from
+              <input type="date" value={effectiveFrom} onChange={(e) => setEffectiveFrom(e.target.value)} required />
+            </label>
+            <label className="field">
+              Rate (₹ per 1 unit)
+              <input type="number" step="0.0001" min="0.0001" value={rate || ''} onChange={(e) => setRate(Number(e.target.value) || 0)} required style={{ width: 140 }} />
+            </label>
+          </div>
+          <label className="field">
             Note (optional)
-            <input value={sourceReference} onChange={(e) => setSourceReference(e.target.value)} style={{ width: '100%' }} />
+            <input value={sourceReference} onChange={(e) => setSourceReference(e.target.value)} />
           </label>
-          <br />
-          <button type="submit" disabled={submitting || rate <= 0}>
-            {submitting ? 'Saving…' : 'Save new version'}
-          </button>
+          <div className="form-actions">
+            <button type="submit" className="btn-primary" disabled={submitting || rate <= 0}>
+              {submitting ? 'Saving…' : 'Save new version'}
+            </button>
+          </div>
         </form>
       )}
-
-      <p />
-      <button type="button" onClick={onBack}>
-        Back to dashboard
-      </button>
     </div>
   );
 }

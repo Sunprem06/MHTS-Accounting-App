@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import type { LedgerAccountSummary, PayrollRunSummary, PayslipSummary, SessionInfo } from '../../../shared/ipc';
+import { ArrowLeft, PlayCircle } from 'lucide-react';
+import type { LedgerAccountSummary, PayrollRunStatus, PayrollRunSummary, PayslipSummary, SessionInfo } from '../../../shared/ipc';
 
 interface Props {
   session: SessionInfo;
@@ -8,6 +9,17 @@ interface Props {
 
 function todayIso(): string {
   return new Date().toISOString().slice(0, 10);
+}
+
+function statusBadgeClass(status: PayrollRunStatus): string {
+  switch (status) {
+    case 'POSTED':
+      return 'badge-success';
+    case 'PROCESSED':
+      return 'badge-warning';
+    default:
+      return 'badge-muted';
+  }
 }
 
 // Same CSV-export pattern as GstReturnsScreen's toCsv/toCsvValue — this was
@@ -171,80 +183,97 @@ export function PayrollRunScreen({ session, onBack }: Props) {
   }
 
   return (
-    <div style={{ padding: 24, fontFamily: 'sans-serif', maxWidth: 1000 }}>
-      <h1>Payroll runs</h1>
-      {error && <p style={{ color: 'crimson' }}>{error}</p>}
+    <div className="page" style={{ maxWidth: 1100 }}>
+      <div className="page-header">
+        <button type="button" className="back-link" onClick={onBack}>
+          <ArrowLeft size={16} /> Back
+        </button>
+        <h1>
+          <PlayCircle size={18} style={{ color: 'var(--accent)' }} /> Payroll runs
+        </h1>
+      </div>
+
+      {error && <p className="error-text">{error}</p>}
 
       {canRun && (
-        <form onSubmit={handleCreate} style={{ marginBottom: 16 }}>
-          <label>
-            Month
-            <input type="number" min={1} max={12} value={periodMonth} onChange={(e) => setPeriodMonth(Number(e.target.value))} style={{ width: 50 }} />
-          </label>{' '}
-          <label>
-            Year
-            <input type="number" value={periodYear} onChange={(e) => setPeriodYear(Number(e.target.value))} style={{ width: 70 }} />
-          </label>{' '}
-          <button type="submit" disabled={busy}>
-            New run
-          </button>
+        <form onSubmit={handleCreate} className="card">
+          <div className="field-row" style={{ alignItems: 'flex-end' }}>
+            <label className="field">
+              Month
+              <input type="number" min={1} max={12} value={periodMonth} onChange={(e) => setPeriodMonth(Number(e.target.value))} style={{ width: 70 }} />
+            </label>
+            <label className="field">
+              Year
+              <input type="number" value={periodYear} onChange={(e) => setPeriodYear(Number(e.target.value))} style={{ width: 90 }} />
+            </label>
+            <button type="submit" className="btn-primary" disabled={busy} style={{ marginBottom: 12 }}>
+              New run
+            </button>
+          </div>
         </form>
       )}
 
-      <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 24 }}>
-        <thead>
-          <tr>
-            <th style={{ textAlign: 'left' }}>Period</th>
-            <th style={{ textAlign: 'left' }}>Status</th>
-            <th style={{ textAlign: 'right' }}>Payslips</th>
-            <th />
-          </tr>
-        </thead>
-        <tbody>
-          {(runs ?? []).map((run) => (
-            <tr key={run.id}>
-              <td>
-                {run.periodMonth}/{run.periodYear}
-              </td>
-              <td>{run.status}</td>
-              <td style={{ textAlign: 'right' }}>{run.payslips.length}</td>
-              <td>
-                <button type="button" onClick={() => refreshSelected(run.id)}>
-                  Open
-                </button>
-              </td>
+      <div className="card" style={{ overflowX: 'auto' }}>
+        <table className="data-table">
+          <thead>
+            <tr>
+              <th>Period</th>
+              <th>Status</th>
+              <th className="num">Payslips</th>
+              <th />
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {(runs ?? []).map((run) => (
+              <tr key={run.id}>
+                <td>
+                  {run.periodMonth}/{run.periodYear}
+                </td>
+                <td>
+                  <span className={`badge ${statusBadgeClass(run.status)}`}>{run.status}</span>
+                </td>
+                <td className="num">{run.payslips.length}</td>
+                <td>
+                  <button type="button" onClick={() => refreshSelected(run.id)}>
+                    Open
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
 
       {selectedRun && (
-        <div style={{ border: '1px solid #ccc', padding: 12 }}>
-          <h2>
-            Run {selectedRun.periodMonth}/{selectedRun.periodYear} — {selectedRun.status}
+        <div className="card" style={{ overflowX: 'auto' }}>
+          <h2 style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            Run {selectedRun.periodMonth}/{selectedRun.periodYear}
+            <span className={`badge ${statusBadgeClass(selectedRun.status)}`}>{selectedRun.status}</span>
           </h2>
 
-          {canRun && selectedRun.status === 'DRAFT' && (
-            <button type="button" onClick={handleProcess} disabled={busy}>
-              {busy ? 'Processing…' : 'Process (compute payslips)'}
-            </button>
-          )}
-          {canRun && selectedRun.status === 'PROCESSED' && (
-            <button type="button" onClick={handlePost} disabled={busy}>
-              {busy ? 'Posting…' : 'Post to ledger'}
-            </button>
-          )}
-          {selectedRun.payslips.length > 0 && (
-            <button type="button" onClick={exportRunCsv}>
-              Export CSV
-            </button>
-          )}
+          <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+            {canRun && selectedRun.status === 'DRAFT' && (
+              <button type="button" className="btn-primary" onClick={handleProcess} disabled={busy}>
+                {busy ? 'Processing…' : 'Process (compute payslips)'}
+              </button>
+            )}
+            {canRun && selectedRun.status === 'PROCESSED' && (
+              <button type="button" className="btn-primary" onClick={handlePost} disabled={busy}>
+                {busy ? 'Posting…' : 'Post to ledger'}
+              </button>
+            )}
+            {selectedRun.payslips.length > 0 && (
+              <button type="button" onClick={exportRunCsv}>
+                Export CSV
+              </button>
+            )}
+          </div>
 
           {selectedRun.payslips.length > 0 && (
             <>
               {canDisburse && (
-                <p>
-                  Payment ledger for disbursement:{' '}
+                <label className="field" style={{ maxWidth: 320 }}>
+                  Payment ledger for disbursement
                   <select value={paymentLedgerId} onChange={(e) => setPaymentLedgerId(e.target.value)}>
                     <option value="">— select —</option>
                     {ledgers.map((l) => (
@@ -253,16 +282,16 @@ export function PayrollRunScreen({ session, onBack }: Props) {
                       </option>
                     ))}
                   </select>
-                </p>
+                </label>
               )}
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <table className="data-table">
                 <thead>
                   <tr>
-                    <th style={{ textAlign: 'left' }}>Employee</th>
-                    <th style={{ textAlign: 'right' }}>Gross (₹)</th>
-                    <th style={{ textAlign: 'right' }}>Deductions (₹)</th>
-                    <th style={{ textAlign: 'right' }}>Net pay (₹)</th>
-                    <th style={{ textAlign: 'right' }}>Outstanding (₹)</th>
+                    <th>Employee</th>
+                    <th className="num">Gross (₹)</th>
+                    <th className="num">Deductions (₹)</th>
+                    <th className="num">Net pay (₹)</th>
+                    <th className="num">Outstanding (₹)</th>
                     <th />
                   </tr>
                 </thead>
@@ -270,28 +299,28 @@ export function PayrollRunScreen({ session, onBack }: Props) {
                   {selectedRun.payslips.map((payslip) => (
                     <tr key={payslip.id}>
                       <td>{payslip.employeeName}</td>
-                      <td style={{ textAlign: 'right' }}>{payslip.grossEarnings.toFixed(2)}</td>
-                      <td style={{ textAlign: 'right' }}>{payslip.totalDeductions.toFixed(2)}</td>
-                      <td style={{ textAlign: 'right' }}>{payslip.netPay.toFixed(2)}</td>
-                      <td style={{ textAlign: 'right' }}>{payslip.outstandingAmount.toFixed(2)}</td>
+                      <td className="num">{payslip.grossEarnings.toFixed(2)}</td>
+                      <td className="num">{payslip.totalDeductions.toFixed(2)}</td>
+                      <td className="num">{payslip.netPay.toFixed(2)}</td>
+                      <td className="num">{payslip.outstandingAmount.toFixed(2)}</td>
                       <td>
                         {canRun && selectedRun.status === 'PROCESSED' && (
-                          <button type="button" onClick={() => handleOverrideTds(payslip)} style={{ fontSize: 11 }}>
+                          <button type="button" onClick={() => handleOverrideTds(payslip)}>
                             Edit TDS
                           </button>
                         )}
                         {canDisburse && selectedRun.status === 'POSTED' && payslip.outstandingAmount > 0 && (
-                          <button type="button" onClick={() => handleDisburse(payslip)} disabled={disbursing === payslip.id} style={{ fontSize: 11 }}>
+                          <button type="button" onClick={() => handleDisburse(payslip)} disabled={disbursing === payslip.id}>
                             {disbursing === payslip.id ? 'Paying…' : 'Disburse'}
                           </button>
                         )}
                         {canPrint && selectedRun.status !== 'DRAFT' && (
                           <>
                             {' '}
-                            <button type="button" onClick={() => handlePrintPayslip(payslip)} disabled={printingId === payslip.id} style={{ fontSize: 11 }}>
+                            <button type="button" onClick={() => handlePrintPayslip(payslip)} disabled={printingId === payslip.id}>
                               Print
                             </button>{' '}
-                            <button type="button" onClick={() => handleSavePayslipPdf(payslip)} disabled={printingId === payslip.id} style={{ fontSize: 11 }}>
+                            <button type="button" onClick={() => handleSavePayslipPdf(payslip)} disabled={printingId === payslip.id}>
                               Save PDF
                             </button>
                           </>
@@ -304,8 +333,8 @@ export function PayrollRunScreen({ session, onBack }: Props) {
               {selectedRun.payslips.map(
                 (payslip) =>
                   selectedRun.status !== 'DRAFT' && (
-                    <details key={`${payslip.id}-lines`} style={{ fontSize: 12, marginTop: 4 }}>
-                      <summary>{payslip.employeeName}'s payslip lines</summary>
+                    <details key={`${payslip.id}-lines`} style={{ fontSize: 12, marginTop: 8 }}>
+                      <summary style={{ cursor: 'pointer' }}>{payslip.employeeName}'s payslip lines</summary>
                       <ul>
                         {payslip.lines.map((line, i) => (
                           <li key={i}>
@@ -320,12 +349,6 @@ export function PayrollRunScreen({ session, onBack }: Props) {
           )}
         </div>
       )}
-
-      <p>
-        <button type="button" onClick={onBack}>
-          Back to dashboard
-        </button>
-      </p>
     </div>
   );
 }

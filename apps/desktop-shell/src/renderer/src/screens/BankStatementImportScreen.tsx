@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { ArrowLeft, Upload } from 'lucide-react';
 import type {
   BankAccountSummary,
   ReconcilableLineRow,
@@ -148,11 +149,19 @@ export function BankStatementImportScreen({ session, onBack }: Props) {
   }
 
   return (
-    <div style={{ padding: 24, fontFamily: 'sans-serif', maxWidth: 960 }}>
-      <h1>Bank statement import</h1>
-      <p>
-        <label>
-          Bank account{' '}
+    <div className="page" style={{ maxWidth: 1080 }}>
+      <div className="page-header">
+        <button type="button" className="back-link" onClick={onBack}>
+          <ArrowLeft size={16} /> Back
+        </button>
+        <h1>
+          <Upload size={18} style={{ color: 'var(--accent)' }} /> Bank statement import
+        </h1>
+      </div>
+
+      <div className="card">
+        <label className="field" style={{ maxWidth: 320, marginBottom: 0 }}>
+          Bank account
           <select value={bankAccountId} onChange={(e) => setBankAccountId(e.target.value)}>
             {accounts.map((account) => (
               <option key={account.id} value={account.id}>
@@ -161,84 +170,91 @@ export function BankStatementImportScreen({ session, onBack }: Props) {
             ))}
           </select>
         </label>
-      </p>
-      {error && <p style={{ color: 'crimson' }}>{error}</p>}
+      </div>
+
+      {error && <p className="error-text">{error}</p>}
 
       {canImport && (
-        <div style={{ border: '1px solid #ccc', padding: 16, marginBottom: 24 }}>
+        <div className="card">
           <h2>Import a statement file</h2>
-          <button type="button" onClick={handlePickFile} disabled={!bankAccountId}>
-            Choose CSV file…
-          </button>
-          {pickedFile && <span style={{ marginLeft: 8 }}>{pickedFile.fileName}</span>}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <button type="button" onClick={handlePickFile} disabled={!bankAccountId}>
+              Choose CSV file…
+            </button>
+            {pickedFile && <span style={{ color: 'var(--fg-muted)', fontSize: 13 }}>{pickedFile.fileName}</span>}
+          </div>
 
           {preview && (
             <div style={{ marginTop: 16 }}>
-              <h3>Column mapping</h3>
-              <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 8, fontSize: 12 }}>
-                <thead>
-                  <tr>
-                    {preview.headers.map((header, i) => (
-                      <th key={i} style={{ textAlign: 'left', border: '1px solid #ddd' }}>
-                        [{i}] {header}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {preview.previewRows.map((row, r) => (
-                    <tr key={r}>
-                      {row.map((cell, c) => (
-                        <td key={c} style={{ border: '1px solid #ddd' }}>
-                          {cell}
-                        </td>
+              <h2 style={{ fontSize: 14 }}>Column mapping</h2>
+              <div style={{ overflowX: 'auto', marginBottom: 12 }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                  <thead>
+                    <tr>
+                      {preview.headers.map((header, i) => (
+                        <th key={i} style={{ textAlign: 'left', border: '1px solid var(--border)', padding: 6, color: 'var(--fg-muted)' }}>
+                          [{i}] {header}
+                        </th>
                       ))}
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {preview.previewRows.map((row, r) => (
+                      <tr key={r}>
+                        {row.map((cell, c) => (
+                          <td key={c} style={{ border: '1px solid var(--border)', padding: 6 }}>
+                            {cell}
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
 
-              <label>
-                Date column{' '}
-                <select value={mapping.dateColumnIndex} onChange={(e) => setMapping((m) => ({ ...m, dateColumnIndex: Number(e.target.value) }))}>
-                  {preview.headers.map((header, i) => (
-                    <option key={i} value={i}>
-                      [{i}] {header}
-                    </option>
-                  ))}
-                </select>
-              </label>{' '}
-              <label>
-                Date format{' '}
-                <select value={mapping.dateFormat} onChange={(e) => setMapping((m) => ({ ...m, dateFormat: e.target.value as StatementColumnMapping['dateFormat'] }))}>
-                  <option value="DD/MM/YYYY">DD/MM/YYYY</option>
-                  <option value="YYYY-MM-DD">YYYY-MM-DD</option>
-                  <option value="MM/DD/YYYY">MM/DD/YYYY</option>
-                </select>
-              </label>{' '}
-              <label>
-                Description column{' '}
-                <select value={mapping.descriptionColumnIndex} onChange={(e) => setMapping((m) => ({ ...m, descriptionColumnIndex: Number(e.target.value) }))}>
-                  {preview.headers.map((header, i) => (
-                    <option key={i} value={i}>
-                      [{i}] {header}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <br />
-              <label>
-                Amount layout{' '}
+              <div className="field-row">
+                <label className="field">
+                  Date column
+                  <select value={mapping.dateColumnIndex} onChange={(e) => setMapping((m) => ({ ...m, dateColumnIndex: Number(e.target.value) }))}>
+                    {preview.headers.map((header, i) => (
+                      <option key={i} value={i}>
+                        [{i}] {header}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="field">
+                  Date format
+                  <select value={mapping.dateFormat} onChange={(e) => setMapping((m) => ({ ...m, dateFormat: e.target.value as StatementColumnMapping['dateFormat'] }))}>
+                    <option value="DD/MM/YYYY">DD/MM/YYYY</option>
+                    <option value="YYYY-MM-DD">YYYY-MM-DD</option>
+                    <option value="MM/DD/YYYY">MM/DD/YYYY</option>
+                  </select>
+                </label>
+                <label className="field">
+                  Description column
+                  <select value={mapping.descriptionColumnIndex} onChange={(e) => setMapping((m) => ({ ...m, descriptionColumnIndex: Number(e.target.value) }))}>
+                    {preview.headers.map((header, i) => (
+                      <option key={i} value={i}>
+                        [{i}] {header}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+
+              <label className="field" style={{ maxWidth: 320 }}>
+                Amount layout
                 <select value={mapping.amountMode} onChange={(e) => setMapping((m) => ({ ...m, amountMode: e.target.value as StatementColumnMapping['amountMode'] }))}>
                   <option value="separate-debit-credit">Separate Withdrawal/Deposit columns</option>
                   <option value="single-with-type">Single Amount + Dr/Cr column</option>
                 </select>
               </label>
-              <br />
+
               {mapping.amountMode === 'separate-debit-credit' ? (
-                <>
-                  <label>
-                    Withdrawal (debit) column{' '}
+                <div className="field-row">
+                  <label className="field">
+                    Withdrawal (debit) column
                     <select value={mapping.debitColumnIndex ?? ''} onChange={(e) => setMapping((m) => ({ ...m, debitColumnIndex: Number(e.target.value) }))}>
                       {preview.headers.map((header, i) => (
                         <option key={i} value={i}>
@@ -246,9 +262,9 @@ export function BankStatementImportScreen({ session, onBack }: Props) {
                         </option>
                       ))}
                     </select>
-                  </label>{' '}
-                  <label>
-                    Deposit (credit) column{' '}
+                  </label>
+                  <label className="field">
+                    Deposit (credit) column
                     <select value={mapping.creditColumnIndex ?? ''} onChange={(e) => setMapping((m) => ({ ...m, creditColumnIndex: Number(e.target.value) }))}>
                       {preview.headers.map((header, i) => (
                         <option key={i} value={i}>
@@ -257,11 +273,11 @@ export function BankStatementImportScreen({ session, onBack }: Props) {
                       ))}
                     </select>
                   </label>
-                </>
+                </div>
               ) : (
-                <>
-                  <label>
-                    Amount column{' '}
+                <div className="field-row">
+                  <label className="field">
+                    Amount column
                     <select value={mapping.amountColumnIndex ?? ''} onChange={(e) => setMapping((m) => ({ ...m, amountColumnIndex: Number(e.target.value) }))}>
                       {preview.headers.map((header, i) => (
                         <option key={i} value={i}>
@@ -269,9 +285,9 @@ export function BankStatementImportScreen({ session, onBack }: Props) {
                         </option>
                       ))}
                     </select>
-                  </label>{' '}
-                  <label>
-                    Dr/Cr type column{' '}
+                  </label>
+                  <label className="field">
+                    Dr/Cr type column
                     <select value={mapping.typeColumnIndex ?? ''} onChange={(e) => setMapping((m) => ({ ...m, typeColumnIndex: Number(e.target.value) }))}>
                       {preview.headers.map((header, i) => (
                         <option key={i} value={i}>
@@ -280,39 +296,40 @@ export function BankStatementImportScreen({ session, onBack }: Props) {
                       ))}
                     </select>
                   </label>
-                </>
+                </div>
               )}
-              <p>
-                <button type="button" onClick={handleImport} disabled={busy}>
+
+              <div className="form-actions">
+                <button type="button" className="btn-primary" onClick={handleImport} disabled={busy}>
                   {busy ? 'Importing…' : 'Import'}
                 </button>
-              </p>
+              </div>
             </div>
           )}
         </div>
       )}
 
       {viewingLines && (
-        <div style={{ marginBottom: 24 }}>
+        <div className="card" style={{ overflowX: 'auto' }}>
           <h2>Import result {viewingImportId ? `(${viewingImportId})` : ''}</h2>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+          <table className="data-table" style={{ fontSize: 13 }}>
             <thead>
               <tr>
-                <th style={{ textAlign: 'left' }}>Date</th>
-                <th style={{ textAlign: 'left' }}>Description</th>
-                <th style={{ textAlign: 'left' }}>Dir.</th>
-                <th style={{ textAlign: 'right' }}>Amount (₹)</th>
-                <th style={{ textAlign: 'left' }}>Status</th>
-                <th style={{ textAlign: 'left' }}>Matched to / resolve</th>
+                <th>Date</th>
+                <th>Description</th>
+                <th>Dir.</th>
+                <th className="num">Amount (₹)</th>
+                <th>Status</th>
+                <th>Matched to / resolve</th>
               </tr>
             </thead>
             <tbody>
               {viewingLines.map((line) => (
-                <tr key={line.id} style={{ background: line.isLikelyDuplicate ? '#fff8e1' : undefined }}>
+                <tr key={line.id} style={{ background: line.isLikelyDuplicate ? 'var(--warning-soft)' : undefined }}>
                   <td>{line.statementDate}</td>
                   <td>{line.description}</td>
                   <td>{line.direction}</td>
-                  <td style={{ textAlign: 'right' }}>{line.amount.toFixed(2)}</td>
+                  <td className="num">{line.amount.toFixed(2)}</td>
                   <td>
                     {line.matchStatus}
                     {line.isLikelyDuplicate ? ' (possible duplicate)' : ''}
@@ -354,47 +371,46 @@ export function BankStatementImportScreen({ session, onBack }: Props) {
         </div>
       )}
 
-      <h2>Past imports</h2>
-      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-        <thead>
-          <tr>
-            <th style={{ textAlign: 'left' }}>File</th>
-            <th style={{ textAlign: 'left' }}>Imported</th>
-            <th style={{ textAlign: 'right' }}>Lines</th>
-            <th style={{ textAlign: 'right' }}>Matched</th>
-            <th style={{ textAlign: 'right' }}>Unmatched</th>
-            <th />
-          </tr>
-        </thead>
-        <tbody>
-          {pastImports.map((imp) => (
-            <tr key={imp.id}>
-              <td>{imp.fileName}</td>
-              <td>{imp.importedAt}</td>
-              <td style={{ textAlign: 'right' }}>{imp.totalLines}</td>
-              <td style={{ textAlign: 'right' }}>{imp.matchedLines}</td>
-              <td style={{ textAlign: 'right' }}>{imp.unmatchedLines}</td>
-              <td>
-                <button type="button" onClick={() => handleViewImport(imp.id)}>
-                  View
-                </button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-
-      {selectedAccount && (
-        <p style={{ marginTop: 8, color: '#666' }}>
-          Matching is exact-amount and direction-aware within a 7-day window; ambiguous or unmatched lines are left for manual resolution above — never guessed.
-        </p>
-      )}
-
-      <p>
-        <button type="button" onClick={onBack}>
-          Back to dashboard
-        </button>
-      </p>
+      <div className="card" style={{ overflowX: 'auto' }}>
+        <h2>Past imports</h2>
+        {pastImports.length === 0 ? (
+          <p className="empty-state">No imports yet.</p>
+        ) : (
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>File</th>
+                <th>Imported</th>
+                <th className="num">Lines</th>
+                <th className="num">Matched</th>
+                <th className="num">Unmatched</th>
+                <th />
+              </tr>
+            </thead>
+            <tbody>
+              {pastImports.map((imp) => (
+                <tr key={imp.id}>
+                  <td>{imp.fileName}</td>
+                  <td>{imp.importedAt}</td>
+                  <td className="num">{imp.totalLines}</td>
+                  <td className="num">{imp.matchedLines}</td>
+                  <td className="num">{imp.unmatchedLines}</td>
+                  <td>
+                    <button type="button" onClick={() => handleViewImport(imp.id)}>
+                      View
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+        {selectedAccount && (
+          <p style={{ marginTop: 12, color: 'var(--fg-muted)', fontSize: 13, marginBottom: 0 }}>
+            Matching is exact-amount and direction-aware within a 7-day window; ambiguous or unmatched lines are left for manual resolution above — never guessed.
+          </p>
+        )}
+      </div>
     </div>
   );
 }

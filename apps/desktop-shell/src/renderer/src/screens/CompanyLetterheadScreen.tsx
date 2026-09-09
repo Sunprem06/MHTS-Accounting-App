@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { ArrowLeft, FileSignature } from 'lucide-react';
 import type { CompanyLetterheadProfile, DocumentLayout, SessionInfo, UpdateCompanyLetterheadProfileInput } from '../../../shared/ipc';
 
 interface Props {
@@ -119,8 +120,8 @@ export function CompanyLetterheadScreen({ session, onBack }: Props) {
 
   if (!canManage) {
     return (
-      <div style={{ padding: 24, fontFamily: 'sans-serif' }}>
-        <p>You do not have permission to manage the company letterhead.</p>
+      <div className="page">
+        <p className="empty-state">You do not have permission to manage the company letterhead.</p>
         <button type="button" onClick={onBack}>
           Back to dashboard
         </button>
@@ -129,21 +130,33 @@ export function CompanyLetterheadScreen({ session, onBack }: Props) {
   }
 
   return (
-    <div style={{ padding: 24, fontFamily: 'sans-serif', maxWidth: 640 }}>
-      <h1>Company letterhead</h1>
-      <p style={{ color: '#666', fontSize: 13 }}>These details appear on every printed Sales Invoice and Payslip — re-brandable here without any code change.</p>
-      {error && <p style={{ color: 'crimson' }}>{error}</p>}
+    <div className="page" style={{ maxWidth: 760 }}>
+      <div className="page-header">
+        <button type="button" className="back-link" onClick={onBack}>
+          <ArrowLeft size={16} /> Back
+        </button>
+        <h1>
+          <FileSignature size={18} style={{ color: 'var(--accent)' }} /> Company letterhead
+        </h1>
+      </div>
+
+      <p style={{ color: 'var(--fg-muted)', fontSize: 13, marginTop: -8 }}>
+        These details appear on every printed Sales Invoice and Payslip — re-brandable here without any code change.
+      </p>
+
+      {error && <p className="error-text">{error}</p>}
+
       {profile === null ? (
-        <p>Loading…</p>
+        <p className="empty-state">Loading…</p>
       ) : (
-        <>
-          <div style={{ marginBottom: 16 }}>
-            <strong>Logo</strong>
-            <div style={{ marginTop: 4 }}>
-              {profile.hasLogo ? <span style={{ color: '#2a7a2a' }}>Logo uploaded.</span> : <span style={{ color: '#666' }}>No logo uploaded.</span>}{' '}
+        <form onSubmit={handleSave}>
+          <div className="card">
+            <h2>Logo</h2>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <span className={`badge ${profile.hasLogo ? 'badge-success' : 'badge-muted'}`}>{profile.hasLogo ? 'Logo uploaded' : 'No logo uploaded'}</span>
               <button type="button" disabled={logoBusy} onClick={handlePickLogo}>
                 {logoBusy ? 'Working…' : profile.hasLogo ? 'Replace logo…' : 'Upload logo…'}
-              </button>{' '}
+              </button>
               {profile.hasLogo && (
                 <button type="button" disabled={logoBusy} onClick={handleClearLogo}>
                   Remove logo
@@ -152,87 +165,97 @@ export function CompanyLetterheadScreen({ session, onBack }: Props) {
             </div>
           </div>
 
-          <form onSubmit={handleSave}>
-            <label>
+          <div className="card">
+            <div className="field-row">
+              <label className="field">
+                Phone
+                <input value={phone} onChange={(e) => setPhone(e.target.value)} />
+              </label>
+              <label className="field">
+                Email
+                <input value={email} onChange={(e) => setEmail(e.target.value)} />
+              </label>
+              <label className="field">
+                Website
+                <input value={website} onChange={(e) => setWebsite(e.target.value)} />
+              </label>
+            </div>
+            <label className="field">
               Address
-              <br />
-              <textarea value={address} onChange={(e) => setAddress(e.target.value)} rows={3} style={{ width: '100%' }} />
+              <textarea value={address} onChange={(e) => setAddress(e.target.value)} rows={3} />
             </label>
-            <br />
-            <label>
-              Phone
-              <input value={phone} onChange={(e) => setPhone(e.target.value)} />
-            </label>{' '}
-            <label>
-              Email
-              <input value={email} onChange={(e) => setEmail(e.target.value)} />
-            </label>{' '}
-            <label>
-              Website
-              <input value={website} onChange={(e) => setWebsite(e.target.value)} />
-            </label>
-            <h3>Bank details (shown on invoices)</h3>
-            <label>
-              Account name
-              <input value={bankAccountName} onChange={(e) => setBankAccountName(e.target.value)} />
-            </label>{' '}
-            <label>
-              Bank name
-              <input value={bankName} onChange={(e) => setBankName(e.target.value)} />
-            </label>{' '}
-            <label>
-              Branch
-              <input value={bankBranch} onChange={(e) => setBankBranch(e.target.value)} />
-            </label>
-            <br />
-            <label>
-              Account number
-              <input value={bankAccountNumber} onChange={(e) => setBankAccountNumber(e.target.value)} />
-            </label>{' '}
-            <label>
-              IFSC
-              <input value={bankIfsc} onChange={(e) => setBankIfsc(e.target.value)} />
-            </label>
-            <h3>Footer note</h3>
-            <textarea value={footerNote} onChange={(e) => setFooterNote(e.target.value)} rows={2} style={{ width: '100%' }} placeholder="e.g. Terms &amp; conditions, thank-you note…" />
-            <h3>Layout &amp; branding</h3>
-            <label>
-              Invoice layout
-              <select value={invoiceLayout} onChange={(e) => setInvoiceLayout(e.target.value as DocumentLayout)}>
-                {LAYOUT_OPTIONS.map((l) => (
-                  <option key={l} value={l}>
-                    {l}
-                  </option>
-                ))}
-              </select>
-            </label>{' '}
-            <label>
-              Payslip layout
-              <select value={payslipLayout} onChange={(e) => setPayslipLayout(e.target.value as DocumentLayout)}>
-                {LAYOUT_OPTIONS.map((l) => (
-                  <option key={l} value={l}>
-                    {l}
-                  </option>
-                ))}
-              </select>
-            </label>{' '}
-            <label>
-              Accent color
-              <input type="color" value={accentColorHex || '#1a56db'} onChange={(e) => setAccentColorHex(e.target.value)} />
-            </label>
-            <br />
-            <br />
-            <button type="submit" disabled={saving}>
+          </div>
+
+          <div className="card">
+            <h2>Bank details (shown on invoices)</h2>
+            <div className="field-row">
+              <label className="field">
+                Account name
+                <input value={bankAccountName} onChange={(e) => setBankAccountName(e.target.value)} />
+              </label>
+              <label className="field">
+                Bank name
+                <input value={bankName} onChange={(e) => setBankName(e.target.value)} />
+              </label>
+              <label className="field">
+                Branch
+                <input value={bankBranch} onChange={(e) => setBankBranch(e.target.value)} />
+              </label>
+            </div>
+            <div className="field-row">
+              <label className="field">
+                Account number
+                <input value={bankAccountNumber} onChange={(e) => setBankAccountNumber(e.target.value)} />
+              </label>
+              <label className="field">
+                IFSC
+                <input value={bankIfsc} onChange={(e) => setBankIfsc(e.target.value)} />
+              </label>
+            </div>
+          </div>
+
+          <div className="card">
+            <h2>Footer note</h2>
+            <textarea value={footerNote} onChange={(e) => setFooterNote(e.target.value)} rows={2} placeholder="e.g. Terms & conditions, thank-you note…" />
+          </div>
+
+          <div className="card">
+            <h2>Layout &amp; branding</h2>
+            <div className="field-row">
+              <label className="field">
+                Invoice layout
+                <select value={invoiceLayout} onChange={(e) => setInvoiceLayout(e.target.value as DocumentLayout)}>
+                  {LAYOUT_OPTIONS.map((l) => (
+                    <option key={l} value={l}>
+                      {l}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="field">
+                Payslip layout
+                <select value={payslipLayout} onChange={(e) => setPayslipLayout(e.target.value as DocumentLayout)}>
+                  {LAYOUT_OPTIONS.map((l) => (
+                    <option key={l} value={l}>
+                      {l}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="field">
+                Accent color
+                <input type="color" value={accentColorHex || '#1a56db'} onChange={(e) => setAccentColorHex(e.target.value)} style={{ width: 60, padding: 2 }} />
+              </label>
+            </div>
+          </div>
+
+          <div className="form-actions">
+            <button type="submit" className="btn-primary" disabled={saving}>
               {saving ? 'Saving…' : 'Save'}
             </button>
-          </form>
-        </>
+          </div>
+        </form>
       )}
-      <p>
-        <button type="button" onClick={onBack}>
-          Back to dashboard
-        </button>
-      </p>
     </div>
   );
 }

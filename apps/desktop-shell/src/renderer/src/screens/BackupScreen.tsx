@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { ArrowLeft, Database } from 'lucide-react';
 
 interface Props {
   onBack: () => void;
@@ -45,26 +46,37 @@ export function BackupScreen({ onBack, onRestored }: Props) {
   }
 
   return (
-    <div style={{ padding: 24, fontFamily: 'sans-serif', maxWidth: 640 }}>
-      <h1>Backup &amp; restore</h1>
-      <p>Backs up this company's encrypted database file exactly as-is — a backup file is exactly as protected as the live data, never stored in the clear.</p>
-      {message && <p style={{ color: 'var(--accent)' }}>{message}</p>}
-      {error && <p style={{ color: 'var(--danger)' }}>{error}</p>}
-      <p>
-        <button type="button" onClick={handleBackup} disabled={busy}>
-          {busy ? 'Working…' : 'Create backup'}
+    <div className="page" style={{ maxWidth: 640 }}>
+      <div className="page-header">
+        <button type="button" className="back-link" onClick={onBack} disabled={busy}>
+          <ArrowLeft size={16} /> Back
         </button>
+        <h1>
+          <Database size={18} style={{ color: 'var(--accent)' }} /> Backup &amp; restore
+        </h1>
+      </div>
+
+      <p style={{ color: 'var(--fg-muted)', fontSize: 13, marginTop: -8 }}>
+        Backs up this company's encrypted database file exactly as-is — a backup file is exactly as protected as the live data, never stored in the clear.
       </p>
-      <p>
-        <button type="button" onClick={handleRestore} disabled={busy}>
-          {busy ? 'Working…' : 'Restore from backup…'}
-        </button>
-      </p>
-      <p>
-        <button type="button" onClick={onBack} disabled={busy}>
-          Back to dashboard
-        </button>
-      </p>
+
+      {message && (
+        <p className="badge badge-success" style={{ display: 'inline-block', marginBottom: 16 }}>
+          {message}
+        </p>
+      )}
+      {error && <p className="error-text">{error}</p>}
+
+      <div className="card">
+        <div className="form-actions" style={{ marginTop: 0 }}>
+          <button type="button" className="btn-primary" onClick={handleBackup} disabled={busy}>
+            {busy ? 'Working…' : 'Create backup'}
+          </button>
+          <button type="button" onClick={handleRestore} disabled={busy}>
+            {busy ? 'Working…' : 'Restore from backup…'}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
