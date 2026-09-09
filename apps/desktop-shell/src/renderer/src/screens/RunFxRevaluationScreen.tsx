@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { ArrowLeft, RefreshCw } from 'lucide-react';
 import type { FxRevaluationLineDetail, SessionInfo } from '../../../shared/ipc';
 
 interface Props {
@@ -47,33 +48,46 @@ export function RunFxRevaluationScreen({ session, onBack }: Props) {
   const nonZeroLines = lines?.filter((l) => l.adjustmentAmountRupees !== 0) ?? [];
 
   return (
-    <div style={{ padding: 24, fontFamily: 'sans-serif', maxWidth: 800 }}>
-      <h1>Run foreign currency revaluation</h1>
-      {error && <p style={{ color: 'crimson' }}>{error}</p>}
-      {postedVoucherId !== undefined &&
-        (postedVoucherId ? <p style={{ color: 'green' }}>Posted revaluation voucher for {asOfDate}.</p> : <p style={{ color: 'green' }}>No adjustment needed as of {asOfDate} — nothing posted.</p>)}
-
-      <form onSubmit={handlePreview} style={{ marginBottom: 16 }}>
-        <label>
-          As of date
-          <input type="date" value={asOfDate} onChange={(e) => setAsOfDate(e.target.value)} required />
-        </label>{' '}
-        <button type="submit" disabled={loading}>
-          {loading ? 'Computing…' : 'Preview'}
+    <div className="page" style={{ maxWidth: 900 }}>
+      <div className="page-header">
+        <button type="button" className="back-link" onClick={onBack}>
+          <ArrowLeft size={16} /> Back
         </button>
-      </form>
+        <h1>
+          <RefreshCw size={18} style={{ color: 'var(--accent)' }} /> Run foreign currency revaluation
+        </h1>
+      </div>
+
+      {error && <p className="error-text">{error}</p>}
+      {postedVoucherId !== undefined && (
+        <p className="badge badge-success" style={{ display: 'inline-block', marginBottom: 16 }}>
+          {postedVoucherId ? `Posted revaluation voucher for ${asOfDate}.` : `No adjustment needed as of ${asOfDate} — nothing posted.`}
+        </p>
+      )}
+
+      <div className="card">
+        <form onSubmit={handlePreview} className="field-row" style={{ alignItems: 'flex-end' }}>
+          <label className="field">
+            As of date
+            <input type="date" value={asOfDate} onChange={(e) => setAsOfDate(e.target.value)} required />
+          </label>
+          <button type="submit" className="btn-primary" disabled={loading} style={{ marginBottom: 12 }}>
+            {loading ? 'Computing…' : 'Preview'}
+          </button>
+        </form>
+      </div>
 
       {lines && (
-        <>
-          <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 16 }}>
+        <div className="card" style={{ overflowX: 'auto' }}>
+          <table className="data-table">
             <thead>
               <tr>
-                <th style={{ textAlign: 'left' }}>Ledger</th>
-                <th style={{ textAlign: 'left' }}>Currency</th>
-                <th style={{ textAlign: 'right' }}>Foreign balance</th>
-                <th style={{ textAlign: 'right' }}>Base before (₹)</th>
-                <th style={{ textAlign: 'right' }}>Base after (₹)</th>
-                <th style={{ textAlign: 'right' }}>Adjustment (₹)</th>
+                <th>Ledger</th>
+                <th>Currency</th>
+                <th className="num">Foreign balance</th>
+                <th className="num">Base before (₹)</th>
+                <th className="num">Base after (₹)</th>
+                <th className="num">Adjustment (₹)</th>
               </tr>
             </thead>
             <tbody>
@@ -81,35 +95,34 @@ export function RunFxRevaluationScreen({ session, onBack }: Props) {
                 <tr key={i}>
                   <td>{line.ledgerName}</td>
                   <td>{line.currency}</td>
-                  <td style={{ textAlign: 'right' }}>{line.foreignBalanceUnits.toFixed(2)}</td>
-                  <td style={{ textAlign: 'right' }}>{line.baseBalanceBeforeRupees.toFixed(2)}</td>
-                  <td style={{ textAlign: 'right' }}>{line.baseBalanceAfterRupees.toFixed(2)}</td>
-                  <td style={{ textAlign: 'right' }}>{line.adjustmentAmountRupees.toFixed(2)}</td>
+                  <td className="num">{line.foreignBalanceUnits.toFixed(2)}</td>
+                  <td className="num">{line.baseBalanceBeforeRupees.toFixed(2)}</td>
+                  <td className="num">{line.baseBalanceAfterRupees.toFixed(2)}</td>
+                  <td className="num">{line.adjustmentAmountRupees.toFixed(2)}</td>
                 </tr>
               ))}
               {lines.length === 0 && (
                 <tr>
-                  <td colSpan={6}>No foreign-currency exposures found as of this date.</td>
+                  <td colSpan={6} className="empty-state">
+                    No foreign-currency exposures found as of this date.
+                  </td>
                 </tr>
               )}
             </tbody>
           </table>
-          <p style={{ fontSize: 12, color: '#666' }}>
+          <p style={{ fontSize: 12, color: 'var(--fg-muted)', marginTop: 12, marginBottom: 0 }}>
             Posting will create one FX_REVALUATION voucher for the {nonZeroLines.length} exposure(s) with a non-zero adjustment (Dr/Cr the ledger, offset to
             Unrealized Forex Gain/Loss). Exposures already at the current rate are skipped.
           </p>
           {canRun && nonZeroLines.length > 0 && (
-            <button type="button" onClick={handlePost} disabled={posting}>
-              {posting ? 'Posting…' : 'Post revaluation'}
-            </button>
+            <div className="form-actions">
+              <button type="button" className="btn-primary" onClick={handlePost} disabled={posting}>
+                {posting ? 'Posting…' : 'Post revaluation'}
+              </button>
+            </div>
           )}
-        </>
+        </div>
       )}
-
-      <p />
-      <button type="button" onClick={onBack}>
-        Back to dashboard
-      </button>
     </div>
   );
 }

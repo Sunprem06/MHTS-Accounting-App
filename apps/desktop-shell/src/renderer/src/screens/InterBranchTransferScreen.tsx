@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { ArrowLeft, ArrowLeftRight } from 'lucide-react';
 import type { BranchSummary, LedgerAccountSummary, SessionInfo } from '../../../shared/ipc';
 
 interface Props {
@@ -57,8 +58,8 @@ export function InterBranchTransferScreen({ session, onCreated, onBack }: Props)
 
   if (!canManage) {
     return (
-      <div style={{ padding: 24, fontFamily: 'sans-serif' }}>
-        <p>You do not have permission to record inter-branch transfers.</p>
+      <div className="page">
+        <p className="empty-state">You do not have permission to record inter-branch transfers.</p>
         <button type="button" onClick={onBack}>
           Back
         </button>
@@ -67,89 +68,100 @@ export function InterBranchTransferScreen({ session, onCreated, onBack }: Props)
   }
 
   return (
-    <div style={{ padding: 24, fontFamily: 'sans-serif', maxWidth: 600 }}>
-      <h1>Inter-branch transfer</h1>
-      <form onSubmit={handleSubmit}>
-        <label style={{ display: 'block', marginBottom: 8 }}>
-          Date
-          <br />
-          <input type="date" value={transferDate} onChange={(e) => setTransferDate(e.target.value)} required />
-        </label>
-        <label style={{ display: 'block', marginBottom: 8 }}>
-          From branch
-          <br />
-          <select value={fromBranchId} onChange={(e) => setFromBranchId(e.target.value)} required style={{ width: '100%' }}>
-            <option value="" disabled>
-              Select branch
-            </option>
-            {branches.map((b) => (
-              <option key={b.id} value={b.id} disabled={b.id === toBranchId}>
-                {b.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label style={{ display: 'block', marginBottom: 8 }}>
-          From ledger (e.g. that branch's Cash/Bank)
-          <br />
-          <select value={fromLedgerId} onChange={(e) => setFromLedgerId(e.target.value)} required style={{ width: '100%' }}>
-            <option value="" disabled>
-              Select ledger
-            </option>
-            {ledgers.map((l) => (
-              <option key={l.id} value={l.id}>
-                {l.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label style={{ display: 'block', marginBottom: 8 }}>
-          To branch
-          <br />
-          <select value={toBranchId} onChange={(e) => setToBranchId(e.target.value)} required style={{ width: '100%' }}>
-            <option value="" disabled>
-              Select branch
-            </option>
-            {branches.map((b) => (
-              <option key={b.id} value={b.id} disabled={b.id === fromBranchId}>
-                {b.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label style={{ display: 'block', marginBottom: 8 }}>
-          To ledger (e.g. that branch's Cash/Bank)
-          <br />
-          <select value={toLedgerId} onChange={(e) => setToLedgerId(e.target.value)} required style={{ width: '100%' }}>
-            <option value="" disabled>
-              Select ledger
-            </option>
-            {ledgers.map((l) => (
-              <option key={l.id} value={l.id}>
-                {l.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label style={{ display: 'block', marginBottom: 8 }}>
-          Amount (₹)
-          <br />
-          <input type="number" step="0.01" min="0.01" value={amountRupees || ''} onChange={(e) => setAmountRupees(Number(e.target.value) || 0)} required />
-        </label>
-        <label style={{ display: 'block', marginBottom: 8 }}>
-          Narration (optional)
-          <br />
-          <input value={narration} onChange={(e) => setNarration(e.target.value)} style={{ width: '100%' }} />
-        </label>
-
-        {error && <p style={{ color: 'crimson' }}>{error}</p>}
-
-        <button type="submit" disabled={submitting || !fromBranchId || !toBranchId || !fromLedgerId || !toLedgerId || amountRupees <= 0}>
-          {submitting ? 'Saving…' : 'Record transfer'}
-        </button>{' '}
-        <button type="button" onClick={onBack} disabled={submitting}>
-          Back
+    <div className="page" style={{ maxWidth: 700 }}>
+      <div className="page-header">
+        <button type="button" className="back-link" onClick={onBack} disabled={submitting}>
+          <ArrowLeft size={16} /> Back
         </button>
+        <h1>
+          <ArrowLeftRight size={18} style={{ color: 'var(--accent)' }} /> Inter-branch transfer
+        </h1>
+      </div>
+
+      <form onSubmit={handleSubmit}>
+        <div className="card">
+          <div className="field-row">
+            <label className="field">
+              Date
+              <input type="date" value={transferDate} onChange={(e) => setTransferDate(e.target.value)} required />
+            </label>
+            <label className="field">
+              Amount (₹)
+              <input type="number" step="0.01" min="0.01" value={amountRupees || ''} onChange={(e) => setAmountRupees(Number(e.target.value) || 0)} required style={{ width: 160 }} />
+            </label>
+          </div>
+          <div className="field-row">
+            <label className="field">
+              From branch
+              <select value={fromBranchId} onChange={(e) => setFromBranchId(e.target.value)} required>
+                <option value="" disabled>
+                  Select branch
+                </option>
+                {branches.map((b) => (
+                  <option key={b.id} value={b.id} disabled={b.id === toBranchId}>
+                    {b.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="field">
+              From ledger (e.g. that branch's Cash/Bank)
+              <select value={fromLedgerId} onChange={(e) => setFromLedgerId(e.target.value)} required>
+                <option value="" disabled>
+                  Select ledger
+                </option>
+                {ledgers.map((l) => (
+                  <option key={l.id} value={l.id}>
+                    {l.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+          <div className="field-row">
+            <label className="field">
+              To branch
+              <select value={toBranchId} onChange={(e) => setToBranchId(e.target.value)} required>
+                <option value="" disabled>
+                  Select branch
+                </option>
+                {branches.map((b) => (
+                  <option key={b.id} value={b.id} disabled={b.id === fromBranchId}>
+                    {b.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="field">
+              To ledger (e.g. that branch's Cash/Bank)
+              <select value={toLedgerId} onChange={(e) => setToLedgerId(e.target.value)} required>
+                <option value="" disabled>
+                  Select ledger
+                </option>
+                {ledgers.map((l) => (
+                  <option key={l.id} value={l.id}>
+                    {l.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+          <label className="field">
+            Narration (optional)
+            <input value={narration} onChange={(e) => setNarration(e.target.value)} />
+          </label>
+        </div>
+
+        {error && <p className="error-text">{error}</p>}
+
+        <div className="form-actions">
+          <button type="submit" className="btn-primary" disabled={submitting || !fromBranchId || !toBranchId || !fromLedgerId || !toLedgerId || amountRupees <= 0}>
+            {submitting ? 'Saving…' : 'Record transfer'}
+          </button>
+          <button type="button" onClick={onBack} disabled={submitting}>
+            Cancel
+          </button>
+        </div>
       </form>
     </div>
   );

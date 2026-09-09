@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { ArrowLeft, BarChart3 } from 'lucide-react';
 import type { BranchBalanceSheetResult, BranchProfitAndLossRow, SessionInfo } from '../../../shared/ipc';
 
 interface Props {
@@ -48,112 +49,119 @@ export function BranchReportsScreen({ session, onBack }: Props) {
   }, []);
 
   return (
-    <div style={{ padding: 24, fontFamily: 'sans-serif', maxWidth: 900 }}>
-      <h1>Branch-wise reports</h1>
-      {error && <p style={{ color: 'crimson' }}>{error}</p>}
+    <div className="page" style={{ maxWidth: 900 }}>
+      <div className="page-header">
+        <button type="button" className="back-link" onClick={onBack}>
+          <ArrowLeft size={16} /> Back
+        </button>
+        <h1>
+          <BarChart3 size={18} style={{ color: 'var(--accent)' }} /> Branch-wise reports
+        </h1>
+      </div>
 
-      <h2>Branch-wise P&amp;L (since inception)</h2>
-      {pnl === null ? (
-        <p>Loading…</p>
-      ) : (
-        <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 24 }}>
-          <thead>
-            <tr>
-              <th style={{ textAlign: 'left' }}>Branch</th>
-              <th style={{ textAlign: 'right' }}>Income (₹)</th>
-              <th style={{ textAlign: 'right' }}>Expense (₹)</th>
-              <th style={{ textAlign: 'right' }}>Net (₹)</th>
-            </tr>
-          </thead>
-          <tbody>
-            {pnl.map((row) => (
-              <tr key={row.branchId ?? '__unassigned__'}>
-                <td>{row.branchName}</td>
-                <td style={{ textAlign: 'right' }}>{row.totalIncome.toFixed(2)}</td>
-                <td style={{ textAlign: 'right' }}>{row.totalExpense.toFixed(2)}</td>
-                <td style={{ textAlign: 'right' }}>{row.net.toFixed(2)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
+      {error && <p className="error-text">{error}</p>}
 
-      <h2>Branch-wise Balance Sheet</h2>
-      <label>
-        As of date
-        <input
-          type="date"
-          value={asOfDate}
-          onChange={(e) => {
-            setAsOfDate(e.target.value);
-            refreshBalanceSheet(e.target.value);
-          }}
-        />
-      </label>
-
-      {balanceSheet === null ? (
-        <p>Loading…</p>
-      ) : (
-        <>
-          <table style={{ width: '100%', borderCollapse: 'collapse', margin: '16px 0' }}>
+      <div className="card" style={{ overflowX: 'auto' }}>
+        <h2>Branch-wise P&amp;L (since inception)</h2>
+        {pnl === null ? (
+          <p className="empty-state">Loading…</p>
+        ) : (
+          <table className="data-table">
             <thead>
               <tr>
-                <th style={{ textAlign: 'left' }}>Branch</th>
-                <th style={{ textAlign: 'right' }}>Total assets (₹)</th>
-                <th style={{ textAlign: 'right' }}>Total liabilities + equity (₹)</th>
-                <th style={{ textAlign: 'right' }}>Current earnings (₹)</th>
+                <th>Branch</th>
+                <th className="num">Income (₹)</th>
+                <th className="num">Expense (₹)</th>
+                <th className="num">Net (₹)</th>
               </tr>
             </thead>
             <tbody>
-              {balanceSheet.branchSummaries.map((row) => (
+              {pnl.map((row) => (
                 <tr key={row.branchId ?? '__unassigned__'}>
                   <td>{row.branchName}</td>
-                  <td style={{ textAlign: 'right' }}>{row.totalAssets.toFixed(2)}</td>
-                  <td style={{ textAlign: 'right' }}>{row.totalLiabilitiesAndEquity.toFixed(2)}</td>
-                  <td style={{ textAlign: 'right' }}>{row.currentEarnings.toFixed(2)}</td>
+                  <td className="num">{row.totalIncome.toFixed(2)}</td>
+                  <td className="num">{row.totalExpense.toFixed(2)}</td>
+                  <td className="num">{row.net.toFixed(2)}</td>
                 </tr>
               ))}
             </tbody>
-            <tfoot>
-              <tr style={{ fontWeight: 'bold' }}>
-                <td>Consolidated (all branches + Head Office / Unassigned)</td>
-                <td style={{ textAlign: 'right' }}>{balanceSheet.consolidatedTotalAssets.toFixed(2)}</td>
-                <td style={{ textAlign: 'right' }}>{balanceSheet.consolidatedTotalLiabilitiesAndEquity.toFixed(2)}</td>
-                <td />
-              </tr>
-            </tfoot>
           </table>
+        )}
+      </div>
 
-          <details>
-            <summary>Ledger-level detail per branch</summary>
-            <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: 8 }}>
+      <div className="card" style={{ overflowX: 'auto' }}>
+        <h2>Branch-wise Balance Sheet</h2>
+        <label className="field" style={{ maxWidth: 200 }}>
+          As of date
+          <input
+            type="date"
+            value={asOfDate}
+            onChange={(e) => {
+              setAsOfDate(e.target.value);
+              refreshBalanceSheet(e.target.value);
+            }}
+          />
+        </label>
+
+        {balanceSheet === null ? (
+          <p className="empty-state">Loading…</p>
+        ) : (
+          <>
+            <table className="data-table">
               <thead>
                 <tr>
-                  <th style={{ textAlign: 'left' }}>Branch</th>
-                  <th style={{ textAlign: 'left' }}>Ledger</th>
-                  <th style={{ textAlign: 'left' }}>Nature</th>
-                  <th style={{ textAlign: 'right' }}>Amount (₹)</th>
+                  <th>Branch</th>
+                  <th className="num">Total assets (₹)</th>
+                  <th className="num">Total liabilities + equity (₹)</th>
+                  <th className="num">Current earnings (₹)</th>
                 </tr>
               </thead>
               <tbody>
-                {balanceSheet.rows.map((row, i) => (
-                  <tr key={i}>
+                {balanceSheet.branchSummaries.map((row) => (
+                  <tr key={row.branchId ?? '__unassigned__'}>
                     <td>{row.branchName}</td>
-                    <td>{row.ledgerName}</td>
-                    <td>{row.nature}</td>
-                    <td style={{ textAlign: 'right' }}>{row.amount.toFixed(2)}</td>
+                    <td className="num">{row.totalAssets.toFixed(2)}</td>
+                    <td className="num">{row.totalLiabilitiesAndEquity.toFixed(2)}</td>
+                    <td className="num">{row.currentEarnings.toFixed(2)}</td>
                   </tr>
                 ))}
               </tbody>
+              <tfoot>
+                <tr>
+                  <td>Consolidated (all branches + Head Office / Unassigned)</td>
+                  <td className="num">{balanceSheet.consolidatedTotalAssets.toFixed(2)}</td>
+                  <td className="num">{balanceSheet.consolidatedTotalLiabilitiesAndEquity.toFixed(2)}</td>
+                  <td />
+                </tr>
+              </tfoot>
             </table>
-          </details>
-        </>
-      )}
 
-      <p />
-      <button type="button" onClick={onBack}>
-        Back to dashboard
-      </button>
+            <details style={{ marginTop: 16 }}>
+              <summary style={{ cursor: 'pointer', fontWeight: 600 }}>Ledger-level detail per branch</summary>
+              <table className="data-table" style={{ marginTop: 8 }}>
+                <thead>
+                  <tr>
+                    <th>Branch</th>
+                    <th>Ledger</th>
+                    <th>Nature</th>
+                    <th className="num">Amount (₹)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {balanceSheet.rows.map((row, i) => (
+                    <tr key={i}>
+                      <td>{row.branchName}</td>
+                      <td>{row.ledgerName}</td>
+                      <td>{row.nature}</td>
+                      <td className="num">{row.amount.toFixed(2)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </details>
+          </>
+        )}
+      </div>
     </div>
   );
 }

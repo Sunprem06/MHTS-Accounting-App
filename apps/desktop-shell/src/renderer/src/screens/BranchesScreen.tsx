@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { ArrowLeft, GitBranch } from 'lucide-react';
 import type { BranchSummary, SessionInfo } from '../../../shared/ipc';
 
 interface Props {
@@ -56,61 +57,73 @@ export function BranchesScreen({ session, onBack }: Props) {
   }
 
   return (
-    <div style={{ padding: 24, fontFamily: 'sans-serif', maxWidth: 800 }}>
-      <h1>Branches</h1>
-      {error && <p style={{ color: 'crimson' }}>{error}</p>}
+    <div className="page" style={{ maxWidth: 860 }}>
+      <div className="page-header">
+        <button type="button" className="back-link" onClick={onBack}>
+          <ArrowLeft size={16} /> Back
+        </button>
+        <h1>
+          <GitBranch size={18} style={{ color: 'var(--accent)' }} /> Branches
+        </h1>
+      </div>
 
-      {branches === null ? (
-        <p>Loading…</p>
-      ) : (
-        <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 24 }}>
-          <thead>
-            <tr>
-              <th style={{ textAlign: 'left' }}>Name</th>
-              <th style={{ textAlign: 'left' }}>Code</th>
-              <th style={{ textAlign: 'left' }}>Address</th>
-              <th style={{ textAlign: 'left' }}>Status</th>
-              <th />
-            </tr>
-          </thead>
-          <tbody>
-            {branches.map((branch) => (
-              <tr key={branch.id} style={{ opacity: branch.isActive ? 1 : 0.6 }}>
-                <td>{branch.name}</td>
-                <td>{branch.code ?? '—'}</td>
-                <td>{branch.address ?? '—'}</td>
-                <td>{branch.isActive ? 'Active' : 'Inactive'}</td>
-                <td>{canManage && <button onClick={() => toggleActive(branch)}>{branch.isActive ? 'Deactivate' : 'Activate'}</button>}</td>
+      {error && <p className="error-text">{error}</p>}
+
+      <div className="card" style={{ overflowX: 'auto' }}>
+        {branches === null ? (
+          <p className="empty-state">Loading…</p>
+        ) : (
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Code</th>
+                <th>Address</th>
+                <th>Status</th>
+                <th />
               </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
+            </thead>
+            <tbody>
+              {branches.map((branch) => (
+                <tr key={branch.id} style={{ opacity: branch.isActive ? 1 : 0.6 }}>
+                  <td>{branch.name}</td>
+                  <td>{branch.code ?? '—'}</td>
+                  <td>{branch.address ?? '—'}</td>
+                  <td>
+                    <span className={`badge ${branch.isActive ? 'badge-success' : 'badge-muted'}`}>{branch.isActive ? 'Active' : 'Inactive'}</span>
+                  </td>
+                  <td>{canManage && <button onClick={() => toggleActive(branch)}>{branch.isActive ? 'Deactivate' : 'Activate'}</button>}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
 
       {canManage && (
-        <form onSubmit={handleCreate} style={{ marginBottom: 24 }}>
+        <form onSubmit={handleCreate} className="card">
           <h2>New branch</h2>
-          <label>
-            Name
-            <input value={name} onChange={(e) => setName(e.target.value)} required />
-          </label>{' '}
-          <label>
-            Code (optional)
-            <input value={code} onChange={(e) => setCode(e.target.value)} style={{ width: 100 }} />
-          </label>{' '}
-          <label>
-            Address (optional)
-            <input value={address} onChange={(e) => setAddress(e.target.value)} style={{ width: 260 }} />
-          </label>{' '}
-          <button type="submit" disabled={submitting}>
-            {submitting ? 'Adding…' : 'Add branch'}
-          </button>
+          <div className="field-row">
+            <label className="field">
+              Name
+              <input value={name} onChange={(e) => setName(e.target.value)} required />
+            </label>
+            <label className="field">
+              Code (optional)
+              <input value={code} onChange={(e) => setCode(e.target.value)} style={{ width: 120 }} />
+            </label>
+            <label className="field" style={{ flex: 2 }}>
+              Address (optional)
+              <input value={address} onChange={(e) => setAddress(e.target.value)} />
+            </label>
+          </div>
+          <div className="form-actions">
+            <button type="submit" className="btn-primary" disabled={submitting}>
+              {submitting ? 'Adding…' : 'Add branch'}
+            </button>
+          </div>
         </form>
       )}
-
-      <button type="button" onClick={onBack}>
-        Back to dashboard
-      </button>
     </div>
   );
 }
