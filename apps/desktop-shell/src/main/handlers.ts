@@ -261,16 +261,29 @@ export async function login(systemDb: Kysely<SystemDatabase>, paths: AppPaths, i
     throw new Error('Company not found');
   }
 
-  // Closes the gap the online-activation initiative exists for: a whole-folder clone of
-  // this install left every EXISTING company usable forever, undetected (only NEW company
-  // creation was ever gated). A portal-registered activation that's gone dark past its
-  // grace period blocks login here too — not just createCompany — while a genuinely
-  // offline customer who reconnects even occasionally never notices. Demo companies stay
-  // exempt, same as every other license check in this codebase.
+  // Closes the gap this whole licensing initiative exists for: opening an EXISTING company
+  // was never gated at all (only NEW company creation was) — so copying this install's
+  // entire folder, data included, onto a machine that never activated anything just kept
+  // working forever, undetected. Now login uses the exact same "valid license OR active
+  // trial" rule createCompany already enforces, not just the narrower grace-period check:
+  // a portal-registered activation gone dark past its grace period blocks immediately
+  // (checked first, its own specific message); short of that, any other kind of invalid
+  // license (none activated at all, or bound to a different machine — i.e. a clone) blocks
+  // too UNLESS the trial is still active, so a company merely made during the trial keeps
+  // working until the trial itself actually ends, exactly like createCompany's own trial
+  // window. checkTrialStatus is only called when the license isn't already valid, so a
+  // genuinely licensed customer never pays its cost. Demo companies stay fully exempt, same
+  // as every other license check in this codebase.
   if (!company.is_demo) {
     const licenseStatus = await checkLicenseStatus(systemDb, paths);
     if (licenseStatus.graceExpired) {
       throw new Error(licenseStatus.reason ?? 'This installation needs to reconnect to the internet to verify its license before continuing.');
+    }
+    if (!licenseStatus.valid) {
+      const trialStatus = await checkTrialStatus(systemDb);
+      if (!trialStatus.active) {
+        throw new Error(`A valid license is required to continue using this company (your 14-day trial has ended). ${licenseStatus.reason ?? ''} Activate one from the Company List screen.`);
+      }
     }
   }
 

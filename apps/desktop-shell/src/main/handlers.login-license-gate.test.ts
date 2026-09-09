@@ -9,15 +9,19 @@ import type { LicensePayload } from '@mhts/core-licensing';
 import type { AppPaths } from './db';
 
 /**
- * Isolated test for the ONE new thing session 30 added to `login()`: it now
- * gates on `checkLicenseStatus`'s new `graceExpired` flag before reaching
- * credential verification, closing the "whole-folder clone leaves every
- * EXISTING company usable forever" gap. Everything past that gate (real
- * password/DEK verification) is unrelated, pre-existing logic this file
- * doesn't attempt to re-test — a login with no matching app_user always
- * fails with the same INVALID_CREDENTIALS message regardless, which is
- * exactly what distinguishes "the gate let it through" from "the gate
- * blocked it" below without needing a full credential-setup fixture.
+ * Isolated test for `login()`'s license/trial gate: it now blocks opening an
+ * EXISTING company exactly like `createCompany` blocks making a new one —
+ * either a valid license or an active trial is required, not just the
+ * narrower "grace period expired" case session 30 originally added. This
+ * closes the real remaining gap: a whole-folder clone (or a company that
+ * outlived its trial with no license ever bought) previously stayed usable
+ * forever, since only NEW company creation was ever gated. Everything past
+ * this gate (real password/DEK verification) is unrelated, pre-existing
+ * logic this file doesn't attempt to re-test — a login with no matching
+ * app_user always fails with the same INVALID_CREDENTIALS message
+ * regardless, which is exactly what distinguishes "the gate let it through"
+ * from "the gate blocked it" below without needing a full credential-setup
+ * fixture.
  */
 vi.mock('@mhts/core-licensing', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@mhts/core-licensing')>();
@@ -81,6 +85,13 @@ describe('handlers: login() license grace-period gate', () => {
       .execute();
   }
 
+  async function insertTrial(startedDaysAgo: number) {
+    await system.db
+      .insertInto('trial_activation')
+      .values({ id: 'default', started_at: new Date(Date.now() - startedDaysAgo * 24 * 60 * 60 * 1000).toISOString() })
+      .execute();
+  }
+
   async function registerStaleGraceExpiredLicense() {
     writeFileSync(join(userDataDir, 'license.lic'), JSON.stringify({ payload: TEST_PAYLOAD, signature: 'irrelevant-mocked' }));
     // Bypass the network activation call entirely — insert the bound+stale state directly,
@@ -96,6 +107,22 @@ describe('handlers: login() license grace-period gate', () => {
       })
       .execute();
   }
+
+  it('blocks login for a whole-folder clone bound to a different machine, once the trial has also ended', async () => {
+    await insertCompany('company-clone', false);
+    await insertTrial(100);
+    writeFileSync(join(userDataDir, 'license.lic'), JSON.stringify({ payload: TEST_PAYLOAD, signature: 'irrelevant-mocked' }));
+    // Simulates copying the whole install folder (license.lic + system DB) onto a second
+    // machine: the stored machine_id is whatever the ORIGINAL machine's real id was, which
+    // will never match this test process's own real machineIdSync() value — exactly the
+    // mismatch verifyAndBind is designed to catch.
+    await system.db
+      .insertInto('license_activation')
+      .values({ id: 'default', license_id: TEST_PAYLOAD.licenseId, machine_id: 'some-other-machines-id', activation_token: 'token-abc', last_validated_at: new Date().toISOString() })
+      .execute();
+
+    await expect(login(system.db, paths, { companyId: 'company-clone', email: 'nobody@example.com', password: 'irrelevant' })).rejects.toThrow(/valid license is required/i);
+  });
 
   it('blocks login for a real company once its portal-registered license has gone past its grace period', async () => {
     await insertCompany('company-1', false);
@@ -113,12 +140,23 @@ describe('handlers: login() license grace-period gate', () => {
     await expect(login(system.db, paths, { companyId: 'demo-1', email: 'nobody@example.com', password: 'irrelevant' })).rejects.toThrow(INVALID_CREDENTIALS);
   });
 
-  it('does NOT block login when there is no license at all (unrelated to this new gate — unchanged pre-existing behavior)', async () => {
+  it('blocks login for a real company with no license at all once the trial has also ended', async () => {
     await insertCompany('company-2', false);
-    // No license.lic written at all, no license_activation row — checkLicenseStatus
-    // reports invalid but WITHOUT graceExpired, which is exactly what login() must ignore.
+    await insertTrial(100);
+    // No license.lic written at all, no license_activation row — checkLicenseStatus reports
+    // invalid without graceExpired, so this exercises the broader "not valid AND trial not
+    // active" branch rather than the grace-specific one.
 
-    await expect(login(system.db, paths, { companyId: 'company-2', email: 'nobody@example.com', password: 'irrelevant' })).rejects.toThrow(INVALID_CREDENTIALS);
+    await expect(login(system.db, paths, { companyId: 'company-2', email: 'nobody@example.com', password: 'irrelevant' })).rejects.toThrow(/valid license is required/i);
+  });
+
+  it('does NOT block login when there is no license at all but the trial is still active', async () => {
+    await insertCompany('company-2b', false);
+    await insertTrial(1);
+    // Same "no license" state as above, but the trial window (created-during-trial company)
+    // still covers it — falls through to the pre-existing credential check instead.
+
+    await expect(login(system.db, paths, { companyId: 'company-2b', email: 'nobody@example.com', password: 'irrelevant' })).rejects.toThrow(INVALID_CREDENTIALS);
   });
 
   it('does NOT block login when the portal-registered license is still within its grace period', async () => {
