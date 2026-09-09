@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { ArrowLeft, Warehouse } from 'lucide-react';
 import type { SessionInfo, WarehouseSummary } from '../../../shared/ipc';
 
 interface Props {
@@ -44,52 +45,61 @@ export function ManageWarehousesScreen({ session, onBack }: Props) {
   }
 
   return (
-    <div style={{ padding: 24, fontFamily: 'sans-serif', maxWidth: 560 }}>
-      <h1>Warehouses</h1>
-      {error && <p style={{ color: 'crimson' }}>{error}</p>}
+    <div className="page" style={{ maxWidth: 640 }}>
+      <div className="page-header">
+        <button type="button" className="back-link" onClick={onBack}>
+          <ArrowLeft size={16} /> Back
+        </button>
+        <h1>
+          <Warehouse size={18} style={{ color: 'var(--accent)' }} /> Warehouses
+        </h1>
+      </div>
 
-      {warehouses === null ? (
-        <p>Loading…</p>
-      ) : (
-        <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 24 }}>
-          <thead>
-            <tr>
-              <th style={{ textAlign: 'left' }}>Name</th>
-              <th style={{ textAlign: 'left' }}>Address</th>
-            </tr>
-          </thead>
-          <tbody>
-            {warehouses.map((warehouse) => (
-              <tr key={warehouse.id}>
-                <td>{warehouse.name}</td>
-                <td>{warehouse.address ?? '—'}</td>
+      {error && <p className="error-text">{error}</p>}
+
+      <div className="card">
+        {warehouses === null ? (
+          <p className="empty-state">Loading…</p>
+        ) : (
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Address</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
+            </thead>
+            <tbody>
+              {warehouses.map((warehouse) => (
+                <tr key={warehouse.id}>
+                  <td>{warehouse.name}</td>
+                  <td>{warehouse.address ?? '—'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
 
       {canManage && (
-        <form onSubmit={handleCreate} style={{ marginBottom: 24 }}>
+        <form onSubmit={handleCreate} className="card">
           <h2>New warehouse</h2>
-          <label>
-            Name
-            <input value={name} onChange={(e) => setName(e.target.value)} required />
-          </label>{' '}
-          <label>
-            Address
-            <input value={address} onChange={(e) => setAddress(e.target.value)} />
-          </label>
-          <br />
-          <button type="submit" disabled={submitting}>
-            {submitting ? 'Adding…' : 'Add warehouse'}
-          </button>
+          <div className="field-row">
+            <label className="field">
+              Name
+              <input value={name} onChange={(e) => setName(e.target.value)} required />
+            </label>
+            <label className="field">
+              Address
+              <input value={address} onChange={(e) => setAddress(e.target.value)} />
+            </label>
+          </div>
+          <div className="form-actions">
+            <button type="submit" className="btn-primary" disabled={submitting}>
+              {submitting ? 'Adding…' : 'Add warehouse'}
+            </button>
+          </div>
         </form>
       )}
-
-      <button type="button" onClick={onBack}>
-        Back to dashboard
-      </button>
     </div>
   );
 }

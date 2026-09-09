@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { ArrowLeft, PackagePlus } from 'lucide-react';
 import type { ItemSummary, WarehouseSummary } from '../../../shared/ipc';
 
 interface Props {
@@ -58,70 +59,89 @@ export function RecordOpeningStockScreen({ onCreated, onBack }: Props) {
   }
 
   return (
-    <div style={{ padding: 24, fontFamily: 'sans-serif', maxWidth: 640 }}>
-      <h1>Record opening stock</h1>
-      <p>Sets an item&apos;s starting quantity/value in a warehouse. This does not post to the ledger — reconcile the Stock-in-Hand ledger&apos;s own opening balance separately, the same way any other ledger&apos;s opening balance is entered.</p>
-      {error && <p style={{ color: 'crimson' }}>{error}</p>}
-      <form onSubmit={handleSubmit}>
-        <label>
-          Item
-          <select value={itemId} onChange={(e) => setItemId(e.target.value)} required>
-            <option value="" disabled>
-              Select item
-            </option>
-            {items.map((item) => (
-              <option key={item.id} value={item.id}>
-                {item.itemCode} — {item.name}
-              </option>
-            ))}
-          </select>
-        </label>{' '}
-        <label>
-          Warehouse
-          <select value={warehouseId} onChange={(e) => setWarehouseId(e.target.value)} required>
-            <option value="" disabled>
-              Select warehouse
-            </option>
-            {warehouses.map((w) => (
-              <option key={w.id} value={w.id}>
-                {w.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <br />
-        {selectedItem?.isBatchTracked && (
-          <>
-            <label>
-              Batch number
-              <input value={batchNumber} onChange={(e) => setBatchNumber(e.target.value)} required />
-            </label>{' '}
-            <label>
-              Expiry date
-              <input type="date" value={expiryDate} onChange={(e) => setExpiryDate(e.target.value)} />
-            </label>
-            <br />
-          </>
-        )}
-        <label>
-          Quantity ({selectedItem?.unitName ?? 'units'})
-          <input type="number" step="0.001" min="0" value={quantityUnits} onChange={(e) => setQuantityUnits(e.target.value)} required style={{ width: 100 }} />
-        </label>{' '}
-        <label>
-          Rate per unit (₹)
-          <input type="number" step="0.01" min="0" value={ratePerUnitRupees} onChange={(e) => setRatePerUnitRupees(e.target.value)} required style={{ width: 100 }} />
-        </label>{' '}
-        <label>
-          As of date
-          <input type="date" value={movementDate} onChange={(e) => setMovementDate(e.target.value)} required />
-        </label>
-        <br />
-        <button type="submit" disabled={submitting || !itemId || !warehouseId}>
-          {submitting ? 'Saving…' : 'Record opening stock'}
-        </button>{' '}
-        <button type="button" onClick={onBack} disabled={submitting}>
-          Back
+    <div className="page" style={{ maxWidth: 700 }}>
+      <div className="page-header">
+        <button type="button" className="back-link" onClick={onBack} disabled={submitting}>
+          <ArrowLeft size={16} /> Back
         </button>
+        <h1>
+          <PackagePlus size={18} style={{ color: 'var(--accent)' }} /> Record opening stock
+        </h1>
+      </div>
+
+      <p style={{ color: 'var(--fg-muted)', fontSize: 13, marginTop: -8 }}>
+        Sets an item&apos;s starting quantity/value in a warehouse. This does not post to the ledger — reconcile the Stock-in-Hand ledger&apos;s own opening balance separately, the same way any other
+        ledger&apos;s opening balance is entered.
+      </p>
+
+      <form onSubmit={handleSubmit}>
+        <div className="card">
+          <div className="field-row">
+            <label className="field">
+              Item
+              <select value={itemId} onChange={(e) => setItemId(e.target.value)} required>
+                <option value="" disabled>
+                  Select item
+                </option>
+                {items.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.itemCode} — {item.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="field">
+              Warehouse
+              <select value={warehouseId} onChange={(e) => setWarehouseId(e.target.value)} required>
+                <option value="" disabled>
+                  Select warehouse
+                </option>
+                {warehouses.map((w) => (
+                  <option key={w.id} value={w.id}>
+                    {w.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+          {selectedItem?.isBatchTracked && (
+            <div className="field-row">
+              <label className="field">
+                Batch number
+                <input value={batchNumber} onChange={(e) => setBatchNumber(e.target.value)} required />
+              </label>
+              <label className="field">
+                Expiry date
+                <input type="date" value={expiryDate} onChange={(e) => setExpiryDate(e.target.value)} />
+              </label>
+            </div>
+          )}
+          <div className="field-row">
+            <label className="field">
+              Quantity ({selectedItem?.unitName ?? 'units'})
+              <input type="number" step="0.001" min="0" value={quantityUnits} onChange={(e) => setQuantityUnits(e.target.value)} required style={{ width: 140 }} />
+            </label>
+            <label className="field">
+              Rate per unit (₹)
+              <input type="number" step="0.01" min="0" value={ratePerUnitRupees} onChange={(e) => setRatePerUnitRupees(e.target.value)} required style={{ width: 140 }} />
+            </label>
+            <label className="field">
+              As of date
+              <input type="date" value={movementDate} onChange={(e) => setMovementDate(e.target.value)} required />
+            </label>
+          </div>
+        </div>
+
+        {error && <p className="error-text">{error}</p>}
+
+        <div className="form-actions">
+          <button type="submit" className="btn-primary" disabled={submitting || !itemId || !warehouseId}>
+            {submitting ? 'Saving…' : 'Record opening stock'}
+          </button>
+          <button type="button" onClick={onBack} disabled={submitting}>
+            Cancel
+          </button>
+        </div>
       </form>
     </div>
   );
