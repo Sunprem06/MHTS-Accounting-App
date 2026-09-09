@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { ArrowLeft, ArrowUpFromLine } from 'lucide-react';
 import type { PartyOutstandingRow } from '../../../shared/ipc';
 
 interface Props {
@@ -23,45 +24,57 @@ export function PayablesScreen({ onBack }: Props) {
   const total = rows?.reduce((sum, row) => sum + row.outstandingAmount, 0) ?? 0;
 
   return (
-    <div style={{ padding: 24, fontFamily: 'sans-serif', maxWidth: 640 }}>
-      <h1>Payables</h1>
-      {error && <p style={{ color: 'crimson' }}>{error}</p>}
-      {rows === null ? (
-        <p>Loading…</p>
-      ) : rows.length === 0 ? (
-        <p>No outstanding payables.</p>
-      ) : (
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-          <thead>
-            <tr>
-              <th style={{ textAlign: 'left' }}>Supplier</th>
-              <th style={{ textAlign: 'left' }}>MSME</th>
-              <th style={{ textAlign: 'right' }}>Outstanding (₹)</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row) => (
-              <tr key={row.partyId}>
-                <td>{row.partyName}</td>
-                <td>{row.isMsmeUdyamRegistered ? 'Yes' : 'No'}</td>
-                <td style={{ textAlign: 'right', color: row.outstandingAmount < 0 ? 'crimson' : undefined }}>{row.outstandingAmount.toFixed(2)}</td>
-              </tr>
-            ))}
-          </tbody>
-          <tfoot>
-            <tr>
-              <td style={{ fontWeight: 'bold' }}>Total</td>
-              <td />
-              <td style={{ textAlign: 'right', fontWeight: 'bold' }}>{total.toFixed(2)}</td>
-            </tr>
-          </tfoot>
-        </table>
-      )}
-      <p>
-        <button type="button" onClick={onBack}>
-          Back to dashboard
+    <div className="page">
+      <div className="page-header">
+        <button type="button" className="back-link" onClick={onBack}>
+          <ArrowLeft size={16} /> Back
         </button>
-      </p>
+        <h1>
+          <ArrowUpFromLine size={18} style={{ color: 'var(--accent)' }} /> Payables
+        </h1>
+      </div>
+
+      {error && <p className="error-text">{error}</p>}
+
+      <div className="card">
+        {rows === null ? (
+          <p className="empty-state">Loading…</p>
+        ) : rows.length === 0 ? (
+          <p className="empty-state">No outstanding payables.</p>
+        ) : (
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Supplier</th>
+                <th>MSME</th>
+                <th className="num">Outstanding (₹)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row) => (
+                <tr key={row.partyId}>
+                  <td>{row.partyName}</td>
+                  <td>
+                    <span className={`badge ${row.isMsmeUdyamRegistered ? 'badge-success' : 'badge-muted'}`}>
+                      {row.isMsmeUdyamRegistered ? 'Yes' : 'No'}
+                    </span>
+                  </td>
+                  <td className="num" style={{ color: row.outstandingAmount < 0 ? 'var(--danger)' : undefined }}>
+                    {row.outstandingAmount.toFixed(2)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr>
+                <td>Total</td>
+                <td />
+                <td className="num">{total.toFixed(2)}</td>
+              </tr>
+            </tfoot>
+          </table>
+        )}
+      </div>
     </div>
   );
 }

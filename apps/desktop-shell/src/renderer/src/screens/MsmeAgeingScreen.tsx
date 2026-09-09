@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { AlertTriangle, ArrowLeft } from 'lucide-react';
 import type { MsmeAgeingRow } from '../../../shared/ipc';
 
 interface Props {
@@ -26,56 +27,70 @@ export function MsmeAgeingScreen({ onBack }: Props) {
   }, []);
 
   return (
-    <div style={{ padding: 24, fontFamily: 'sans-serif', maxWidth: 800 }}>
-      <h1>MSME ageing (Section 43B(h))</h1>
-      <p>Udyam-registered MSME suppliers whose invoices are past their due date — these payments risk being tax-disallowed if still unpaid.</p>
-      <label>
-        As of
-        <input
-          type="date"
-          value={asOfDate}
-          onChange={(e) => {
-            setAsOfDate(e.target.value);
-            refresh(e.target.value);
-          }}
-        />
-      </label>
-      {error && <p style={{ color: 'crimson' }}>{error}</p>}
-      {rows === null ? (
-        <p>Loading…</p>
-      ) : rows.length === 0 ? (
-        <p>No overdue MSME payables as of this date.</p>
-      ) : (
-        <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: 16 }}>
-          <thead>
-            <tr>
-              <th style={{ textAlign: 'left' }}>Supplier</th>
-              <th style={{ textAlign: 'left' }}>Invoice No.</th>
-              <th style={{ textAlign: 'left' }}>Invoice date</th>
-              <th style={{ textAlign: 'left' }}>Due date</th>
-              <th style={{ textAlign: 'right' }}>Days overdue</th>
-              <th style={{ textAlign: 'right' }}>Est. outstanding (₹)</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row) => (
-              <tr key={row.invoiceId}>
-                <td>{row.partyName}</td>
-                <td>{row.voucherNumber}</td>
-                <td>{row.invoiceDate}</td>
-                <td>{row.dueDate}</td>
-                <td style={{ textAlign: 'right', color: 'crimson' }}>{row.daysOverdue}</td>
-                <td style={{ textAlign: 'right' }}>{row.estimatedOutstanding.toFixed(2)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
-      <p>
-        <button type="button" onClick={onBack}>
-          Back to dashboard
+    <div className="page" style={{ maxWidth: 860 }}>
+      <div className="page-header">
+        <button type="button" className="back-link" onClick={onBack}>
+          <ArrowLeft size={16} /> Back
         </button>
+        <h1>
+          <AlertTriangle size={18} style={{ color: 'var(--warning)' }} /> MSME ageing (Section 43B(h))
+        </h1>
+      </div>
+
+      <p style={{ color: 'var(--fg-muted)', fontSize: 13, marginTop: -8 }}>
+        Udyam-registered MSME suppliers whose invoices are past their due date — these payments risk being tax-disallowed if still unpaid.
       </p>
+
+      <div className="card">
+        <label className="field" style={{ maxWidth: 220 }}>
+          As of
+          <input
+            type="date"
+            value={asOfDate}
+            onChange={(e) => {
+              setAsOfDate(e.target.value);
+              refresh(e.target.value);
+            }}
+          />
+        </label>
+      </div>
+
+      {error && <p className="error-text">{error}</p>}
+
+      <div className="card">
+        {rows === null ? (
+          <p className="empty-state">Loading…</p>
+        ) : rows.length === 0 ? (
+          <p className="empty-state">No overdue MSME payables as of this date.</p>
+        ) : (
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Supplier</th>
+                <th>Invoice No.</th>
+                <th>Invoice date</th>
+                <th>Due date</th>
+                <th className="num">Days overdue</th>
+                <th className="num">Est. outstanding (₹)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row) => (
+                <tr key={row.invoiceId}>
+                  <td>{row.partyName}</td>
+                  <td>{row.voucherNumber}</td>
+                  <td>{row.invoiceDate}</td>
+                  <td>{row.dueDate}</td>
+                  <td className="num" style={{ color: 'var(--danger)' }}>
+                    {row.daysOverdue}
+                  </td>
+                  <td className="num">{row.estimatedOutstanding.toFixed(2)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
     </div>
   );
 }
