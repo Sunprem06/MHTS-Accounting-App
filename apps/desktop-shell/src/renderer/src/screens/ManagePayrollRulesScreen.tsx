@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { ArrowLeft, FileCode } from 'lucide-react';
 import type { PayrollRuleVersionSummary, SessionInfo } from '../../../shared/ipc';
 
 interface Props {
@@ -102,89 +103,102 @@ export function ManagePayrollRulesScreen({ session, onBack }: Props) {
   }
 
   return (
-    <div style={{ padding: 24, fontFamily: 'sans-serif', maxWidth: 900 }}>
-      <h1>Manage payroll rules</h1>
-      <p style={{ fontSize: 12, color: '#666' }}>
+    <div className="page" style={{ maxWidth: 900 }}>
+      <div className="page-header">
+        <button type="button" className="back-link" onClick={onBack}>
+          <ArrowLeft size={16} /> Back
+        </button>
+        <h1>
+          <FileCode size={18} style={{ color: 'var(--accent)' }} /> Manage payroll rules
+        </h1>
+      </div>
+
+      <p style={{ color: 'var(--fg-muted)', fontSize: 13, marginTop: -8 }}>
         Every PF/ESI/PT/wage-cap/gratuity/TDS figure below is date-effective, versioned data — never a hardcoded constant. All amounts are in PAISE (Rs
         15,000 = 1500000). Simplified starter defaults were seeded at installation; verify with a CA before relying on these for a real filing.
       </p>
-      {error && <p style={{ color: 'crimson' }}>{error}</p>}
 
-      <h2>Currently active rules</h2>
-      {active === null ? (
-        <p>Loading…</p>
-      ) : (
-        <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 24 }}>
-          <thead>
-            <tr>
-              <th style={{ textAlign: 'left' }}>Rule</th>
-              <th style={{ textAlign: 'left' }}>Jurisdiction</th>
-              <th style={{ textAlign: 'left' }}>Effective from</th>
-              <th style={{ textAlign: 'left' }}>Payload</th>
-            </tr>
-          </thead>
-          <tbody>
-            {active.map((rule) => (
-              <tr key={rule.id}>
-                <td>{RULE_TYPES.find((r) => r.value === rule.ruleType)?.label ?? rule.ruleType}</td>
-                <td>{rule.jurisdiction ?? '—'}</td>
-                <td>{rule.effectiveFrom}</td>
-                <td style={{ fontSize: 11, fontFamily: 'monospace' }}>{JSON.stringify(rule.payload)}</td>
+      {error && <p className="error-text">{error}</p>}
+
+      <div className="card" style={{ overflowX: 'auto' }}>
+        <h2>Currently active rules</h2>
+        {active === null ? (
+          <p className="empty-state">Loading…</p>
+        ) : (
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Rule</th>
+                <th>Jurisdiction</th>
+                <th>Effective from</th>
+                <th>Payload</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
+            </thead>
+            <tbody>
+              {active.map((rule) => (
+                <tr key={rule.id}>
+                  <td>{RULE_TYPES.find((r) => r.value === rule.ruleType)?.label ?? rule.ruleType}</td>
+                  <td>{rule.jurisdiction ?? '—'}</td>
+                  <td>{rule.effectiveFrom}</td>
+                  <td style={{ fontSize: 11, fontFamily: 'monospace' }}>{JSON.stringify(rule.payload)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
 
       {canManage && (
-        <form onSubmit={handleSubmit} style={{ marginBottom: 24 }}>
+        <form onSubmit={handleSubmit} className="card">
           <h2>Add a new dated version</h2>
-          <label>
-            Rule
-            <select value={ruleType} onChange={(e) => setRuleType(e.target.value)}>
-              {RULE_TYPES.map((r) => (
-                <option key={r.value} value={r.value}>
-                  {r.label}
-                </option>
-              ))}
-            </select>
-          </label>{' '}
-          {ruleType === 'PAYROLL.PT' && (
-            <label>
-              State jurisdiction (e.g. MH)
-              <input value={jurisdiction} onChange={(e) => setJurisdiction(e.target.value)} required style={{ width: 60 }} />
+          <div className="field-row">
+            <label className="field" style={{ flex: 2 }}>
+              Rule
+              <select value={ruleType} onChange={(e) => setRuleType(e.target.value)}>
+                {RULE_TYPES.map((r) => (
+                  <option key={r.value} value={r.value}>
+                    {r.label}
+                  </option>
+                ))}
+              </select>
             </label>
-          )}{' '}
-          <label>
-            Effective from
-            <input type="date" value={effectiveFrom} onChange={(e) => setEffectiveFrom(e.target.value)} required />
-          </label>
-          <br />
-          <label style={{ display: 'block' }}>
+            {ruleType === 'PAYROLL.PT' && (
+              <label className="field">
+                State jurisdiction (e.g. MH)
+                <input value={jurisdiction} onChange={(e) => setJurisdiction(e.target.value)} required style={{ width: 100 }} />
+              </label>
+            )}
+            <label className="field">
+              Effective from
+              <input type="date" value={effectiveFrom} onChange={(e) => setEffectiveFrom(e.target.value)} required />
+            </label>
+          </div>
+          <label className="field">
             Payload (JSON, amounts in paise)
-            <textarea value={payloadText} onChange={(e) => setPayloadText(e.target.value)} rows={4} style={{ width: '100%', fontFamily: 'monospace' }} />
+            <textarea value={payloadText} onChange={(e) => setPayloadText(e.target.value)} rows={4} style={{ fontFamily: 'monospace' }} />
           </label>
-          <label>
+          <label className="field">
             Note (optional)
-            <input value={sourceReference} onChange={(e) => setSourceReference(e.target.value)} style={{ width: '100%' }} />
+            <input value={sourceReference} onChange={(e) => setSourceReference(e.target.value)} />
           </label>
-          <br />
-          <button type="submit" disabled={submitting}>
-            {submitting ? 'Saving…' : 'Save new version'}
-          </button>
+          <div className="form-actions">
+            <button type="submit" className="btn-primary" disabled={submitting}>
+              {submitting ? 'Saving…' : 'Save new version'}
+            </button>
+          </div>
         </form>
       )}
 
       {history && history.length > 1 && (
-        <>
-          <h3>Version history for this rule</h3>
-          <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 24 }}>
+        <div className="card" style={{ overflowX: 'auto' }}>
+          <h2>Version history for this rule</h2>
+          <table className="data-table">
             <thead>
               <tr>
-                <th style={{ textAlign: 'left' }}>Jurisdiction</th>
-                <th style={{ textAlign: 'left' }}>Effective from</th>
-                <th style={{ textAlign: 'left' }}>Effective to</th>
-                <th style={{ textAlign: 'left' }}>Payload</th>
+                <th>Jurisdiction</th>
+                <th>Effective from</th>
+                <th>Effective to</th>
+                <th>Payload</th>
               </tr>
             </thead>
             <tbody>
@@ -198,12 +212,8 @@ export function ManagePayrollRulesScreen({ session, onBack }: Props) {
               ))}
             </tbody>
           </table>
-        </>
+        </div>
       )}
-
-      <button type="button" onClick={onBack}>
-        Back to dashboard
-      </button>
     </div>
   );
 }

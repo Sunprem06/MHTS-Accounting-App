@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { ArrowLeft, Settings } from 'lucide-react';
 import type { ApplicabilityMode, CompanyPayrollSettingsSummary, SessionInfo, TdsRegime } from '../../../shared/ipc';
 
 interface Props {
@@ -51,8 +52,8 @@ export function PayrollSettingsScreen({ session, onBack }: Props) {
 
   if (!settings) {
     return (
-      <div style={{ padding: 24, fontFamily: 'sans-serif' }}>
-        <p>{error ?? 'Loading…'}</p>
+      <div className="page">
+        <p className="empty-state">{error ?? 'Loading…'}</p>
       </div>
     );
   }
@@ -60,80 +61,94 @@ export function PayrollSettingsScreen({ session, onBack }: Props) {
   const app = settings.resolvedApplicability;
 
   return (
-    <div style={{ padding: 24, fontFamily: 'sans-serif', maxWidth: 700 }}>
-      <h1>Payroll settings</h1>
-      {error && <p style={{ color: 'crimson' }}>{error}</p>}
+    <div className="page" style={{ maxWidth: 760 }}>
+      <div className="page-header">
+        <button type="button" className="back-link" onClick={onBack}>
+          <ArrowLeft size={16} /> Back
+        </button>
+        <h1>
+          <Settings size={18} style={{ color: 'var(--accent)' }} /> Payroll settings
+        </h1>
+      </div>
+
+      {error && <p className="error-text">{error}</p>}
+
       {app && (
-        <p style={{ fontSize: 12, color: '#666' }}>
+        <p style={{ color: 'var(--fg-muted)', fontSize: 13, marginTop: -8 }}>
           {app.activeEmployeeCount} active employee(s). PF requires {app.pfThreshold}+, ESI requires {app.esiThreshold}+, Gratuity requires {app.gratuityThreshold}+ (once
           crossed, gratuity stays applicable even if headcount later drops).
         </p>
       )}
 
-      <table style={{ borderCollapse: 'collapse', marginBottom: 16 }}>
-        <tbody>
-          <tr>
-            <td style={{ paddingRight: 12 }}>Provident Fund</td>
-            <td>
-              <select value={settings.pfApplicability} disabled={!canManage} onChange={(e) => update({ pfApplicability: e.target.value as ApplicabilityMode })}>
-                {MODES.map((m) => (
-                  <option key={m} value={m}>
-                    {m}
-                  </option>
-                ))}
-              </select>
-            </td>
-            <td style={{ paddingLeft: 12 }}>{app && (app.pfApplies ? 'Currently applies' : 'Currently does not apply')}</td>
-          </tr>
-          <tr>
-            <td style={{ paddingRight: 12 }}>ESI</td>
-            <td>
-              <select value={settings.esiApplicability} disabled={!canManage} onChange={(e) => update({ esiApplicability: e.target.value as ApplicabilityMode })}>
-                {MODES.map((m) => (
-                  <option key={m} value={m}>
-                    {m}
-                  </option>
-                ))}
-              </select>
-            </td>
-            <td style={{ paddingLeft: 12 }}>{app && (app.esiApplies ? 'Currently applies' : 'Currently does not apply')}</td>
-          </tr>
-          <tr>
-            <td style={{ paddingRight: 12 }}>Gratuity</td>
-            <td>
-              <select value={settings.gratuityApplicability} disabled={!canManage} onChange={(e) => update({ gratuityApplicability: e.target.value as ApplicabilityMode })}>
-                {MODES.map((m) => (
-                  <option key={m} value={m}>
-                    {m}
-                  </option>
-                ))}
-              </select>
-            </td>
-            <td style={{ paddingLeft: 12 }}>{app && (app.gratuityApplies ? 'Currently applies' : 'Currently does not apply')}</td>
-          </tr>
-        </tbody>
-      </table>
+      <div className="card" style={{ overflowX: 'auto' }}>
+        <table className="data-table">
+          <thead>
+            <tr>
+              <th>Scheme</th>
+              <th>Applicability</th>
+              <th>Current status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Provident Fund</td>
+              <td>
+                <select value={settings.pfApplicability} disabled={!canManage} onChange={(e) => update({ pfApplicability: e.target.value as ApplicabilityMode })}>
+                  {MODES.map((m) => (
+                    <option key={m} value={m}>
+                      {m}
+                    </option>
+                  ))}
+                </select>
+              </td>
+              <td>{app && <span className={`badge ${app.pfApplies ? 'badge-success' : 'badge-muted'}`}>{app.pfApplies ? 'Applies' : 'Does not apply'}</span>}</td>
+            </tr>
+            <tr>
+              <td>ESI</td>
+              <td>
+                <select value={settings.esiApplicability} disabled={!canManage} onChange={(e) => update({ esiApplicability: e.target.value as ApplicabilityMode })}>
+                  {MODES.map((m) => (
+                    <option key={m} value={m}>
+                      {m}
+                    </option>
+                  ))}
+                </select>
+              </td>
+              <td>{app && <span className={`badge ${app.esiApplies ? 'badge-success' : 'badge-muted'}`}>{app.esiApplies ? 'Applies' : 'Does not apply'}</span>}</td>
+            </tr>
+            <tr>
+              <td>Gratuity</td>
+              <td>
+                <select value={settings.gratuityApplicability} disabled={!canManage} onChange={(e) => update({ gratuityApplicability: e.target.value as ApplicabilityMode })}>
+                  {MODES.map((m) => (
+                    <option key={m} value={m}>
+                      {m}
+                    </option>
+                  ))}
+                </select>
+              </td>
+              <td>{app && <span className={`badge ${app.gratuityApplies ? 'badge-success' : 'badge-muted'}`}>{app.gratuityApplies ? 'Applies' : 'Does not apply'}</span>}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
 
-      <label>
-        Professional Tax state jurisdiction (e.g. MH, KA — blank = none configured, resolves to ₹0)
-        <input defaultValue={settings.ptJurisdiction ?? ''} disabled={!canManage} onBlur={(e) => update({ ptJurisdiction: e.target.value.toUpperCase() || null })} style={{ marginLeft: 8, width: 80 }} />
-      </label>
-      <br />
-      <br />
-      <label>
-        Salary TDS regime
-        <select value={settings.tdsRegime} disabled={!canManage} onChange={(e) => update({ tdsRegime: e.target.value as TdsRegime })} style={{ marginLeft: 8 }}>
-          <option value="NEW">New (auto-estimated from slabs)</option>
-          <option value="OLD">Old (manual entry only — see Manage Payroll Rules)</option>
-        </select>
-      </label>
-      {saving && <p>Saving…</p>}
-
-      <p>
-        <button type="button" onClick={onBack}>
-          Back to dashboard
-        </button>
-      </p>
+      <div className="card">
+        <div className="field-row">
+          <label className="field">
+            Professional Tax state jurisdiction (blank = none configured, resolves to ₹0)
+            <input defaultValue={settings.ptJurisdiction ?? ''} disabled={!canManage} onBlur={(e) => update({ ptJurisdiction: e.target.value.toUpperCase() || null })} style={{ width: 100 }} placeholder="e.g. MH" />
+          </label>
+          <label className="field">
+            Salary TDS regime
+            <select value={settings.tdsRegime} disabled={!canManage} onChange={(e) => update({ tdsRegime: e.target.value as TdsRegime })}>
+              <option value="NEW">New (auto-estimated from slabs)</option>
+              <option value="OLD">Old (manual entry only — see Manage Payroll Rules)</option>
+            </select>
+          </label>
+        </div>
+        {saving && <p style={{ color: 'var(--fg-muted)', fontSize: 13, marginBottom: 0 }}>Saving…</p>}
+      </div>
     </div>
   );
 }

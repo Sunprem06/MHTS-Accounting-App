@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import type { EmployeePayrollProfileSummary, GratuityRecordSummary, LedgerAccountSummary, SessionInfo } from '../../../shared/ipc';
+import { ArrowLeft, Award } from 'lucide-react';
+import type { EmployeePayrollProfileSummary, GratuityRecordStatus, GratuityRecordSummary, LedgerAccountSummary, SessionInfo } from '../../../shared/ipc';
 
 interface Props {
   session: SessionInfo;
@@ -8,6 +9,10 @@ interface Props {
 
 function todayIso(): string {
   return new Date().toISOString().slice(0, 10);
+}
+
+function statusBadgeClass(status: GratuityRecordStatus): string {
+  return status === 'SETTLED' ? 'badge-success' : 'badge-warning';
 }
 
 /**
@@ -92,116 +97,133 @@ export function GratuityScreen({ session, onBack }: Props) {
   }
 
   return (
-    <div style={{ padding: 24, fontFamily: 'sans-serif', maxWidth: 900 }}>
-      <h1>Gratuity</h1>
-      <p style={{ fontSize: 12, color: '#666' }}>
+    <div className="page" style={{ maxWidth: 900 }}>
+      <div className="page-header">
+        <button type="button" className="back-link" onClick={onBack}>
+          <ArrowLeft size={16} /> Back
+        </button>
+        <h1>
+          <Award size={18} style={{ color: 'var(--accent)' }} /> Gratuity
+        </h1>
+      </div>
+
+      <p style={{ color: 'var(--fg-muted)', fontSize: 13, marginTop: -8 }}>
         Monthly provisioning is a formula-based estimate (15/26 × last-drawn wage base × years of service), not an actuarial AS-15/Ind AS-19 valuation —
         get a CA/actuary sign-off before relying on this for statutory books.
       </p>
-      {error && <p style={{ color: 'crimson' }}>{error}</p>}
+
+      {error && <p className="error-text">{error}</p>}
 
       {canManage && (
-        <form onSubmit={handleRunProvisioning} style={{ marginBottom: 16 }}>
+        <form onSubmit={handleRunProvisioning} className="card">
           <h2>Run monthly provisioning</h2>
-          <label>
-            Month
-            <input type="number" min={1} max={12} value={provisionMonth} onChange={(e) => setProvisionMonth(Number(e.target.value))} style={{ width: 50 }} />
-          </label>{' '}
-          <label>
-            Year
-            <input type="number" value={provisionYear} onChange={(e) => setProvisionYear(Number(e.target.value))} style={{ width: 70 }} />
-          </label>{' '}
-          <button type="submit" disabled={busy}>
-            {busy ? 'Running…' : 'Run'}
-          </button>
+          <div className="field-row" style={{ alignItems: 'flex-end' }}>
+            <label className="field">
+              Month
+              <input type="number" min={1} max={12} value={provisionMonth} onChange={(e) => setProvisionMonth(Number(e.target.value))} style={{ width: 70 }} />
+            </label>
+            <label className="field">
+              Year
+              <input type="number" value={provisionYear} onChange={(e) => setProvisionYear(Number(e.target.value))} style={{ width: 90 }} />
+            </label>
+            <button type="submit" className="btn-primary" disabled={busy} style={{ marginBottom: 12 }}>
+              {busy ? 'Running…' : 'Run'}
+            </button>
+          </div>
         </form>
       )}
 
       {canManage && (
-        <form onSubmit={handleRecordSeparation} style={{ marginBottom: 24, border: '1px solid #ccc', padding: 12 }}>
+        <form onSubmit={handleRecordSeparation} className="card">
           <h2>Record a separation</h2>
-          <label>
-            Employee
-            <select value={separationEmployeeId} onChange={(e) => setSeparationEmployeeId(e.target.value)} required>
-              <option value="">— select —</option>
-              {employees.map((emp) => (
-                <option key={emp.id} value={emp.id}>
-                  {emp.employeeCode} — {emp.name}
-                </option>
-              ))}
-            </select>
-          </label>{' '}
-          <label>
-            Separation date
-            <input type="date" value={separationDate} onChange={(e) => setSeparationDate(e.target.value)} required />
-          </label>{' '}
-          <button type="submit" disabled={busy}>
-            {busy ? 'Recording…' : 'Record separation'}
-          </button>
+          <div className="field-row">
+            <label className="field">
+              Employee
+              <select value={separationEmployeeId} onChange={(e) => setSeparationEmployeeId(e.target.value)} required>
+                <option value="">— select —</option>
+                {employees.map((emp) => (
+                  <option key={emp.id} value={emp.id}>
+                    {emp.employeeCode} — {emp.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="field">
+              Separation date
+              <input type="date" value={separationDate} onChange={(e) => setSeparationDate(e.target.value)} required />
+            </label>
+          </div>
+          <div className="form-actions">
+            <button type="submit" className="btn-primary" disabled={busy}>
+              {busy ? 'Recording…' : 'Record separation'}
+            </button>
+          </div>
         </form>
       )}
 
-      <h2>Gratuity records</h2>
-      {records === null ? (
-        <p>Loading…</p>
-      ) : (
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-          <thead>
-            <tr>
-              <th style={{ textAlign: 'left' }}>Employee</th>
-              <th style={{ textAlign: 'left' }}>Separation date</th>
-              <th style={{ textAlign: 'center' }}>Eligible</th>
-              <th style={{ textAlign: 'left' }}>Reason</th>
-              <th style={{ textAlign: 'right' }}>Amount (₹)</th>
-              <th style={{ textAlign: 'left' }}>Status</th>
-              <th />
-            </tr>
-          </thead>
-          <tbody>
-            {records.map((r) => (
-              <tr key={r.id}>
-                <td>{r.employeeName}</td>
-                <td>{r.separationDate}</td>
-                <td style={{ textAlign: 'center' }}>{r.isEligible ? 'Yes' : 'No'}</td>
-                <td style={{ fontSize: 11 }}>{r.eligibilityReason}</td>
-                <td style={{ textAlign: 'right' }}>{r.formulaAmount.toFixed(2)}</td>
-                <td>{r.status}</td>
-                <td>
-                  {canManage && r.status === 'DRAFT' && r.isEligible && r.formulaAmount > 0 && (
-                    <>
-                      {settlingId === r.id ? (
-                        <>
-                          <select value={paymentLedgerId} onChange={(e) => setPaymentLedgerId(e.target.value)}>
-                            <option value="">— ledger —</option>
-                            {ledgers.map((l) => (
-                              <option key={l.id} value={l.id}>
-                                {l.name}
-                              </option>
-                            ))}
-                          </select>{' '}
-                          <button type="button" onClick={() => handleSettle(r.id)}>
-                            Confirm pay
-                          </button>
-                        </>
-                      ) : (
-                        <button type="button" onClick={() => setSettlingId(r.id)}>
-                          Settle
-                        </button>
-                      )}
-                    </>
-                  )}
-                </td>
+      <div className="card" style={{ overflowX: 'auto' }}>
+        <h2>Gratuity records</h2>
+        {records === null ? (
+          <p className="empty-state">Loading…</p>
+        ) : records.length === 0 ? (
+          <p className="empty-state">No gratuity records yet.</p>
+        ) : (
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Employee</th>
+                <th>Separation date</th>
+                <th>Eligible</th>
+                <th>Reason</th>
+                <th className="num">Amount (₹)</th>
+                <th>Status</th>
+                <th />
               </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
-
-      <p>
-        <button type="button" onClick={onBack}>
-          Back to dashboard
-        </button>
-      </p>
+            </thead>
+            <tbody>
+              {records.map((r) => (
+                <tr key={r.id}>
+                  <td>{r.employeeName}</td>
+                  <td>{r.separationDate}</td>
+                  <td>
+                    <span className={`badge ${r.isEligible ? 'badge-success' : 'badge-muted'}`}>{r.isEligible ? 'Yes' : 'No'}</span>
+                  </td>
+                  <td style={{ fontSize: 11 }}>{r.eligibilityReason}</td>
+                  <td className="num">{r.formulaAmount.toFixed(2)}</td>
+                  <td>
+                    <span className={`badge ${statusBadgeClass(r.status)}`}>{r.status}</span>
+                  </td>
+                  <td>
+                    {canManage && r.status === 'DRAFT' && r.isEligible && r.formulaAmount > 0 && (
+                      <>
+                        {settlingId === r.id ? (
+                          <>
+                            <select value={paymentLedgerId} onChange={(e) => setPaymentLedgerId(e.target.value)}>
+                              <option value="">— ledger —</option>
+                              {ledgers.map((l) => (
+                                <option key={l.id} value={l.id}>
+                                  {l.name}
+                                </option>
+                              ))}
+                            </select>{' '}
+                            <button type="button" onClick={() => handleSettle(r.id)}>
+                              Confirm pay
+                            </button>
+                          </>
+                        ) : (
+                          <button type="button" onClick={() => setSettlingId(r.id)}>
+                            Settle
+                          </button>
+                        )}
+                      </>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
     </div>
   );
 }
