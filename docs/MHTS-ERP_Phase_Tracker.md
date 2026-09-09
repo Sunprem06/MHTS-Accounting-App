@@ -202,6 +202,7 @@ Record every architectural or business decision here the moment it's made, so it
 | 2026-09-08 (session 30, after user testing) | **Company List (welcome) screen redesigned end-to-end**, prompted directly by the user sharing a real screenshot of the plain, unstyled screen after successfully running the app themselves via the new guide. Extended rather than replaced the existing Phase-0 CSS-variable theme engine (richer `--bg`/`--border`/`--accent` values plus new `--accent-soft`/`--success`/`--warning`/`--radius`/`--shadow` tokens, baseline button/input styling that every one of the other 87 screens inherits for free since inline styles — which every screen already uses for its own customization — still win over stylesheet rules). `brand.config.json` (the pre-existing white-label file) gained `logoDataUri` and a `quotes` array for a reseller/new customer's own logo and rotating welcome-screen quotes. `main.tsx`'s brand-accent override was changed from an inline `style.setProperty` (which beat every stylesheet rule including the dark-mode ones) to injected real CSS, so a light/dark `accentColor` pair now actually respects the existing dark-mode cascade. Added `lucide-react` for icons (first icon library in this app). Verified in both light and dark mode by serving the renderer's own Vite dev server directly in a plain browser tab (a real Electron window can't be screenshotted in this sandbox) with a temporary, never-committed `window.mhts` stub — `index.html`'s extra script tag and the stub file were both removed again immediately after, confirmed clean via `git diff`. | — |
 | 2026-09-08 (session 30, after user testing) | **Persistent, non-white-label-editable copyright notice added to all 88 screens** — the user asked for "© All Rights Reserved by Maanagarram Hi Tech Solutions" on every page, and separately asked whether the underlying software stays "our project" even when white-labeled and sold to an individual shop customer. New `CopyrightFooter.tsx`, rendered once in `App()` alongside the pre-existing `ThemeToggle`/`UpdateStatusBanner` (the exact same "render once, above every screen" pattern that file's own comment already documented), fixed at the bottom of the window. Deliberately hardcoded rather than read from `brand.config.json` — that file is explicitly the reseller-editable surface (app name/logo/tagline/accent/quotes); this notice is the one thing that must NOT be editable by a reseller or customer, which is exactly what makes the user's ownership question true in practice rather than just asserted. Answered the ownership question in plain terms, not as legal advice: selling a license to USE white-labeled software is standard practice and distinct from transferring the underlying IP; flagged that a real EULA would be the next step if this needs to carry actual legal weight, explicitly not drafted here (a genuine lawyer's-eyes-first item, not a code task). | — |
 | 2026-09-08 (session 30, session close) | **Session formally signed off by the user** ("if all completed we can signoff from here"). Final state confirmed before closing: fresh `git pull --ff-only` on both repos' `main` (all 9 branches opened this session — 5 on `MHTS-Accounting-App`, 4 on `MHTSdigiXR-Web-Accounting-App` — merged), `tsc --noEmit` clean on both `desktop-shell` configs (only the 2 pre-existing, already-documented `accountingHandlers.ts`/`inventoryHandlers.ts` errors remain, confirmed unrelated to this session), full `vitest run`: 34 files / 227 tests, all pass. Nothing left for this environment to do on this initiative — every remaining item (production deploy, a real signed license, the `generate-license.mjs` authorization question, an optional EULA) needs either server access, the private signing key, or a business/legal decision this environment deliberately never has. | — |
+| 2026-09-10 (session 31, continued) | **Closed a real, user-identified piracy hole: `login()` only ever gated NEW company creation, never opening an EXISTING one.** The user explicitly asked for "wherever the app got installed without a license from us they can[not] activate" — investigation confirmed this was genuinely unenforced: `checkLicenseStatus`'s `graceExpired` flag (session 30's own fix) only closes the narrow "an activated install went dark for 30+ days" case; a whole-folder clone (copied onto a machine that never activated anything at all, or bound to a different `machine_id`) or a company created purely during the 14-day trial with no license ever bought afterward both stayed usable **forever**, since only `createCompany` ever checked `licenseStatus.valid`/`trialStatus.active`. Fixed by applying that exact same "valid license OR active trial" rule to `login()` too, for non-demo companies, checked in addition to (not instead of) the existing grace-period check — `checkTrialStatus` is only called when the license isn't already valid, so a genuinely licensed customer's login path is unchanged. Explicitly disclosed to the user: no purely offline app can be made 100% uncrackable (the enforcement logic and its local data are both inspectable on the same machine that runs them) — this closes the realistic "copy the folder to another PC" and "outlive the trial, never pay" cases, which is what "max security" can concretely mean for an offline-first app, not a claim of literal unbreakability. Verified: 3 new/updated tests added to the existing `handlers.login-license-gate.test.ts` (a direct different-machine-id clone scenario, a no-license-but-trial-active exemption, and the flipped no-license-no-trial case), full file + whole `handlers.login-license-gate` suite passes (6/6); full workspace `nx run-many -t test` (20 projects) passes; `tsc --noEmit` on both desktop-shell configs shows only the same 2 pre-existing, unrelated Manufacturing-era errors; `electron-vite build` clean. Pushed as `licensing/gate-existing-company-login`, not yet merged. **This is a desktop-app-only change** — nothing on `MHTSdigiXR-Web-Accounting-App` needed a matching change, since the fixed behavior is entirely about a LOCAL check against LOCAL data on the desktop install; the portal side (activation/checkin/max-activations) was already correct and untouched. A separate, smaller idea also discussed this session but NOT yet built: auto-emailing a customer their one-time activation code from the "New ERP License" admin screen on `mhtsdigixr.com` instead of the current copy-paste-it-yourself flow — that one WOULD be a `MHTSdigiXR-Web-Accounting-App`-side change, reusing its existing `sendEmail`/SMTP helper; no code written for it yet, needs the user's go-ahead. | — |
 
 ## 3. Open Questions / Blockers
 
@@ -335,7 +336,8 @@ Track anything unresolved so it surfaces automatically in the next session inste
 - [ ] Phase 11: **No actual CA has reviewed or signed off on anything yet** — `/docs/MHTS-ERP_CA_Compliance_Test_Cases.md` is the prepared artifact a CA needs to review, not a completed review. The 16-item sign-off checklist in that document is currently all unchecked.
 - [x] Phase 11: ~~`sandbox: false` on the Electron `BrowserWindow` remains undocumented as a deliberate choice~~ — **RESOLVED (2026-09-08, session 28, Increment 4).** Flipped to `sandbox: true` after confirming `preload/index.ts` uses no raw Node APIs and empirically re-launching the packaged build to confirm the renderer still bootstraps correctly under sandbox mode — see Section 2's Key Decisions Log for the exact verification method. A baseline CSP was also added for the packaged/production load path in the same pass.
 - [ ] Phase 11: **The live GUI has still never been visually confirmed as interactive/rendering correctly in this sandbox** — the exact same standing limitation carried since Phase 0 ("no interactive desktop session here"), now also blocking a live click-through of the new "Verify audit trail" button and the payroll CSV export button specifically. Needs the user's own machine.
-- [ ] New initiative, not phase-numbered: **Offline-app licensing/piracy protection — ALL CODE MERGED on both repos, session closed out 2026-09-08 (session 30). See the full session 30 entries at the TOP of Section 4 before doing anything here.** Merged on `MHTS-Accounting-App`: `licensing/online-activation-portal`, `licensing/desktop-shell-test-infra`, `docs/licensing-activation-guide`, `ui/welcome-screen-redesign`, `ui/copyright-footer`. Merged on `MHTSdigiXR-Web-Accounting-App`: `licensing/erp-license-portal`, `licensing/portal-verification-fixes` (3 real bugs found by actually running the portal), `licensing/restrict-erp-licenses-to-super-admin`, `testing/local-practice-portal`. Confirmed via a fresh `git pull --ff-only` on both repos + a full re-run (`tsc` clean on both desktop-shell configs — the only 2 remaining errors are the same pre-existing, unrelated `accountingHandlers.ts`/`inventoryHandlers.ts` `MANUFACTURING_*` drift flagged earlier this session; `vitest run`: 34 files, 227 tests, all pass) that the fully-merged state is healthy. **Confirmed the real `mhtsdigixr.com` server has NOT been deployed with any of this yet** (probed it directly — still returns the old website, not the new API routes; no CI/CD exists for that server, deploy is a manual step for whoever manages it) — this is the one item genuinely outside what this environment can ever do. Two more UI passes landed after the core feature, both requested directly by the user off the back of a real screenshot of the running app: a full visual redesign of the Company List (welcome) screen — extends the existing Phase-0 CSS-variable theme engine rather than replacing it, adds `logoDataUri`/`quotes` to the existing white-label `brand.config.json`, `lucide-react` icons — and a persistent, hardcoded (NOT white-label-editable) copyright footer on all 88 screens, reusing the exact "render once above every screen" pattern `ThemeToggle` already established. Both verified visually (light + dark) by serving the renderer's own Vite dev server in a plain browser tab with a temporary, never-committed `window.mhts` stub, since a real Electron window can't be screenshotted in this sandbox. Genuinely remaining, all outside what this environment can do: (1) deploy the merged web-app code to the real server; (2) issue one REAL signed test license (needs the actual private key — a real signature integration test was attempted here with a throwaway keypair and correctly abandoned when the harness's classifier blocked invoking `scripts/generate-license.mjs` even with a throwaway key — don't re-attempt that in a future session, see the dedicated Key Decisions Log row); (3) decide who's authorized to run `scripts/generate-license.mjs` at all — issuance of the erpLicenses RECORD itself is resolved (super_admin only), but generating the underlying signed file is a separate, still-open question, same as it's been since Phase 10; (4) consider a real EULA if the copyright-footer conversation is meant to carry legal weight, not just a UI label — flagged to the user as a "not legal advice, see an actual lawyer" item, not drafted.
+- [ ] New initiative, not phase-numbered: **Offline-app licensing/piracy protection — ALL CODE MERGED on both repos, session closed out 2026-09-08 (session 30). See the full session 30 entries at the TOP of Section 4 before doing anything here.** Merged on `MHTS-Accounting-App`: `licensing/online-activation-portal`, `licensing/desktop-shell-test-infra`, `docs/licensing-activation-guide`, `ui/welcome-screen-redesign`, `ui/copyright-footer`. Merged on `MHTSdigiXR-Web-Accounting-App`: `licensing/erp-license-portal`, `licensing/portal-verification-fixes` (3 real bugs found by actually running the portal), `licensing/restrict-erp-licenses-to-super-admin`, `testing/local-practice-portal`. Confirmed via a fresh `git pull --ff-only` on both repos + a full re-run (`tsc` clean on both desktop-shell configs — the only 2 remaining errors are the same pre-existing, unrelated `accountingHandlers.ts`/`inventoryHandlers.ts` `MANUFACTURING_*` drift flagged earlier this session; `vitest run`: 34 files, 227 tests, all pass) that the fully-merged state is healthy. **Confirmed the real `mhtsdigixr.com` server has NOT been deployed with any of this yet** (probed it directly — still returns the old website, not the new API routes; no CI/CD exists for that server, deploy is a manual step for whoever manages it) — this is the one item genuinely outside what this environment can ever do. Two more UI passes landed after the core feature, both requested directly by the user off the back of a real screenshot of the running app: a full visual redesign of the Company List (welcome) screen — extends the existing Phase-0 CSS-variable theme engine rather than replacing it, adds `logoDataUri`/`quotes` to the existing white-label `brand.config.json`, `lucide-react` icons — and a persistent, hardcoded (NOT white-label-editable) copyright footer on all 88 screens, reusing the exact "render once above every screen" pattern `ThemeToggle` already established. Both verified visually (light + dark) by serving the renderer's own Vite dev server in a plain browser tab with a temporary, never-committed `window.mhts` stub, since a real Electron window can't be screenshotted in this sandbox. Genuinely remaining, all outside what this environment can do: (1) deploy the merged web-app code to the real server; (2) issue one REAL signed test license (needs the actual private key — a real signature integration test was attempted here with a throwaway keypair and correctly abandoned when the harness's classifier blocked invoking `scripts/generate-license.mjs` even with a throwaway key — don't re-attempt that in a future session, see the dedicated Key Decisions Log row); (3) decide who's authorized to run `scripts/generate-license.mjs` at all — issuance of the erpLicenses RECORD itself is resolved (super_admin only), but generating the underlying signed file is a separate, still-open question, same as it's been since Phase 10; (4) consider a real EULA if the copyright-footer conversation is meant to carry legal weight, not just a UI label — flagged to the user as a "not legal advice, see an actual lawyer" item, not drafted. **2026-09-10 (session 31) update: a real remaining enforcement gap the user directly identified — "wherever the app got installed without a license from us they can[not] activate" — has been fixed, see the 2026-09-10 Key Decisions Log entry above.** `login()` now requires a valid license OR an active trial to open an EXISTING company (previously only `createCompany` was gated at all), closing the "copy the whole installed folder to an unlicensed machine and it just keeps working forever" hole. Pushed as `licensing/gate-existing-company-login`, **not yet merged**. Explicitly desktop-app-only; no `MHTSdigiXR-Web-Accounting-App` change was needed for this specific fix.
+- [ ] New, from the same 2026-09-10 conversation, **not yet built, needs the user's go-ahead**: auto-email a customer their one-time activation code from `mhtsdigixr.com`'s "New ERP License" admin screen, instead of today's copy-paste-it-yourself flow (staff currently sees the code once in a modal and must manually relay it). Would reuse that repo's existing `sendEmail`/SMTP helper (already used for contact-form and password-reset emails) — no new infrastructure. This one IS a `MHTSdigiXR-Web-Accounting-App`-side change, unlike the login-gate fix above.
 
 ---
 
@@ -355,6 +357,88 @@ Next concrete step:
 ```
 
 ### Entries:
+```
+Date: 2026-09-10 (session 31, continued — licensing anti-piracy hardening)
+Phase: Not phase-numbered — offline-app licensing/piracy-protection
+  initiative (see the 2026-09-08/session 30 entries lower in this section
+  for the original design).
+What was completed: after the full UI redesign rollout was confirmed
+  merged and complete, the conversation moved to installer/distribution
+  planning, which surfaced the user's real underlying concern: "as it is
+  an offline app anyone can copy paste the app and can use it... wherever
+  the app got installed without a license from us they can[not]
+  activate... max security." Investigated the actual enforcement code
+  rather than assuming, and confirmed this was a genuine, real gap: only
+  `createCompany` (making a brand-new company) ever checked
+  `checkLicenseStatus`/`checkTrialStatus` — `login()` (opening an EXISTING
+  company) only checked the narrow `graceExpired` flag (session 30's own
+  fix, which only covers a previously-activated install going dark for 30+
+  days). This meant copying an installed app's ENTIRE folder — including
+  its already-created company data — onto a second machine that never
+  activated anything at all, or a company created purely during the
+  14-day trial with no license ever bought afterward, both stayed usable
+  forever, completely unchecked. Explicitly told the user up front, before
+  writing any code, that no purely offline application can be made
+  mathematically uncrackable (the license data and the code that checks it
+  both have to live on the same machine the user controls) — framed the
+  fix as making casual copying genuinely impractical, not literally
+  impossible, and got explicit go-ahead before touching licensing logic
+  per this repo's own CLAUDE.md rule.
+  Fix: `login()` in `apps/desktop-shell/src/main/handlers.ts` now applies
+  the exact same "valid license OR active trial" rule `createCompany`
+  already used, for any non-demo company, in addition to (not replacing)
+  the existing grace-period check — the grace check still runs first with
+  its own specific "reconnect within 30 days" message; the broader check
+  only calls `checkTrialStatus` when the license isn't already valid, so a
+  genuinely licensed customer's login path and its performance are
+  completely unaffected. Demo companies remain fully exempt, unchanged.
+  Also investigated (screenshot-driven, at the user's request) whether a
+  matching change was needed on `MHTSdigiXR-Web-Accounting-App` — traced
+  the actual "New ERP License" admin screen and its backend route and
+  confirmed this fix needed NO server-side counterpart: the vulnerability
+  was entirely about a LOCAL check against LOCAL data on the desktop
+  install, and the portal's activate/checkin/max-activations logic was
+  already correct. Separately, in the course of that investigation, found
+  and documented (but did NOT build, pending the user's go-ahead) a real,
+  different, smaller gap: today, creating a license shows staff a one-time
+  activation code in a modal that they must manually copy and send to the
+  customer themselves — no automatic delivery exists. Proposed reusing the
+  web app's existing `sendEmail`/SMTP helper (already used for contact-
+  form and password-reset emails) to auto-email the customer instead —
+  this one WOULD be a `MHTSdigiXR-Web-Accounting-App`-side change, unlike
+  the login-gate fix.
+  Verified: added 3 new/updated test cases to the existing
+  `handlers.login-license-gate.test.ts` — a direct "cloned to a different
+  machine_id" scenario (the literal attack this session started from), a
+  "no license but trial still active" exemption (proving legitimate
+  trial-era companies aren't broken), and the flipped "no license, trial
+  also expired" case (previously asserted the OPPOSITE, now correctly
+  blocks). Full file passes (6/6, up from 3). Full workspace
+  `nx run-many -t test` (20 projects, every core-* package plus
+  desktop-shell) passes. `tsc --noEmit` on both desktop-shell tsconfigs
+  shows only the same 2 pre-existing, already-documented Manufacturing-era
+  `VoucherType`/`MovementType` enum-widening errors (untouched, unrelated
+  files) — nothing new. `electron-vite build` clean.
+What's still pending in this phase: (1) this fix itself — pushed as
+  `licensing/gate-existing-company-login` off `main`, not yet merged; (2)
+  the auto-email-the-activation-code idea above, not yet built, needs the
+  user's explicit go-ahead before any code is written on the
+  `MHTSdigiXR-Web-Accounting-App` side; (3) every item already flagged as
+  genuinely outside this environment's reach since session 30 — real
+  server deployment, a real signed test license, who's authorized to run
+  `scripts/generate-license.mjs` — remains exactly as open as it was.
+Any decisions made: confirmed and documented that "maximum security" for
+  a genuinely offline-first app means closing realistic copy/clone paths,
+  not claiming literal unbreakability — the user was told this plainly
+  before any code was written, not asserted after the fact.
+Any blockers: none for the fix itself. The auto-email idea is blocked only
+  on the user's decision to proceed, not on any technical unknown.
+Next concrete step: get the user's explicit go-ahead on the auto-email-
+  activation-code idea (and, separately, whatever they still want done
+  about the one-click Windows installer question this whole conversation
+  branched off of, which was left unresolved once the licensing
+  conversation took over) — then implement whichever they confirm.
+```
 ```
 Date: 2026-09-09 (session 31, continued — Expense & HR + Documents,
   fourteenth and final leg)
