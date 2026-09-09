@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { ArrowLeft, Printer } from 'lucide-react';
 import type { SessionInfo } from '../../../shared/ipc';
 
 interface Props {
@@ -168,8 +169,8 @@ export function PrintCentreScreen({ session, onBack }: Props) {
 
   if (!canPrint) {
     return (
-      <div style={{ padding: 24, fontFamily: 'sans-serif' }}>
-        <p>You do not have permission to print documents.</p>
+      <div className="page">
+        <p className="empty-state">You do not have permission to print documents.</p>
         <button type="button" onClick={onBack}>
           Back to dashboard
         </button>
@@ -178,14 +179,25 @@ export function PrintCentreScreen({ session, onBack }: Props) {
   }
 
   return (
-    <div style={{ padding: 24, fontFamily: 'sans-serif', maxWidth: 1000 }}>
-      <h1>Print Centre</h1>
-      <p style={{ color: '#666', fontSize: 13 }}>Every printable document in one place — browse and reprint anything without hunting through its own register screen.</p>
-      {error && <p style={{ color: 'crimson' }}>{error}</p>}
+    <div className="page" style={{ maxWidth: 1100 }}>
+      <div className="page-header">
+        <button type="button" className="back-link" onClick={onBack}>
+          <ArrowLeft size={16} /> Back
+        </button>
+        <h1>
+          <Printer size={18} style={{ color: 'var(--accent)' }} /> Print Centre
+        </h1>
+      </div>
 
-      <p>
-        <label>
-          Document type{' '}
+      <p style={{ color: 'var(--fg-muted)', fontSize: 13, marginTop: -8 }}>
+        Every printable document in one place — browse and reprint anything without hunting through its own register screen.
+      </p>
+
+      {error && <p className="error-text">{error}</p>}
+
+      <div className="card" style={{ overflowX: 'auto' }}>
+        <label className="field" style={{ maxWidth: 260, marginBottom: 16 }}>
+          Document type
           <select value={filter} onChange={(e) => setFilter(e.target.value as DocType | 'ALL')}>
             <option value="ALL">All</option>
             {DOC_TYPE_ORDER.map((t) => (
@@ -195,53 +207,47 @@ export function PrintCentreScreen({ session, onBack }: Props) {
             ))}
           </select>
         </label>
-      </p>
 
-      {sortedRows === null ? (
-        <p>Loading…</p>
-      ) : sortedRows.length === 0 ? (
-        <p>No documents found.</p>
-      ) : (
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-          <thead>
-            <tr>
-              <th style={{ textAlign: 'left' }}>Type</th>
-              <th style={{ textAlign: 'left' }}>No.</th>
-              <th style={{ textAlign: 'left' }}>Date</th>
-              <th style={{ textAlign: 'left' }}>Party / Employee</th>
-              <th style={{ textAlign: 'right' }}>Amount (₹)</th>
-              <th style={{ textAlign: 'left' }}>Status</th>
-              <th />
-            </tr>
-          </thead>
-          <tbody>
-            {sortedRows.map((row) => (
-              <tr key={`${row.docType}-${row.id}`}>
-                <td>{DOC_TYPE_LABELS[row.docType]}</td>
-                <td>{row.number}</td>
-                <td>{row.date}</td>
-                <td>{row.partyOrEmployee}</td>
-                <td style={{ textAlign: 'right' }}>{row.amount.toFixed(2)}</td>
-                <td>{row.status}</td>
-                <td>
-                  <button type="button" disabled={printingId === row.id} onClick={() => handlePrint(row)}>
-                    {printingId === row.id ? 'Working…' : 'Print'}
-                  </button>{' '}
-                  <button type="button" disabled={printingId === row.id} onClick={() => handleSavePdf(row)}>
-                    Save PDF
-                  </button>
-                </td>
+        {sortedRows === null ? (
+          <p className="empty-state">Loading…</p>
+        ) : sortedRows.length === 0 ? (
+          <p className="empty-state">No documents found.</p>
+        ) : (
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Type</th>
+                <th>No.</th>
+                <th>Date</th>
+                <th>Party / Employee</th>
+                <th className="num">Amount (₹)</th>
+                <th>Status</th>
+                <th />
               </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
-
-      <p>
-        <button type="button" onClick={onBack}>
-          Back to dashboard
-        </button>
-      </p>
+            </thead>
+            <tbody>
+              {sortedRows.map((row) => (
+                <tr key={`${row.docType}-${row.id}`}>
+                  <td>{DOC_TYPE_LABELS[row.docType]}</td>
+                  <td>{row.number}</td>
+                  <td>{row.date}</td>
+                  <td>{row.partyOrEmployee}</td>
+                  <td className="num">{row.amount.toFixed(2)}</td>
+                  <td>{row.status}</td>
+                  <td>
+                    <button type="button" disabled={printingId === row.id} onClick={() => handlePrint(row)}>
+                      {printingId === row.id ? 'Working…' : 'Print'}
+                    </button>{' '}
+                    <button type="button" disabled={printingId === row.id} onClick={() => handleSavePdf(row)}>
+                      Save PDF
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
     </div>
   );
 }
