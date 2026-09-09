@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { ArrowLeft, Scale } from 'lucide-react';
 import type { BalanceSheetResult } from '../../../shared/ipc';
 
 interface Props {
@@ -28,83 +29,95 @@ export function BalanceSheetScreen({ onBack }: Props) {
   }
 
   return (
-    <div style={{ padding: 24, fontFamily: 'sans-serif', maxWidth: 640 }}>
-      <h1>Balance Sheet</h1>
-      <p>
-        <label>
-          As of <input type="date" value={asOfDate} onChange={(e) => setAsOfDate(e.target.value)} />
-        </label>{' '}
-        <button type="button" onClick={refresh} disabled={loading}>
-          {loading ? 'Loading…' : 'Run'}
+    <div className="page" style={{ maxWidth: 900 }}>
+      <div className="page-header">
+        <button type="button" className="back-link" onClick={onBack}>
+          <ArrowLeft size={16} /> Back
         </button>
-      </p>
-      {error && <p style={{ color: 'crimson' }}>{error}</p>}
+        <h1>
+          <Scale size={18} style={{ color: 'var(--accent)' }} /> Balance sheet
+        </h1>
+      </div>
+
+      <div className="card">
+        <div className="field-row" style={{ alignItems: 'flex-end' }}>
+          <label className="field" style={{ maxWidth: 200 }}>
+            As of
+            <input type="date" value={asOfDate} onChange={(e) => setAsOfDate(e.target.value)} />
+          </label>
+          <button type="button" className="btn-primary" onClick={refresh} disabled={loading} style={{ marginBottom: 12 }}>
+            {loading ? 'Loading…' : 'Run'}
+          </button>
+        </div>
+      </div>
+
+      {error && <p className="error-text">{error}</p>}
+
       {balanceSheet && (
-        <div style={{ display: 'flex', gap: 32 }}>
-          <div style={{ flex: 1 }}>
+        <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+          <div className="card" style={{ flex: 1, minWidth: 300 }}>
             <h2>Assets</h2>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <table className="data-table">
               <tbody>
                 {balanceSheet.assetRows.map((row) => (
                   <tr key={row.ledgerId}>
                     <td>{row.ledgerName}</td>
-                    <td style={{ textAlign: 'right' }}>₹{row.amount.toFixed(2)}</td>
+                    <td className="num">₹{row.amount.toFixed(2)}</td>
                   </tr>
                 ))}
-                <tr style={{ fontWeight: 'bold', borderTop: '1px solid #333' }}>
-                  <td>Total Assets</td>
-                  <td style={{ textAlign: 'right' }}>₹{balanceSheet.totalAssets.toFixed(2)}</td>
-                </tr>
               </tbody>
+              <tfoot>
+                <tr>
+                  <td>Total Assets</td>
+                  <td className="num">₹{balanceSheet.totalAssets.toFixed(2)}</td>
+                </tr>
+              </tfoot>
             </table>
           </div>
 
-          <div style={{ flex: 1 }}>
+          <div className="card" style={{ flex: 1, minWidth: 300 }}>
             <h2>Liabilities</h2>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <table className="data-table" style={{ marginBottom: 20 }}>
               <tbody>
                 {balanceSheet.liabilityRows.map((row) => (
                   <tr key={row.ledgerId}>
                     <td>{row.ledgerName}</td>
-                    <td style={{ textAlign: 'right' }}>₹{row.amount.toFixed(2)}</td>
+                    <td className="num">₹{row.amount.toFixed(2)}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
 
             <h2>Equity</h2>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <table className="data-table">
               <tbody>
                 {balanceSheet.equityRows.map((row) => (
                   <tr key={row.ledgerId}>
                     <td>{row.ledgerName}</td>
-                    <td style={{ textAlign: 'right' }}>₹{row.amount.toFixed(2)}</td>
+                    <td className="num">₹{row.amount.toFixed(2)}</td>
                   </tr>
                 ))}
                 <tr>
                   <td>Current Earnings</td>
-                  <td style={{ textAlign: 'right' }}>₹{balanceSheet.currentEarnings.toFixed(2)}</td>
-                </tr>
-                <tr style={{ fontWeight: 'bold', borderTop: '1px solid #333' }}>
-                  <td>Total Liabilities &amp; Equity</td>
-                  <td style={{ textAlign: 'right' }}>₹{balanceSheet.totalLiabilitiesAndEquity.toFixed(2)}</td>
+                  <td className="num">₹{balanceSheet.currentEarnings.toFixed(2)}</td>
                 </tr>
               </tbody>
+              <tfoot>
+                <tr>
+                  <td>Total Liabilities &amp; Equity</td>
+                  <td className="num">₹{balanceSheet.totalLiabilitiesAndEquity.toFixed(2)}</td>
+                </tr>
+              </tfoot>
             </table>
           </div>
         </div>
       )}
+
       {balanceSheet && Math.abs(balanceSheet.totalAssets - balanceSheet.totalLiabilitiesAndEquity) > 0.005 && (
-        <p style={{ color: 'crimson' }}>
-          Assets do not equal Liabilities + Equity — this can happen if opening balances entered for different ledgers
-          don't net to zero.
+        <p className="error-text">
+          Assets do not equal Liabilities + Equity — this can happen if opening balances entered for different ledgers don't net to zero.
         </p>
       )}
-      <p>
-        <button type="button" onClick={onBack}>
-          Back to dashboard
-        </button>
-      </p>
     </div>
   );
 }

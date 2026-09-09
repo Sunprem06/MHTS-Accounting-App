@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { ArrowLeft, ArrowLeftRight } from 'lucide-react';
 import type { BranchSummary, LedgerAccountSummary, PaymentInstrumentInput, SessionInfo } from '../../../shared/ipc';
 import { PaymentInstrumentFields } from './PaymentInstrumentFields';
 
@@ -81,83 +82,91 @@ export function ContraVoucherScreen({ session, onCreated, onBack }: Props) {
   }
 
   return (
-    <div style={{ padding: 24, fontFamily: 'sans-serif', maxWidth: 480 }}>
-      <h1>Contra voucher</h1>
-      <form onSubmit={handleSubmit}>
-        <label>
-          From
-          <select value={fromLedgerId} onChange={(e) => setFromLedgerId(e.target.value)} required>
-            {ledgers.map((ledger) => (
-              <option key={ledger.id} value={ledger.id}>
-                {ledger.name}
-              </option>
-            ))}
-          </select>
-        </label>{' '}
-        <label>
-          From branch
-          <select value={fromBranchId} onChange={(e) => setFromBranchId(e.target.value)}>
-            <option value="">—</option>
-            {branches.map((b) => (
-              <option key={b.id} value={b.id}>
-                {b.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <br />
-        <label>
-          To
-          <select value={toLedgerId} onChange={(e) => setToLedgerId(e.target.value)} required>
-            {ledgers.map((ledger) => (
-              <option key={ledger.id} value={ledger.id}>
-                {ledger.name}
-              </option>
-            ))}
-          </select>
-        </label>{' '}
-        <label>
-          To branch
-          <select value={toBranchId} onChange={(e) => setToBranchId(e.target.value)}>
-            <option value="">—</option>
-            {branches.map((b) => (
-              <option key={b.id} value={b.id}>
-                {b.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <br />
-        <label>
-          Amount (₹)
-          <input
-            type="number"
-            step="0.01"
-            min="0"
-            value={amountRupees || ''}
-            onChange={(e) => setAmountRupees(Number(e.target.value) || 0)}
-            required
-          />
-        </label>
-        <br />
-        <label>
-          Date
-          <input type="date" value={voucherDate} onChange={(e) => setVoucherDate(e.target.value)} required />
-        </label>
-        <br />
-        <label>
-          Narration
-          <input value={narration} onChange={(e) => setNarration(e.target.value)} style={{ width: '100%' }} />
-        </label>
-        <br />
-        {eitherSideIsBank && canRecordInstrument && <PaymentInstrumentFields value={instrument} onChange={setInstrument} />}
-        {error && <p style={{ color: 'crimson' }}>{error}</p>}
-        <button type="submit" disabled={submitting || amountRupees <= 0}>
-          {submitting ? 'Saving…' : 'Save contra'}
-        </button>{' '}
-        <button type="button" onClick={onBack} disabled={submitting}>
-          Back
+    <div className="page" style={{ maxWidth: 640 }}>
+      <div className="page-header">
+        <button type="button" className="back-link" onClick={onBack} disabled={submitting}>
+          <ArrowLeft size={16} /> Back
         </button>
+        <h1>
+          <ArrowLeftRight size={18} style={{ color: 'var(--accent)' }} /> Contra voucher
+        </h1>
+      </div>
+
+      <form onSubmit={handleSubmit}>
+        <div className="card">
+          <div className="field-row">
+            <label className="field">
+              From
+              <select value={fromLedgerId} onChange={(e) => setFromLedgerId(e.target.value)} required>
+                {ledgers.map((ledger) => (
+                  <option key={ledger.id} value={ledger.id}>
+                    {ledger.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="field">
+              From branch
+              <select value={fromBranchId} onChange={(e) => setFromBranchId(e.target.value)}>
+                <option value="">—</option>
+                {branches.map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {b.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+          <div className="field-row">
+            <label className="field">
+              To
+              <select value={toLedgerId} onChange={(e) => setToLedgerId(e.target.value)} required>
+                {ledgers.map((ledger) => (
+                  <option key={ledger.id} value={ledger.id}>
+                    {ledger.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="field">
+              To branch
+              <select value={toBranchId} onChange={(e) => setToBranchId(e.target.value)}>
+                <option value="">—</option>
+                {branches.map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {b.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+          <div className="field-row">
+            <label className="field">
+              Amount (₹)
+              <input type="number" step="0.01" min="0" value={amountRupees || ''} onChange={(e) => setAmountRupees(Number(e.target.value) || 0)} required />
+            </label>
+            <label className="field">
+              Date
+              <input type="date" value={voucherDate} onChange={(e) => setVoucherDate(e.target.value)} required />
+            </label>
+          </div>
+          <label className="field">
+            Narration
+            <input value={narration} onChange={(e) => setNarration(e.target.value)} />
+          </label>
+          {eitherSideIsBank && canRecordInstrument && <PaymentInstrumentFields value={instrument} onChange={setInstrument} />}
+        </div>
+
+        {error && <p className="error-text">{error}</p>}
+
+        <div className="form-actions">
+          <button type="submit" className="btn-primary" disabled={submitting || amountRupees <= 0}>
+            {submitting ? 'Saving…' : 'Save contra'}
+          </button>
+          <button type="button" onClick={onBack} disabled={submitting}>
+            Cancel
+          </button>
+        </div>
       </form>
     </div>
   );
