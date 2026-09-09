@@ -1,9 +1,21 @@
 import { useEffect, useState } from 'react';
-import type { OrderSummary, SessionInfo } from '../../../shared/ipc';
+import { ArrowLeft, ClipboardList } from 'lucide-react';
+import type { OrderSummary, OrderStatus, SessionInfo } from '../../../shared/ipc';
 
 interface Props {
   session: SessionInfo;
   onBack: () => void;
+}
+
+function statusBadgeClass(status: OrderStatus): string {
+  switch (status) {
+    case 'CONFIRMED':
+      return 'badge-success';
+    case 'DRAFT':
+      return 'badge-warning';
+    default:
+      return 'badge-muted';
+  }
 }
 
 export function SalesOrderRegisterScreen({ session, onBack }: Props) {
@@ -61,76 +73,86 @@ export function SalesOrderRegisterScreen({ session, onBack }: Props) {
   }
 
   return (
-    <div style={{ padding: 24, fontFamily: 'sans-serif', maxWidth: 900 }}>
-      <h1>Sales order register</h1>
-      {error && <p style={{ color: 'crimson' }}>{error}</p>}
-      {orders === null ? (
-        <p>Loading…</p>
-      ) : (
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-          <thead>
-            <tr>
-              <th style={{ textAlign: 'left' }}>No.</th>
-              <th style={{ textAlign: 'left' }}>Date</th>
-              <th style={{ textAlign: 'left' }}>Customer</th>
-              <th style={{ textAlign: 'right' }}>Total (₹)</th>
-              <th style={{ textAlign: 'left' }}>Status</th>
-              {canPrint && <th />}
-              {canManage && <th />}
-            </tr>
-          </thead>
-          <tbody>
-            {orders.map((order) => (
-              <tr key={order.id} style={{ opacity: order.status === 'CANCELLED' ? 0.6 : 1 }}>
-                <td>{order.orderNumber}</td>
-                <td>{order.orderDate}</td>
-                <td>{order.partyName}</td>
-                <td style={{ textAlign: 'right' }}>{order.totalAmount.toFixed(2)}</td>
-                <td>{order.status}</td>
-                {canPrint && (
-                  <td>
-                    <button type="button" disabled={printingId === order.id} onClick={() => handlePrint(order.id)}>
-                      {printingId === order.id ? 'Working…' : 'Print'}
-                    </button>{' '}
-                    <button type="button" disabled={printingId === order.id} onClick={() => handleSavePdf(order.id)}>
-                      Save PDF
-                    </button>
-                  </td>
-                )}
-                {canManage && (
-                  <td>
-                    {order.status === 'DRAFT' && (
-                      <>
-                        <button type="button" disabled={busyId === order.id} onClick={() => withBusy(order.id, () => window.mhts.confirmSalesOrder(order.id))}>
-                          Confirm
-                        </button>{' '}
-                        <button type="button" disabled={busyId === order.id} onClick={() => withBusy(order.id, () => window.mhts.cancelSalesOrder(order.id))}>
-                          Cancel
-                        </button>
-                      </>
-                    )}
-                    {order.status === 'CONFIRMED' && (
-                      <>
-                        <button type="button" disabled={busyId === order.id} onClick={() => withBusy(order.id, () => window.mhts.convertSalesOrder(order.id))}>
-                          Convert to invoice
-                        </button>{' '}
-                        <button type="button" disabled={busyId === order.id} onClick={() => withBusy(order.id, () => window.mhts.cancelSalesOrder(order.id))}>
-                          Cancel
-                        </button>
-                      </>
-                    )}
-                  </td>
-                )}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
-      <p>
-        <button type="button" onClick={onBack}>
-          Back to dashboard
+    <div className="page" style={{ maxWidth: 1000 }}>
+      <div className="page-header">
+        <button type="button" className="back-link" onClick={onBack}>
+          <ArrowLeft size={16} /> Back
         </button>
-      </p>
+        <h1>
+          <ClipboardList size={18} style={{ color: 'var(--accent)' }} /> Sales order register
+        </h1>
+      </div>
+
+      {error && <p className="error-text">{error}</p>}
+
+      <div className="card" style={{ overflowX: 'auto' }}>
+        {orders === null ? (
+          <p className="empty-state">Loading…</p>
+        ) : orders.length === 0 ? (
+          <p className="empty-state">No sales orders yet.</p>
+        ) : (
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>No.</th>
+                <th>Date</th>
+                <th>Customer</th>
+                <th className="num">Total (₹)</th>
+                <th>Status</th>
+                {canPrint && <th />}
+                {canManage && <th />}
+              </tr>
+            </thead>
+            <tbody>
+              {orders.map((order) => (
+                <tr key={order.id} style={{ opacity: order.status === 'CANCELLED' ? 0.6 : 1 }}>
+                  <td>{order.orderNumber}</td>
+                  <td>{order.orderDate}</td>
+                  <td>{order.partyName}</td>
+                  <td className="num">{order.totalAmount.toFixed(2)}</td>
+                  <td>
+                    <span className={`badge ${statusBadgeClass(order.status)}`}>{order.status}</span>
+                  </td>
+                  {canPrint && (
+                    <td>
+                      <button type="button" disabled={printingId === order.id} onClick={() => handlePrint(order.id)}>
+                        {printingId === order.id ? 'Working…' : 'Print'}
+                      </button>{' '}
+                      <button type="button" disabled={printingId === order.id} onClick={() => handleSavePdf(order.id)}>
+                        Save PDF
+                      </button>
+                    </td>
+                  )}
+                  {canManage && (
+                    <td>
+                      {order.status === 'DRAFT' && (
+                        <>
+                          <button type="button" disabled={busyId === order.id} onClick={() => withBusy(order.id, () => window.mhts.confirmSalesOrder(order.id))}>
+                            Confirm
+                          </button>{' '}
+                          <button type="button" disabled={busyId === order.id} onClick={() => withBusy(order.id, () => window.mhts.cancelSalesOrder(order.id))}>
+                            Cancel
+                          </button>
+                        </>
+                      )}
+                      {order.status === 'CONFIRMED' && (
+                        <>
+                          <button type="button" disabled={busyId === order.id} onClick={() => withBusy(order.id, () => window.mhts.convertSalesOrder(order.id))}>
+                            Convert to invoice
+                          </button>{' '}
+                          <button type="button" disabled={busyId === order.id} onClick={() => withBusy(order.id, () => window.mhts.cancelSalesOrder(order.id))}>
+                            Cancel
+                          </button>
+                        </>
+                      )}
+                    </td>
+                  )}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
     </div>
   );
 }
