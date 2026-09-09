@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { ArrowLeft, Banknote } from 'lucide-react';
 import type { EmployeePayrollProfileSummary, SalaryStructureSummary, SessionInfo } from '../../../shared/ipc';
 
 interface Props {
@@ -8,6 +9,10 @@ interface Props {
 
 function todayIso(): string {
   return new Date().toISOString().slice(0, 10);
+}
+
+function statusBadgeClass(status: string): string {
+  return status === 'ACTIVE' ? 'badge-success' : 'badge-muted';
 }
 
 /** Assigns/re-assigns an employee's CTC — a raise is a new dated row, never an edit of history (see @mhts/core-payroll-engine's assignSalaryStructure), so the history table below always shows the full progression, not just the current figure. */
@@ -66,36 +71,46 @@ export function SalaryStructureScreen({ session, onBack }: Props) {
   const active = structures?.find((s) => s.status === 'ACTIVE') ?? null;
 
   return (
-    <div style={{ padding: 24, fontFamily: 'sans-serif', maxWidth: 800 }}>
-      <h1>Salary structure (CTC)</h1>
-      {error && <p style={{ color: 'crimson' }}>{error}</p>}
+    <div className="page" style={{ maxWidth: 800 }}>
+      <div className="page-header">
+        <button type="button" className="back-link" onClick={onBack}>
+          <ArrowLeft size={16} /> Back
+        </button>
+        <h1>
+          <Banknote size={18} style={{ color: 'var(--accent)' }} /> Salary structure (CTC)
+        </h1>
+      </div>
 
-      <label>
-        Employee
-        <select value={selectedEmployeeId} onChange={(e) => setSelectedEmployeeId(e.target.value)}>
-          <option value="">— select —</option>
-          {employees.map((emp) => (
-            <option key={emp.id} value={emp.id}>
-              {emp.employeeCode} — {emp.name}
-            </option>
-          ))}
-        </select>
-      </label>
+      {error && <p className="error-text">{error}</p>}
+
+      <div className="card">
+        <label className="field" style={{ maxWidth: 320, marginBottom: 0 }}>
+          Employee
+          <select value={selectedEmployeeId} onChange={(e) => setSelectedEmployeeId(e.target.value)}>
+            <option value="">— select —</option>
+            {employees.map((emp) => (
+              <option key={emp.id} value={emp.id}>
+                {emp.employeeCode} — {emp.name}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
 
       {selectedEmployeeId && (
         <>
           {active && (
-            <div style={{ margin: '16px 0' }}>
+            <div className="card" style={{ overflowX: 'auto' }}>
               <h2>Current structure (effective {active.effectiveFrom})</h2>
-              <p>
+              <p style={{ marginTop: 0, color: 'var(--fg-muted)', fontSize: 13 }}>
                 Annual CTC: ₹{active.annualCtc.toFixed(2)} — Monthly statutory wage base: ₹{active.monthlyStatutoryWageBase.toFixed(2)}
               </p>
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <table className="data-table">
                 <thead>
                   <tr>
-                    <th style={{ textAlign: 'left' }}>Component</th>
-                    <th style={{ textAlign: 'left' }}>Type</th>
-                    <th style={{ textAlign: 'right' }}>Monthly (₹)</th>
+                    <th>Component</th>
+                    <th>Type</th>
+                    <th className="num">Monthly (₹)</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -103,7 +118,7 @@ export function SalaryStructureScreen({ session, onBack }: Props) {
                     <tr key={line.componentId}>
                       <td>{line.componentName}</td>
                       <td>{line.componentType}</td>
-                      <td style={{ textAlign: 'right' }}>{line.monthlyAmount.toFixed(2)}</td>
+                      <td className="num">{line.monthlyAmount.toFixed(2)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -112,15 +127,15 @@ export function SalaryStructureScreen({ session, onBack }: Props) {
           )}
 
           {structures && structures.length > 0 && (
-            <div style={{ margin: '16px 0' }}>
-              <h3>History</h3>
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <div className="card" style={{ overflowX: 'auto' }}>
+              <h2>History</h2>
+              <table className="data-table">
                 <thead>
                   <tr>
-                    <th style={{ textAlign: 'left' }}>Effective from</th>
-                    <th style={{ textAlign: 'left' }}>Effective to</th>
-                    <th style={{ textAlign: 'right' }}>Annual CTC (₹)</th>
-                    <th style={{ textAlign: 'left' }}>Status</th>
+                    <th>Effective from</th>
+                    <th>Effective to</th>
+                    <th className="num">Annual CTC (₹)</th>
+                    <th>Status</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -128,8 +143,10 @@ export function SalaryStructureScreen({ session, onBack }: Props) {
                     <tr key={s.id}>
                       <td>{s.effectiveFrom}</td>
                       <td>{s.effectiveTo ?? '—'}</td>
-                      <td style={{ textAlign: 'right' }}>{s.annualCtc.toFixed(2)}</td>
-                      <td>{s.status}</td>
+                      <td className="num">{s.annualCtc.toFixed(2)}</td>
+                      <td>
+                        <span className={`badge ${statusBadgeClass(s.status)}`}>{s.status}</span>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -138,29 +155,27 @@ export function SalaryStructureScreen({ session, onBack }: Props) {
           )}
 
           {canManage && (
-            <form onSubmit={handleAssign} style={{ marginTop: 16 }}>
+            <form onSubmit={handleAssign} className="card">
               <h2>{active ? 'Revise CTC' : 'Assign CTC'}</h2>
-              <label>
-                Effective from
-                <input type="date" value={effectiveFrom} onChange={(e) => setEffectiveFrom(e.target.value)} required />
-              </label>{' '}
-              <label>
-                Annual CTC (₹)
-                <input type="number" step="0.01" min="0" value={annualCtcRupees} onChange={(e) => setAnnualCtcRupees(Number(e.target.value) || 0)} required />
-              </label>{' '}
-              <button type="submit" disabled={submitting}>
-                {submitting ? 'Saving…' : 'Save'}
-              </button>
+              <div className="field-row">
+                <label className="field">
+                  Effective from
+                  <input type="date" value={effectiveFrom} onChange={(e) => setEffectiveFrom(e.target.value)} required />
+                </label>
+                <label className="field">
+                  Annual CTC (₹)
+                  <input type="number" step="0.01" min="0" value={annualCtcRupees} onChange={(e) => setAnnualCtcRupees(Number(e.target.value) || 0)} required style={{ width: 160 }} />
+                </label>
+              </div>
+              <div className="form-actions">
+                <button type="submit" className="btn-primary" disabled={submitting}>
+                  {submitting ? 'Saving…' : 'Save'}
+                </button>
+              </div>
             </form>
           )}
         </>
       )}
-
-      <p>
-        <button type="button" onClick={onBack}>
-          Back to dashboard
-        </button>
-      </p>
     </div>
   );
 }

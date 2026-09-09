@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { ArrowLeft, UserCog } from 'lucide-react';
 import type { EmployeePayrollProfileSummary, EmploymentType, SessionInfo } from '../../../shared/ipc';
 
 interface Props {
@@ -90,58 +91,69 @@ export function EmployeePayrollProfileScreen({ session, onBack }: Props) {
   }
 
   return (
-    <div style={{ padding: 24, fontFamily: 'sans-serif', maxWidth: 800 }}>
-      <h1>Employee payroll profiles</h1>
-      {error && <p style={{ color: 'crimson' }}>{error}</p>}
+    <div className="page" style={{ maxWidth: 860 }}>
+      <div className="page-header">
+        <button type="button" className="back-link" onClick={onBack}>
+          <ArrowLeft size={16} /> Back
+        </button>
+        <h1>
+          <UserCog size={18} style={{ color: 'var(--accent)' }} /> Employee payroll profiles
+        </h1>
+      </div>
 
-      {employees === null ? (
-        <p>Loading…</p>
-      ) : (
-        <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 24 }}>
-          <thead>
-            <tr>
-              <th style={{ textAlign: 'left' }}>Code</th>
-              <th style={{ textAlign: 'left' }}>Name</th>
-              <th style={{ textAlign: 'left' }}>Employment type</th>
-              <th style={{ textAlign: 'left' }}>Date of joining</th>
-              <th />
-            </tr>
-          </thead>
-          <tbody>
-            {employees.map((employee) => (
-              <tr key={employee.id} style={{ opacity: employee.isActive ? 1 : 0.6 }}>
-                <td>{employee.employeeCode}</td>
-                <td>{employee.name}</td>
-                <td>{employee.employmentType ?? '—'}</td>
-                <td>{employee.dateOfJoining ?? '—'}</td>
-                <td>{canManage && <button onClick={() => selectEmployee(employee)}>Edit</button>}</td>
+      {error && <p className="error-text">{error}</p>}
+
+      <div className="card" style={{ overflowX: 'auto' }}>
+        {employees === null ? (
+          <p className="empty-state">Loading…</p>
+        ) : (
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Code</th>
+                <th>Name</th>
+                <th>Employment type</th>
+                <th>Date of joining</th>
+                <th />
               </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
+            </thead>
+            <tbody>
+              {employees.map((employee) => (
+                <tr key={employee.id} style={{ opacity: employee.isActive ? 1 : 0.6 }}>
+                  <td>{employee.employeeCode}</td>
+                  <td>{employee.name}</td>
+                  <td>{employee.employmentType ?? '—'}</td>
+                  <td>{employee.dateOfJoining ?? '—'}</td>
+                  <td>{canManage && <button onClick={() => selectEmployee(employee)}>Edit</button>}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
 
       {canManage && selectedId && (
-        <form onSubmit={handleSave} style={{ marginBottom: 24, border: '1px solid #ccc', padding: 12 }}>
+        <form onSubmit={handleSave} className="card">
           <h2>Edit payroll profile</h2>
-          <label>
-            Designation
-            <input value={form.designation} onChange={(e) => setForm({ ...form, designation: e.target.value })} />
-          </label>{' '}
-          <label>
-            Date of birth
-            <input type="date" value={form.dateOfBirth} onChange={(e) => setForm({ ...form, dateOfBirth: e.target.value })} />
-          </label>{' '}
-          <label>
-            Date of joining
-            <input type="date" value={form.dateOfJoining} onChange={(e) => setForm({ ...form, dateOfJoining: e.target.value })} />
-          </label>{' '}
-          <label>
-            Date of leaving
-            <input type="date" value={form.dateOfLeaving} onChange={(e) => setForm({ ...form, dateOfLeaving: e.target.value })} />
-          </label>
-          <br />
-          <label>
+          <div className="field-row">
+            <label className="field">
+              Designation
+              <input value={form.designation} onChange={(e) => setForm({ ...form, designation: e.target.value })} />
+            </label>
+            <label className="field">
+              Date of birth
+              <input type="date" value={form.dateOfBirth} onChange={(e) => setForm({ ...form, dateOfBirth: e.target.value })} />
+            </label>
+            <label className="field">
+              Date of joining
+              <input type="date" value={form.dateOfJoining} onChange={(e) => setForm({ ...form, dateOfJoining: e.target.value })} />
+            </label>
+            <label className="field">
+              Date of leaving
+              <input type="date" value={form.dateOfLeaving} onChange={(e) => setForm({ ...form, dateOfLeaving: e.target.value })} />
+            </label>
+          </div>
+          <label className="field" style={{ maxWidth: 260 }}>
             Employment type
             <select value={form.employmentType} onChange={(e) => setForm({ ...form, employmentType: e.target.value as EmploymentType })}>
               <option value="">— select —</option>
@@ -151,47 +163,46 @@ export function EmployeePayrollProfileScreen({ session, onBack }: Props) {
                 </option>
               ))}
             </select>
-          </label>{' '}
-          <span style={{ fontSize: 11, color: '#666' }}>Drives gratuity's 1yr (fixed-term) vs 5yr (permanent) eligibility rule.</span>
-          <br />
-          <label>
-            PAN
-            <input value={form.pan} onChange={(e) => setForm({ ...form, pan: e.target.value.toUpperCase() })} />
-          </label>{' '}
-          <label>
-            UAN
-            <input value={form.uan} onChange={(e) => setForm({ ...form, uan: e.target.value })} />
-          </label>{' '}
-          <label>
-            ESI number
-            <input value={form.esiNumber} onChange={(e) => setForm({ ...form, esiNumber: e.target.value })} />
           </label>
-          <br />
-          <label>
-            Bank account number
-            <input value={form.bankAccountNumber} onChange={(e) => setForm({ ...form, bankAccountNumber: e.target.value })} />
-          </label>{' '}
-          <label>
-            Bank IFSC
-            <input value={form.bankIfsc} onChange={(e) => setForm({ ...form, bankIfsc: e.target.value.toUpperCase() })} />
+          <p style={{ fontSize: 12, color: 'var(--fg-muted)', marginTop: -6 }}>Drives gratuity's 1yr (fixed-term) vs 5yr (permanent) eligibility rule.</p>
+          <div className="field-row">
+            <label className="field">
+              PAN
+              <input value={form.pan} onChange={(e) => setForm({ ...form, pan: e.target.value.toUpperCase() })} />
+            </label>
+            <label className="field">
+              UAN
+              <input value={form.uan} onChange={(e) => setForm({ ...form, uan: e.target.value })} />
+            </label>
+            <label className="field">
+              ESI number
+              <input value={form.esiNumber} onChange={(e) => setForm({ ...form, esiNumber: e.target.value })} />
+            </label>
+          </div>
+          <div className="field-row">
+            <label className="field">
+              Bank account number
+              <input value={form.bankAccountNumber} onChange={(e) => setForm({ ...form, bankAccountNumber: e.target.value })} />
+            </label>
+            <label className="field">
+              Bank IFSC
+              <input value={form.bankIfsc} onChange={(e) => setForm({ ...form, bankIfsc: e.target.value.toUpperCase() })} />
+            </label>
+          </div>
+          <label className="field" style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <input type="checkbox" checked={form.pfVoluntaryOptOut} onChange={(e) => setForm({ ...form, pfVoluntaryOptOut: e.target.checked })} />
+            Opted out of PF (above wage ceiling)
           </label>
-          <br />
-          <label>
-            <input type="checkbox" checked={form.pfVoluntaryOptOut} onChange={(e) => setForm({ ...form, pfVoluntaryOptOut: e.target.checked })} /> Opted out of PF (above wage ceiling)
-          </label>
-          <br />
-          <button type="submit" disabled={saving}>
-            {saving ? 'Saving…' : 'Save'}
-          </button>{' '}
-          <button type="button" onClick={() => setSelectedId(null)}>
-            Cancel
-          </button>
+          <div className="form-actions">
+            <button type="submit" className="btn-primary" disabled={saving}>
+              {saving ? 'Saving…' : 'Save'}
+            </button>
+            <button type="button" onClick={() => setSelectedId(null)}>
+              Cancel
+            </button>
+          </div>
         </form>
       )}
-
-      <button type="button" onClick={onBack}>
-        Back to dashboard
-      </button>
     </div>
   );
 }

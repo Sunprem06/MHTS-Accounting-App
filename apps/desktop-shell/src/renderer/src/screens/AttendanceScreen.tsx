@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { ArrowLeft, CalendarCheck } from 'lucide-react';
 import type { AttendanceRecordSummary, AttendanceStatus, EmployeePayrollProfileSummary, SessionInfo } from '../../../shared/ipc';
 
 interface Props {
@@ -76,99 +77,115 @@ export function AttendanceScreen({ session, onBack }: Props) {
   }
 
   return (
-    <div style={{ padding: 24, fontFamily: 'sans-serif', maxWidth: 800 }}>
-      <h1>Attendance</h1>
-      {error && <p style={{ color: 'crimson' }}>{error}</p>}
-      {message && <p style={{ color: 'green' }}>{message}</p>}
+    <div className="page" style={{ maxWidth: 800 }}>
+      <div className="page-header">
+        <button type="button" className="back-link" onClick={onBack}>
+          <ArrowLeft size={16} /> Back
+        </button>
+        <h1>
+          <CalendarCheck size={18} style={{ color: 'var(--accent)' }} /> Attendance
+        </h1>
+      </div>
+
+      {error && <p className="error-text">{error}</p>}
+      {message && (
+        <p className="badge badge-success" style={{ display: 'inline-block', marginBottom: 16 }}>
+          {message}
+        </p>
+      )}
 
       {canManage && (
-        <form onSubmit={handleMark} style={{ marginBottom: 24, border: '1px solid #ccc', padding: 12 }}>
+        <form onSubmit={handleMark} className="card">
           <h2>Mark a date range</h2>
-          <div style={{ maxHeight: 150, overflowY: 'auto', border: '1px solid #eee', padding: 4, marginBottom: 8 }}>
+          <div style={{ maxHeight: 150, overflowY: 'auto', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', padding: 8, marginBottom: 12 }}>
             {employees.map((emp) => (
-              <label key={emp.id} style={{ display: 'block' }}>
+              <label key={emp.id} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, padding: '2px 0' }}>
                 <input type="checkbox" checked={selectedIds.has(emp.id)} onChange={() => toggle(emp.id)} /> {emp.employeeCode} — {emp.name}
               </label>
             ))}
           </div>
-          <label>
-            From
-            <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} required />
-          </label>{' '}
-          <label>
-            To
-            <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} required />
-          </label>{' '}
-          <label>
-            Status
-            <select value={status} onChange={(e) => setStatus(e.target.value as Exclude<AttendanceStatus, 'ON_LEAVE'>)}>
-              {DIRECT_STATUSES.map((s) => (
-                <option key={s} value={s}>
-                  {s}
-                </option>
-              ))}
-            </select>
-          </label>{' '}
-          <button type="submit" disabled={submitting}>
-            {submitting ? 'Marking…' : 'Mark'}
-          </button>
+          <div className="field-row">
+            <label className="field">
+              From
+              <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} required />
+            </label>
+            <label className="field">
+              To
+              <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} required />
+            </label>
+            <label className="field">
+              Status
+              <select value={status} onChange={(e) => setStatus(e.target.value as Exclude<AttendanceStatus, 'ON_LEAVE'>)}>
+                {DIRECT_STATUSES.map((s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+          <div className="form-actions">
+            <button type="submit" className="btn-primary" disabled={submitting}>
+              {submitting ? 'Marking…' : 'Mark'}
+            </button>
+          </div>
         </form>
       )}
 
-      <h2>View a month</h2>
-      <label>
-        Employee
-        <select value={viewEmployeeId} onChange={(e) => setViewEmployeeId(e.target.value)}>
-          <option value="">— select —</option>
-          {employees.map((emp) => (
-            <option key={emp.id} value={emp.id}>
-              {emp.employeeCode} — {emp.name}
-            </option>
-          ))}
-        </select>
-      </label>{' '}
-      <label>
-        Year
-        <input type="number" value={viewYear} onChange={(e) => setViewYear(Number(e.target.value))} style={{ width: 70 }} />
-      </label>{' '}
-      <label>
-        Month
-        <input type="number" min={1} max={12} value={viewMonth} onChange={(e) => setViewMonth(Number(e.target.value))} style={{ width: 50 }} />
-      </label>{' '}
-      <button type="button" onClick={handleView}>
-        Load
-      </button>
+      <div className="card" style={{ overflowX: 'auto' }}>
+        <h2>View a month</h2>
+        <div className="field-row" style={{ alignItems: 'flex-end' }}>
+          <label className="field">
+            Employee
+            <select value={viewEmployeeId} onChange={(e) => setViewEmployeeId(e.target.value)}>
+              <option value="">— select —</option>
+              {employees.map((emp) => (
+                <option key={emp.id} value={emp.id}>
+                  {emp.employeeCode} — {emp.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="field">
+            Year
+            <input type="number" value={viewYear} onChange={(e) => setViewYear(Number(e.target.value))} style={{ width: 90 }} />
+          </label>
+          <label className="field">
+            Month
+            <input type="number" min={1} max={12} value={viewMonth} onChange={(e) => setViewMonth(Number(e.target.value))} style={{ width: 70 }} />
+          </label>
+          <button type="button" onClick={handleView} style={{ marginBottom: 12 }}>
+            Load
+          </button>
+        </div>
 
-      {records && (
-        <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: 12 }}>
-          <thead>
-            <tr>
-              <th style={{ textAlign: 'left' }}>Date</th>
-              <th style={{ textAlign: 'left' }}>Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {records.length === 0 ? (
+        {records && (
+          <table className="data-table">
+            <thead>
               <tr>
-                <td colSpan={2}>No exceptions recorded — every day this month is assumed present.</td>
+                <th>Date</th>
+                <th>Status</th>
               </tr>
-            ) : (
-              records.map((r) => (
-                <tr key={r.attendanceDate}>
-                  <td>{r.attendanceDate}</td>
-                  <td>{r.status}</td>
+            </thead>
+            <tbody>
+              {records.length === 0 ? (
+                <tr>
+                  <td colSpan={2} className="empty-state">
+                    No exceptions recorded — every day this month is assumed present.
+                  </td>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      )}
-
-      <p>
-        <button type="button" onClick={onBack}>
-          Back to dashboard
-        </button>
-      </p>
+              ) : (
+                records.map((r) => (
+                  <tr key={r.attendanceDate}>
+                    <td>{r.attendanceDate}</td>
+                    <td>{r.status}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        )}
+      </div>
     </div>
   );
 }
