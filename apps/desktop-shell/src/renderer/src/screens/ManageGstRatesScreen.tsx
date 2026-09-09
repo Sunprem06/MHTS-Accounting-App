@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useMemo, useState } from 'react';
+import { ArrowLeft, Percent } from 'lucide-react';
 import type { GstRateSummary, SessionInfo } from '../../../shared/ipc';
 
 interface Props {
@@ -94,103 +95,107 @@ export function ManageGstRatesScreen({ session, onBack }: Props) {
   }
 
   return (
-    <div style={{ padding: 24, fontFamily: 'sans-serif', maxWidth: 900 }}>
-      <h1>Manage GST rates</h1>
-      <p style={{ fontSize: 12, color: '#666' }}>
+    <div className="page" style={{ maxWidth: 900 }}>
+      <div className="page-header">
+        <button type="button" className="back-link" onClick={onBack}>
+          <ArrowLeft size={16} /> Back
+        </button>
+        <h1>
+          <Percent size={18} style={{ color: 'var(--accent)' }} /> Manage GST rates
+        </h1>
+      </div>
+
+      <p style={{ color: 'var(--fg-muted)', fontSize: 13, marginTop: -8 }}>
         Rates are looked up by HSN/SAC code and effective date — never hardcoded. A broad general-purpose starter catalog was seeded at
         installation; edit or add your own any time a rate changes. Verify every rate with a CA before relying on it for a real filing.
       </p>
-      {error && <p style={{ color: 'crimson' }}>{error}</p>}
 
-      {rates === null ? (
-        <p>Loading…</p>
-      ) : rates.length === 0 ? (
-        <p>No GST rates configured yet.</p>
-      ) : (
-        <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 24 }}>
-          <thead>
-            <tr>
-              <th style={{ textAlign: 'left' }}>HSN/SAC code</th>
-              <th style={{ textAlign: 'left' }}>Description</th>
-              <th style={{ textAlign: 'right' }}>Rate (%)</th>
-              <th style={{ textAlign: 'right' }}>Cess (%)</th>
-              <th style={{ textAlign: 'left' }}>Effective from</th>
-              <th />
-            </tr>
-          </thead>
-          <tbody>
-            {ratesByCategory.map(([categoryName, categoryRates]) => (
-              <Fragment key={categoryName}>
-                <tr style={{ background: 'rgba(127,127,127,0.1)' }}>
-                  <td colSpan={6} style={{ fontWeight: 'bold', padding: '4px 0' }}>
-                    {categoryName}
-                  </td>
-                </tr>
-                {categoryRates.map((rate) => (
-                  <tr key={rate.hsnSacCode}>
-                    <td>{rate.hsnSacCode}</td>
-                    <td style={{ fontSize: 13 }}>{rate.description ?? ''}</td>
-                    <td style={{ textAlign: 'right' }}>{rate.ratePercent}</td>
-                    <td style={{ textAlign: 'right' }}>{rate.cessPercent}</td>
-                    <td>{rate.effectiveFrom}</td>
-                    <td>
-                      {canManage && (
-                        <button type="button" onClick={() => startEdit(rate)} style={{ fontSize: 11 }}>
-                          Edit
-                        </button>
-                      )}
+      {error && <p className="error-text">{error}</p>}
+
+      <div className="card" style={{ overflowX: 'auto' }}>
+        {rates === null ? (
+          <p className="empty-state">Loading…</p>
+        ) : rates.length === 0 ? (
+          <p className="empty-state">No GST rates configured yet.</p>
+        ) : (
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>HSN/SAC code</th>
+                <th>Description</th>
+                <th className="num">Rate (%)</th>
+                <th className="num">Cess (%)</th>
+                <th>Effective from</th>
+                <th />
+              </tr>
+            </thead>
+            <tbody>
+              {ratesByCategory.map(([categoryName, categoryRates]) => (
+                <Fragment key={categoryName}>
+                  <tr style={{ background: 'var(--bg-secondary)' }}>
+                    <td colSpan={6} style={{ fontWeight: 600 }}>
+                      {categoryName}
                     </td>
                   </tr>
-                ))}
-              </Fragment>
-            ))}
-          </tbody>
-        </table>
-      )}
+                  {categoryRates.map((rate) => (
+                    <tr key={rate.hsnSacCode}>
+                      <td>{rate.hsnSacCode}</td>
+                      <td style={{ fontSize: 13 }}>{rate.description ?? ''}</td>
+                      <td className="num">{rate.ratePercent}</td>
+                      <td className="num">{rate.cessPercent}</td>
+                      <td>{rate.effectiveFrom}</td>
+                      <td>{canManage && <button type="button" onClick={() => startEdit(rate)}>Edit</button>}</td>
+                    </tr>
+                  ))}
+                </Fragment>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
 
       {canManage && (
-        <form onSubmit={handleSubmit} style={{ marginBottom: 24 }}>
+        <form onSubmit={handleSubmit} className="card">
           <h2>Add / update a rate</h2>
-          <label>
-            HSN/SAC code
-            <input value={hsnSacCode} onChange={(e) => setHsnSacCode(e.target.value)} required />
-          </label>{' '}
-          <label>
-            Category
-            <input value={category} onChange={(e) => setCategory(e.target.value)} placeholder="e.g. Electrical & Electronics" style={{ width: 200 }} />
-          </label>{' '}
-          <label>
-            Description
-            <input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="e.g. LED lighting" style={{ width: 200 }} />
-          </label>
-          <br />
-          <label>
-            Rate (%)
-            <input type="number" step="0.01" min="0" value={ratePercent} onChange={(e) => setRatePercent(Number(e.target.value) || 0)} required style={{ width: 80 }} />
-          </label>{' '}
-          <label>
-            Cess (%)
-            <input type="number" step="0.01" min="0" value={cessPercent} onChange={(e) => setCessPercent(Number(e.target.value) || 0)} style={{ width: 80 }} />
-          </label>{' '}
-          <label>
-            Effective from
-            <input type="date" value={effectiveFrom} onChange={(e) => setEffectiveFrom(e.target.value)} required />
-          </label>
-          <br />
-          <label>
+          <div className="field-row">
+            <label className="field">
+              HSN/SAC code
+              <input value={hsnSacCode} onChange={(e) => setHsnSacCode(e.target.value)} required />
+            </label>
+            <label className="field">
+              Category
+              <input value={category} onChange={(e) => setCategory(e.target.value)} placeholder="e.g. Electrical & Electronics" />
+            </label>
+            <label className="field">
+              Description
+              <input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="e.g. LED lighting" />
+            </label>
+          </div>
+          <div className="field-row">
+            <label className="field">
+              Rate (%)
+              <input type="number" step="0.01" min="0" value={ratePercent} onChange={(e) => setRatePercent(Number(e.target.value) || 0)} required style={{ width: 100 }} />
+            </label>
+            <label className="field">
+              Cess (%)
+              <input type="number" step="0.01" min="0" value={cessPercent} onChange={(e) => setCessPercent(Number(e.target.value) || 0)} style={{ width: 100 }} />
+            </label>
+            <label className="field">
+              Effective from
+              <input type="date" value={effectiveFrom} onChange={(e) => setEffectiveFrom(e.target.value)} required />
+            </label>
+          </div>
+          <label className="field">
             Note (optional)
-            <input value={sourceReference} onChange={(e) => setSourceReference(e.target.value)} style={{ width: '100%' }} placeholder="e.g. reason for this rate/change" />
+            <input value={sourceReference} onChange={(e) => setSourceReference(e.target.value)} placeholder="e.g. reason for this rate/change" />
           </label>
-          <br />
-          <button type="submit" disabled={submitting}>
-            {submitting ? 'Saving…' : 'Save rate'}
-          </button>
+          <div className="form-actions">
+            <button type="submit" className="btn-primary" disabled={submitting}>
+              {submitting ? 'Saving…' : 'Save rate'}
+            </button>
+          </div>
         </form>
       )}
-
-      <button type="button" onClick={onBack}>
-        Back to dashboard
-      </button>
     </div>
   );
 }

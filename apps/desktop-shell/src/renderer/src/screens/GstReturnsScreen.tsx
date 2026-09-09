@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { ArrowLeft, FileSpreadsheet } from 'lucide-react';
 import type { Gstr1Result, Gstr3bResult, Gstr9Result, Gstr9cResult } from '../../../shared/ipc';
 
 interface Props {
@@ -155,292 +156,318 @@ export function GstReturnsScreen({ onBack }: Props) {
   }
 
   return (
-    <div style={{ padding: 24, fontFamily: 'sans-serif', maxWidth: 900 }}>
-      <h1>GST Returns prep</h1>
-      <p style={{ fontSize: 12, color: '#666' }}>
+    <div className="page" style={{ maxWidth: 900 }}>
+      <div className="page-header">
+        <button type="button" className="back-link" onClick={onBack}>
+          <ArrowLeft size={16} /> Back
+        </button>
+        <h1>
+          <FileSpreadsheet size={18} style={{ color: 'var(--accent)' }} /> GST returns prep
+        </h1>
+      </div>
+
+      <p style={{ color: 'var(--fg-muted)', fontSize: 13, marginTop: -8 }}>
         Reference data for manual filing or your CA — this is NOT a GSTN-portal-upload-ready file. Only invoice lines with an HSN/SAC code
         are reflected (a line still using the older manual tax-ledger entry has no rate/HSN to classify by).
       </p>
 
-      <p>
-        {(['gstr1', 'gstr3b', 'gstr9', 'gstr9c'] as Tab[]).map((t) => (
-          <button key={t} type="button" onClick={() => setTab(t)} disabled={tab === t} style={{ marginRight: 8 }}>
-            {t.toUpperCase()}
+      <div className="card">
+        <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+          {(['gstr1', 'gstr3b', 'gstr9', 'gstr9c'] as Tab[]).map((t) => (
+            <button key={t} type="button" className={tab === t ? 'btn-primary' : ''} onClick={() => setTab(t)}>
+              {t.toUpperCase()}
+            </button>
+          ))}
+        </div>
+
+        <div className="field-row" style={{ alignItems: 'flex-end' }}>
+          {(tab === 'gstr1' || tab === 'gstr3b') && (
+            <>
+              <label className="field" style={{ maxWidth: 180 }}>
+                From
+                <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
+              </label>
+              <label className="field" style={{ maxWidth: 180 }}>
+                To
+                <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} />
+              </label>
+            </>
+          )}
+          {(tab === 'gstr9' || tab === 'gstr9c') && (
+            <label className="field" style={{ maxWidth: 140 }}>
+              Financial year
+              <input value={financialYear} onChange={(e) => setFinancialYear(e.target.value)} placeholder="e.g. 2025-26" />
+            </label>
+          )}
+          <button type="button" className="btn-primary" onClick={refresh} disabled={loading} style={{ marginBottom: 12 }}>
+            {loading ? 'Loading…' : 'Run'}
           </button>
-        ))}
-      </p>
+          <button type="button" onClick={exportCurrentTab} style={{ marginBottom: 12 }}>
+            Export CSV
+          </button>
+        </div>
+      </div>
 
-      <p>
-        {(tab === 'gstr1' || tab === 'gstr3b') && (
-          <>
-            <label>
-              From <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
-            </label>{' '}
-            <label>
-              To <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} />
-            </label>{' '}
-          </>
-        )}
-        {(tab === 'gstr9' || tab === 'gstr9c') && (
-          <label>
-            Financial year <input value={financialYear} onChange={(e) => setFinancialYear(e.target.value)} placeholder="e.g. 2025-26" style={{ width: 80 }} />
-          </label>
-        )}{' '}
-        <button type="button" onClick={refresh} disabled={loading}>
-          {loading ? 'Loading…' : 'Run'}
-        </button>{' '}
-        <button type="button" onClick={exportCurrentTab}>
-          Export CSV
-        </button>
-      </p>
-
-      {error && <p style={{ color: 'crimson' }}>{error}</p>}
+      {error && <p className="error-text">{error}</p>}
 
       {tab === 'gstr1' && gstr1 && (
         <>
-          <h2>B2B invoices ({gstr1.b2bInvoices.length})</h2>
-          <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 16 }}>
-            <thead>
-              <tr>
-                <th style={{ textAlign: 'left' }}>Invoice</th>
-                <th style={{ textAlign: 'left' }}>Date</th>
-                <th style={{ textAlign: 'left' }}>Party</th>
-                <th style={{ textAlign: 'left' }}>GSTIN</th>
-                <th style={{ textAlign: 'left' }}>RCM</th>
-                <th style={{ textAlign: 'right' }}>Taxable (₹)</th>
-                <th style={{ textAlign: 'right' }}>Tax (₹)</th>
-              </tr>
-            </thead>
-            <tbody>
-              {gstr1.b2bInvoices.map((row) => (
-                <tr key={row.invoiceId}>
-                  <td>{row.voucherNumber}</td>
-                  <td>{row.invoiceDate}</td>
-                  <td>{row.partyName}</td>
-                  <td>{row.partyGstin}</td>
-                  <td>{row.isReverseCharge ? 'Y' : ''}</td>
-                  <td style={{ textAlign: 'right' }}>{row.taxableAmount.toFixed(2)}</td>
-                  <td style={{ textAlign: 'right' }}>{(row.cgstAmount + row.sgstAmount + row.igstAmount + row.cessAmount).toFixed(2)}</td>
+          <div className="card" style={{ overflowX: 'auto' }}>
+            <h2>B2B invoices ({gstr1.b2bInvoices.length})</h2>
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Invoice</th>
+                  <th>Date</th>
+                  <th>Party</th>
+                  <th>GSTIN</th>
+                  <th>RCM</th>
+                  <th className="num">Taxable (₹)</th>
+                  <th className="num">Tax (₹)</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {gstr1.b2bInvoices.map((row) => (
+                  <tr key={row.invoiceId}>
+                    <td>{row.voucherNumber}</td>
+                    <td>{row.invoiceDate}</td>
+                    <td>{row.partyName}</td>
+                    <td>{row.partyGstin}</td>
+                    <td>{row.isReverseCharge ? 'Y' : ''}</td>
+                    <td className="num">{row.taxableAmount.toFixed(2)}</td>
+                    <td className="num">{(row.cgstAmount + row.sgstAmount + row.igstAmount + row.cessAmount).toFixed(2)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
 
-          <h2>B2C summary (state + rate wise)</h2>
-          <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 16 }}>
-            <thead>
-              <tr>
-                <th style={{ textAlign: 'left' }}>State</th>
-                <th style={{ textAlign: 'right' }}>Rate %</th>
-                <th style={{ textAlign: 'right' }}>Taxable (₹)</th>
-                <th style={{ textAlign: 'right' }}>Tax (₹)</th>
-              </tr>
-            </thead>
-            <tbody>
-              {gstr1.b2cSummary.map((row, i) => (
-                <tr key={i}>
-                  <td>{row.stateCode ?? '—'}</td>
-                  <td style={{ textAlign: 'right' }}>{row.ratePercent}</td>
-                  <td style={{ textAlign: 'right' }}>{row.taxableAmount.toFixed(2)}</td>
-                  <td style={{ textAlign: 'right' }}>{(row.cgstAmount + row.sgstAmount + row.igstAmount + row.cessAmount).toFixed(2)}</td>
+          <div className="card" style={{ overflowX: 'auto' }}>
+            <h2>B2C summary (state + rate wise)</h2>
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>State</th>
+                  <th className="num">Rate %</th>
+                  <th className="num">Taxable (₹)</th>
+                  <th className="num">Tax (₹)</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {gstr1.b2cSummary.map((row, i) => (
+                  <tr key={i}>
+                    <td>{row.stateCode ?? '—'}</td>
+                    <td className="num">{row.ratePercent}</td>
+                    <td className="num">{row.taxableAmount.toFixed(2)}</td>
+                    <td className="num">{(row.cgstAmount + row.sgstAmount + row.igstAmount + row.cessAmount).toFixed(2)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
 
-          <h2>HSN-wise summary</h2>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead>
-              <tr>
-                <th style={{ textAlign: 'left' }}>HSN/SAC</th>
-                <th style={{ textAlign: 'right' }}>Taxable (₹)</th>
-                <th style={{ textAlign: 'right' }}>Tax (₹)</th>
-              </tr>
-            </thead>
-            <tbody>
-              {gstr1.hsnSummary.map((row) => (
-                <tr key={row.hsnSacCode}>
-                  <td>{row.hsnSacCode}</td>
-                  <td style={{ textAlign: 'right' }}>{row.taxableAmount.toFixed(2)}</td>
-                  <td style={{ textAlign: 'right' }}>{(row.cgstAmount + row.sgstAmount + row.igstAmount + row.cessAmount).toFixed(2)}</td>
+          <div className="card" style={{ overflowX: 'auto' }}>
+            <h2>HSN-wise summary</h2>
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>HSN/SAC</th>
+                  <th className="num">Taxable (₹)</th>
+                  <th className="num">Tax (₹)</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {gstr1.hsnSummary.map((row) => (
+                  <tr key={row.hsnSacCode}>
+                    <td>{row.hsnSacCode}</td>
+                    <td className="num">{row.taxableAmount.toFixed(2)}</td>
+                    <td className="num">{(row.cgstAmount + row.sgstAmount + row.igstAmount + row.cessAmount).toFixed(2)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </>
       )}
 
       {tab === 'gstr3b' && gstr3b && (
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-          <tbody>
-            <tr>
-              <td colSpan={2} style={{ fontWeight: 'bold', paddingTop: 8 }}>
-                3.1 Outward supplies
-              </td>
-            </tr>
-            <tr>
-              <td>Taxable value</td>
-              <td style={{ textAlign: 'right' }}>₹{gstr3b.outwardTaxableValue.toFixed(2)}</td>
-            </tr>
-            <tr>
-              <td>CGST / SGST / IGST / Cess</td>
-              <td style={{ textAlign: 'right' }}>
-                {gstr3b.outwardCgst.toFixed(2)} / {gstr3b.outwardSgst.toFixed(2)} / {gstr3b.outwardIgst.toFixed(2)} / {gstr3b.outwardCess.toFixed(2)}
-              </td>
-            </tr>
-            <tr>
-              <td colSpan={2} style={{ fontWeight: 'bold', paddingTop: 8 }}>
-                3.1(d) Inward supplies liable to reverse charge
-              </td>
-            </tr>
-            <tr>
-              <td>Taxable value</td>
-              <td style={{ textAlign: 'right' }}>₹{gstr3b.rcmInwardTaxableValue.toFixed(2)}</td>
-            </tr>
-            <tr>
-              <td>CGST / SGST / IGST / Cess</td>
-              <td style={{ textAlign: 'right' }}>
-                {gstr3b.rcmInwardCgst.toFixed(2)} / {gstr3b.rcmInwardSgst.toFixed(2)} / {gstr3b.rcmInwardIgst.toFixed(2)} / {gstr3b.rcmInwardCess.toFixed(2)}
-              </td>
-            </tr>
-            <tr>
-              <td colSpan={2} style={{ fontWeight: 'bold', paddingTop: 8 }}>
-                4. Input Tax Credit
-              </td>
-            </tr>
-            <tr>
-              <td>Eligible (CGST/SGST/IGST/Cess)</td>
-              <td style={{ textAlign: 'right' }}>
-                {gstr3b.itcEligibleCgst.toFixed(2)} / {gstr3b.itcEligibleSgst.toFixed(2)} / {gstr3b.itcEligibleIgst.toFixed(2)} / {gstr3b.itcEligibleCess.toFixed(2)}
-              </td>
-            </tr>
-            <tr>
-              <td>Ineligible / blocked (CGST/SGST/IGST/Cess)</td>
-              <td style={{ textAlign: 'right' }}>
-                {gstr3b.itcIneligibleCgst.toFixed(2)} / {gstr3b.itcIneligibleSgst.toFixed(2)} / {gstr3b.itcIneligibleIgst.toFixed(2)} / {gstr3b.itcIneligibleCess.toFixed(2)}
-              </td>
-            </tr>
-            <tr>
-              <td colSpan={2} style={{ fontWeight: 'bold', paddingTop: 8 }}>
-                6.1 Net payable (after set-off; RCM paid separately in cash)
-              </td>
-            </tr>
-            <tr>
-              <td>CGST / SGST / IGST / Cess</td>
-              <td style={{ textAlign: 'right', fontWeight: 'bold' }}>
-                {gstr3b.netPayable.netCgstPayable.toFixed(2)} / {gstr3b.netPayable.netSgstPayable.toFixed(2)} / {gstr3b.netPayable.netIgstPayable.toFixed(2)} /{' '}
-                {gstr3b.netPayable.netCessPayable.toFixed(2)}
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      )}
-
-      {tab === 'gstr9' && gstr9 && (
-        <>
-          <p>
-            Financial year {gstr9.financialYear} ({gstr9.fromDate} to {gstr9.toDate})
-          </p>
-          <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 16 }}>
+        <div className="card">
+          <table className="data-table">
             <tbody>
               <tr>
-                <td colSpan={2} style={{ fontWeight: 'bold' }}>
-                  Part II — Outward supplies for the year
+                <td colSpan={2} style={{ fontWeight: 600, paddingTop: 12 }}>
+                  3.1 Outward supplies
                 </td>
               </tr>
               <tr>
                 <td>Taxable value</td>
-                <td style={{ textAlign: 'right' }}>₹{gstr9.outwardTaxableValue.toFixed(2)}</td>
+                <td className="num">₹{gstr3b.outwardTaxableValue.toFixed(2)}</td>
               </tr>
               <tr>
-                <td>CGST / SGST / IGST</td>
-                <td style={{ textAlign: 'right' }}>
-                  {gstr9.outwardCgst.toFixed(2)} / {gstr9.outwardSgst.toFixed(2)} / {gstr9.outwardIgst.toFixed(2)}
+                <td>CGST / SGST / IGST / Cess</td>
+                <td className="num">
+                  {gstr3b.outwardCgst.toFixed(2)} / {gstr3b.outwardSgst.toFixed(2)} / {gstr3b.outwardIgst.toFixed(2)} / {gstr3b.outwardCess.toFixed(2)}
                 </td>
               </tr>
               <tr>
-                <td colSpan={2} style={{ fontWeight: 'bold', paddingTop: 8 }}>
-                  Part III — ITC for the year
+                <td colSpan={2} style={{ fontWeight: 600, paddingTop: 12 }}>
+                  3.1(d) Inward supplies liable to reverse charge
                 </td>
               </tr>
               <tr>
-                <td>Eligible CGST / SGST / IGST</td>
-                <td style={{ textAlign: 'right' }}>
-                  {gstr9.itcEligibleCgst.toFixed(2)} / {gstr9.itcEligibleSgst.toFixed(2)} / {gstr9.itcEligibleIgst.toFixed(2)}
+                <td>Taxable value</td>
+                <td className="num">₹{gstr3b.rcmInwardTaxableValue.toFixed(2)}</td>
+              </tr>
+              <tr>
+                <td>CGST / SGST / IGST / Cess</td>
+                <td className="num">
+                  {gstr3b.rcmInwardCgst.toFixed(2)} / {gstr3b.rcmInwardSgst.toFixed(2)} / {gstr3b.rcmInwardIgst.toFixed(2)} / {gstr3b.rcmInwardCess.toFixed(2)}
                 </td>
               </tr>
               <tr>
-                <td colSpan={2} style={{ fontWeight: 'bold', paddingTop: 8 }}>
-                  Part IV — Tax paid for the year
+                <td colSpan={2} style={{ fontWeight: 600, paddingTop: 12 }}>
+                  4. Input Tax Credit
                 </td>
               </tr>
               <tr>
-                <td>Net CGST / SGST / IGST payable</td>
-                <td style={{ textAlign: 'right' }}>
-                  {gstr9.netPayable.netCgstPayable.toFixed(2)} / {gstr9.netPayable.netSgstPayable.toFixed(2)} / {gstr9.netPayable.netIgstPayable.toFixed(2)}
+                <td>Eligible (CGST/SGST/IGST/Cess)</td>
+                <td className="num">
+                  {gstr3b.itcEligibleCgst.toFixed(2)} / {gstr3b.itcEligibleSgst.toFixed(2)} / {gstr3b.itcEligibleIgst.toFixed(2)} / {gstr3b.itcEligibleCess.toFixed(2)}
+                </td>
+              </tr>
+              <tr>
+                <td>Ineligible / blocked (CGST/SGST/IGST/Cess)</td>
+                <td className="num">
+                  {gstr3b.itcIneligibleCgst.toFixed(2)} / {gstr3b.itcIneligibleSgst.toFixed(2)} / {gstr3b.itcIneligibleIgst.toFixed(2)} / {gstr3b.itcIneligibleCess.toFixed(2)}
+                </td>
+              </tr>
+              <tr>
+                <td colSpan={2} style={{ fontWeight: 600, paddingTop: 12 }}>
+                  6.1 Net payable (after set-off; RCM paid separately in cash)
                 </td>
               </tr>
             </tbody>
-          </table>
-          <h2>HSN-wise summary for the year</h2>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead>
+            <tfoot>
               <tr>
-                <th style={{ textAlign: 'left' }}>HSN/SAC</th>
-                <th style={{ textAlign: 'right' }}>Taxable (₹)</th>
+                <td>CGST / SGST / IGST / Cess</td>
+                <td className="num">
+                  {gstr3b.netPayable.netCgstPayable.toFixed(2)} / {gstr3b.netPayable.netSgstPayable.toFixed(2)} / {gstr3b.netPayable.netIgstPayable.toFixed(2)} /{' '}
+                  {gstr3b.netPayable.netCessPayable.toFixed(2)}
+                </td>
               </tr>
-            </thead>
-            <tbody>
-              {gstr9.hsnSummary.map((row) => (
-                <tr key={row.hsnSacCode}>
-                  <td>{row.hsnSacCode}</td>
-                  <td style={{ textAlign: 'right' }}>{row.taxableAmount.toFixed(2)}</td>
+            </tfoot>
+          </table>
+        </div>
+      )}
+
+      {tab === 'gstr9' && gstr9 && (
+        <>
+          <div className="card">
+            <p style={{ marginTop: 0, color: 'var(--fg-muted)', fontSize: 13 }}>
+              Financial year {gstr9.financialYear} ({gstr9.fromDate} to {gstr9.toDate})
+            </p>
+            <table className="data-table">
+              <tbody>
+                <tr>
+                  <td colSpan={2} style={{ fontWeight: 600 }}>
+                    Part II — Outward supplies for the year
+                  </td>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-          <p style={{ fontSize: 12, color: '#666' }}>
-            Part V (amendments to a prior financial year declared in a later year's returns) is not modeled — this app has no return-period
-            concept separate from an invoice's own date.
-          </p>
+                <tr>
+                  <td>Taxable value</td>
+                  <td className="num">₹{gstr9.outwardTaxableValue.toFixed(2)}</td>
+                </tr>
+                <tr>
+                  <td>CGST / SGST / IGST</td>
+                  <td className="num">
+                    {gstr9.outwardCgst.toFixed(2)} / {gstr9.outwardSgst.toFixed(2)} / {gstr9.outwardIgst.toFixed(2)}
+                  </td>
+                </tr>
+                <tr>
+                  <td colSpan={2} style={{ fontWeight: 600, paddingTop: 12 }}>
+                    Part III — ITC for the year
+                  </td>
+                </tr>
+                <tr>
+                  <td>Eligible CGST / SGST / IGST</td>
+                  <td className="num">
+                    {gstr9.itcEligibleCgst.toFixed(2)} / {gstr9.itcEligibleSgst.toFixed(2)} / {gstr9.itcEligibleIgst.toFixed(2)}
+                  </td>
+                </tr>
+                <tr>
+                  <td colSpan={2} style={{ fontWeight: 600, paddingTop: 12 }}>
+                    Part IV — Tax paid for the year
+                  </td>
+                </tr>
+              </tbody>
+              <tfoot>
+                <tr>
+                  <td>Net CGST / SGST / IGST payable</td>
+                  <td className="num">
+                    {gstr9.netPayable.netCgstPayable.toFixed(2)} / {gstr9.netPayable.netSgstPayable.toFixed(2)} / {gstr9.netPayable.netIgstPayable.toFixed(2)}
+                  </td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+
+          <div className="card" style={{ overflowX: 'auto' }}>
+            <h2>HSN-wise summary for the year</h2>
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>HSN/SAC</th>
+                  <th className="num">Taxable (₹)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {gstr9.hsnSummary.map((row) => (
+                  <tr key={row.hsnSacCode}>
+                    <td>{row.hsnSacCode}</td>
+                    <td className="num">{row.taxableAmount.toFixed(2)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <p style={{ color: 'var(--fg-muted)', fontSize: 12, marginTop: 12, marginBottom: 0 }}>
+              Part V (amendments to a prior financial year declared in a later year's returns) is not modeled — this app has no return-period
+              concept separate from an invoice's own date.
+            </p>
+          </div>
         </>
       )}
 
       {tab === 'gstr9c' && gstr9c && (
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-          <tbody>
-            <tr>
-              <td>Turnover per audited books (P&amp;L)</td>
-              <td style={{ textAlign: 'right' }}>₹{gstr9c.turnoverPerBooks.toFixed(2)}</td>
-            </tr>
-            <tr>
-              <td>Turnover per GST returns</td>
-              <td style={{ textAlign: 'right' }}>₹{gstr9c.turnoverPerGstReturns.toFixed(2)}</td>
-            </tr>
-            <tr style={{ fontWeight: 'bold' }}>
-              <td>Reconciliation gap</td>
-              <td style={{ textAlign: 'right' }}>₹{gstr9c.turnoverReconciliationGap.toFixed(2)}</td>
-            </tr>
-            <tr>
-              <td>Total tax declared for the year</td>
-              <td style={{ textAlign: 'right' }}>₹{gstr9c.totalTaxDeclaredForYear.toFixed(2)}</td>
-            </tr>
-          </tbody>
-        </table>
+        <div className="card">
+          <table className="data-table">
+            <tbody>
+              <tr>
+                <td>Turnover per audited books (P&amp;L)</td>
+                <td className="num">₹{gstr9c.turnoverPerBooks.toFixed(2)}</td>
+              </tr>
+              <tr>
+                <td>Turnover per GST returns</td>
+                <td className="num">₹{gstr9c.turnoverPerGstReturns.toFixed(2)}</td>
+              </tr>
+              <tr>
+                <td style={{ fontWeight: 600 }}>Reconciliation gap</td>
+                <td className="num" style={{ fontWeight: 600 }}>
+                  ₹{gstr9c.turnoverReconciliationGap.toFixed(2)}
+                </td>
+              </tr>
+              <tr>
+                <td>Total tax declared for the year</td>
+                <td className="num">₹{gstr9c.totalTaxDeclaredForYear.toFixed(2)}</td>
+              </tr>
+            </tbody>
+          </table>
+          <p style={{ color: 'var(--fg-muted)', fontSize: 12, marginTop: 12, marginBottom: 0 }}>
+            A positive gap is expected — it's non-GST income (e.g. interest) with no HSN/SAC that never appears in a GST return. A gap the
+            other way would be worth investigating. The tax figure is informational only — this app has no independently-sourced "as per
+            books" tax figure distinct from the return data itself.
+          </p>
+        </div>
       )}
-      {tab === 'gstr9c' && gstr9c && (
-        <p style={{ fontSize: 12, color: '#666' }}>
-          A positive gap is expected — it's non-GST income (e.g. interest) with no HSN/SAC that never appears in a GST return. A gap the
-          other way would be worth investigating. The tax figure is informational only — this app has no independently-sourced "as per
-          books" tax figure distinct from the return data itself.
-        </p>
-      )}
-
-      <p>
-        <button type="button" onClick={onBack}>
-          Back to dashboard
-        </button>
-      </p>
     </div>
   );
 }
